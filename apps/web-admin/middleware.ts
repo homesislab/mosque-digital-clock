@@ -5,7 +5,9 @@ export function middleware(request: NextRequest) {
     const session = request.cookies.get('admin-session');
     const isLoginPage = request.nextUrl.pathname === '/login';
     const isUploads = request.nextUrl.pathname.startsWith('/uploads');
-    const isPublicApi = request.nextUrl.pathname.startsWith('/api/config'); // Allow config fetch without auth
+    const isPublicApi = request.nextUrl.pathname.startsWith('/api/config') ||
+        request.nextUrl.pathname.startsWith('/api/devices');
+    const isOptions = request.method === 'OPTIONS';
 
     // If trying to access login page while logged in, redirect to dashboard
     if (isLoginPage && session) {
@@ -13,7 +15,7 @@ export function middleware(request: NextRequest) {
     }
 
     // If trying to access dashboard (or other protected routes) without session
-    if (!session && !isLoginPage && !isPublicApi && !isUploads && !request.nextUrl.pathname.startsWith('/api/auth')) {
+    if (!session && !isLoginPage && !isPublicApi && !isOptions && !isUploads && !request.nextUrl.pathname.startsWith('/api/auth')) {
         return NextResponse.redirect(new URL('/login', request.url));
     }
 

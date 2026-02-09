@@ -1,0 +1,10 @@
+[
+    {
+        "id": "admin-id",
+        "email": "admin@mosque.id",
+        "passwordHash": "admin123",
+        "mosqueKeys": [
+            "default"
+        ]
+    }
+]

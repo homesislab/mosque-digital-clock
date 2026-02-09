@@ -23,7 +23,7 @@ export const PrayerTimes = ({ config, nextPrayer, secondsRemaining }: PrayerTime
     if (!times) return null;
 
     const prayers = [
-        { name: 'Imsak', time: formatTime(times.imsak) },
+        ...(config.ramadhan?.enabled ? [{ name: 'Imsak', time: formatTime(times.imsak) }] : []),
         { name: 'Subuh', time: formatTime(times.subuh) },
         { name: 'Syuruq', time: formatTime(times.syuruq) },
         { name: 'Dzuhur', time: formatTime(times.dzuhur) },

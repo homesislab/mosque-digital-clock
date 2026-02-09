@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { TimeDisplay } from './components/TimeDisplay';
 import { PrayerTimes } from './components/PrayerTimes';
 import { RunningText } from './components/RunningText';
@@ -13,31 +13,62 @@ import { SholatOverlay } from './components/SholatOverlay';
 import { InfoSlider } from './components/InfoSlider';
 import { AudioPlayer } from './components/AudioPlayer';
 import { getPasaran } from './lib/javanese-date';
+import { SetupOverlay } from './components/SetupOverlay';
+import { ImsakOverlay } from './components/ImsakOverlay';
 
 export default function Home() {
+  const [mosqueKey, setMosqueKey] = useState<string | null>(null);
   const [config, setConfig] = useState<MosqueConfig>(DEFAULT_CONFIG);
   const [appState, setAppState] = useState<AppState>('NORMAL');
-  const [nextEvent, setNextEvent] = useState<{ name: string; seconds: number }>({ name: '', seconds: 0 });
+  const [nextEvent, setNextEvent] = useState({ name: '', seconds: 0, activeAudioUrl: '', shouldPlayAudio: false });
   const [currentTime, setCurrentTime] = useState(new Date());
 
   // Mounted state to prevent hydration mismatch for time-dependent rendering
   const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
+
+  useEffect(() => {
+    setMounted(true);
+    setMosqueKey(localStorage.getItem('mosqueKey'));
+  }, []);
 
   // Load Config
-  useEffect(() => {
-    const loadConfig = async () => {
-      const data = await fetchConfig();
-      setConfig(data);
-    };
+  const loadConfig = useCallback(async () => {
+    if (typeof window !== 'undefined' && localStorage.getItem('mosqueKey')) {
+      try {
+        const data = await fetchConfig();
 
-    loadConfig();
-    const configInterval = setInterval(loadConfig, 30000);
-    return () => clearInterval(configInterval);
+        // If offline, do nothing and keep last state
+        if (data as any === 'OFFLINE') {
+          console.warn("Connection to server failed, retrying in background...");
+          return;
+        }
+
+        if (!data) {
+          // Device unauthorized or key removed - FULL CLEAR
+          console.log("Unauthorized detected, clearing everything...");
+          localStorage.clear();
+          setMosqueKey(null);
+          return;
+        }
+        setConfig(data);
+      } catch (error) {
+        console.warn("Config load check failed (Normal if server is down/restarting)");
+      }
+    }
   }, []);
+
+  useEffect(() => {
+    if (mosqueKey) {
+      loadConfig();
+      const configInterval = setInterval(loadConfig, 30000);
+      return () => clearInterval(configInterval);
+    }
+  }, [mosqueKey, loadConfig]);
 
   // Main Logic Loop (Tick)
   useEffect(() => {
+    if (!mosqueKey) return;
+
     const tick = () => {
       const now = new Date();
       setCurrentTime(now);
@@ -46,40 +77,48 @@ export default function Home() {
       const result = calculateAppState(config, prayerTimes, now);
 
       setAppState(result.state);
-      setNextEvent({ name: result.nextPrayerName, seconds: result.secondsRemaining });
+      setNextEvent({
+        name: result.nextPrayerName,
+        seconds: result.secondsRemaining,
+        activeAudioUrl: result.activeAudioUrl,
+        shouldPlayAudio: result.shouldPlayAudio
+      });
     };
 
     tick();
     const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
-  }, [config]);
+  }, [config, mosqueKey]);
+
+  if (!mounted) return <div className="bg-slate-900 w-screen h-screen"></div>;
+
+  if (!mosqueKey) {
+    return <SetupOverlay onComplete={(key) => setMosqueKey(key)} />;
+  }
 
   const { name, address } = config.mosqueInfo;
 
   // Date Formatting (Safe for Hydration)
-  let dateStr = "";
-  let hijriStr = "";
+  const dayName = currentTime.toLocaleDateString('id-ID', { weekday: 'long' });
+  const pasaran = getPasaran(currentTime);
+  const fullDate = currentTime.toLocaleDateString('id-ID', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  });
 
-  if (mounted) {
-    const dayName = currentTime.toLocaleDateString('id-ID', { weekday: 'long' });
-    const pasaran = getPasaran(currentTime);
-    const fullDate = currentTime.toLocaleDateString('id-ID', {
+  const dateStr = `${dayName} ${pasaran}, ${fullDate}`;
+
+  let hijriStr = "";
+  try {
+    const rawHijri = new Intl.DateTimeFormat('id-ID-u-ca-islamic', {
       day: 'numeric',
       month: 'long',
       year: 'numeric'
-    });
-
-    dateStr = `${dayName} ${pasaran}, ${fullDate}`;
-
-    try {
-      hijriStr = new Intl.DateTimeFormat('id-ID-u-ca-islamic', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric'
-      }).format(currentTime) + ' H';
-    } catch (e) {
-      hijriStr = "";
-    }
+    }).format(currentTime);
+    hijriStr = rawHijri.includes('H') ? rawHijri : `${rawHijri} H`;
+  } catch (e) {
+    hijriStr = "";
   }
 
   return (
@@ -89,6 +128,10 @@ export default function Home() {
       <IqamahOverlay
         isVisible={appState === 'IQAMAH'}
         prayerName={nextEvent.name}
+        secondsRemaining={nextEvent.seconds}
+      />
+      <ImsakOverlay
+        isVisible={appState === 'IMSAK'}
         secondsRemaining={nextEvent.seconds}
       />
       <SholatOverlay isVisible={appState === 'SHOLAT'} />
@@ -171,8 +214,8 @@ export default function Home() {
       </div>
 
       <AudioPlayer
-        url={config.audio?.url}
-        isPlaying={appState === 'NORMAL' && (nextEvent as any).shouldPlayAudio}
+        url={resolveUrl(nextEvent.activeAudioUrl)}
+        isPlaying={nextEvent.shouldPlayAudio}
       />
     </main>
   );

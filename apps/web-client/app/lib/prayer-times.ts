@@ -21,8 +21,9 @@ export function getPrayerTimes(config: MosqueConfig) {
     // but we can manipulate result.
     // We will return formatted strings.
 
-    // Calculate Imsak (Subuh - 10 minutes)
-    const imsakTime = new Date(prayerTimes.fajr.getTime() - 10 * 60 * 1000);
+    // Calculate Imsak (Subuh - X minutes)
+    const imsakOffset = config.ramadhan?.imsakOffset || 10;
+    const imsakTime = new Date(prayerTimes.fajr.getTime() - imsakOffset * 60000);
 
     return {
         imsak: imsakTime,

@@ -1,0 +1,75 @@
+{
+  "mosqueInfo": {
+    "name": "Masjid Al-Falah",
+    "address": "Jl. Ahmad Yani No. 123, Surabaya"
+  },
+  "display": {
+    "theme": "dark",
+    "showSeconds": true,
+    "showHijriDate": true
+  },
+  "prayerTimes": {
+    "calculationMethod": "Kemenag",
+    "coordinates": {
+      "lat": -6.2088,
+      "lng": 106.8456
+    },
+    "adjustments": {
+      "subuh": 2,
+      "dzuhur": 2,
+      "ashar": 2,
+      "maghrib": 2,
+      "isya": 2
+    }
+  },
+  "iqamah": {
+    "enabled": true,
+    "waitTime": {
+      "subuh": 10,
+      "dzuhur": 10,
+      "ashar": 10,
+      "maghrib": 10,
+      "isya": 10
+    },
+    "displayDuration": 10
+  },
+  "sliderImages": [
+    "https://images.unsplash.com/photo-1542204625-ca960ca44635?q=80&w=2670",
+    "https://images.unsplash.com/photo-1596492789643-2cb06f50c766?q=80&w=2669"
+  ],
+  "runningText": [
+    "Mohon luruskan dan rapatkan shaf.",
+    "Matikan alat komunikasi saat berada di dalam masjid.",
+    "Kajian rutin ba'da Maghrib: Tafsir Jalalain bersama Ustadz fulan."
+  ],
+  "audio": {
+    "enabled": true,
+    "url": "https://archive.org/download/MurottalMisyariRasyidAlAfasy/001%20Al%20Fatihah.mp3",
+    "playBeforeMinutes": 10
+  },
+  "officers": [
+    {
+      "role": "Khatib",
+      "name": "Ust. Fulan"
+    },
+    {
+      "role": "Imam",
+      "name": "Ust. Fulan"
+    },
+    {
+      "role": "Muadzin",
+      "name": "Sdr. Ahmad"
+    },
+    {
+      "role": "Bilal",
+      "name": "Sdr. Budi"
+    }
+  ],
+  "finance": {
+    "balance": 15000000,
+    "income": 2500000,
+    "expense": 1000000,
+    "lastUpdated": "2026-02-09"
+  },
+  "gallery": []
+}
