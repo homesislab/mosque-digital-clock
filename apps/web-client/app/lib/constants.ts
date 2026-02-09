@@ -57,26 +57,102 @@ export const DEFAULT_CONFIG: MosqueConfig = {
         { role: "Bilal", name: "Sdr. Budi" }
     ],
     finance: {
-        balance: 15000000,
-        income: 2500000,
-        expense: 1000000,
-        lastUpdated: new Date().toISOString().split('T')[0]
+        totalBalance: 15000000,
+        lastUpdated: new Date().toISOString().split('T')[0],
+        accounts: [
+            { name: 'Kas Masjid', balance: 10000000, income: 1500000, expense: 500000 },
+            { name: 'Kas Anak Yatim', balance: 3000000, income: 500000, expense: 200000 },
+            { name: 'Pembangunan', balance: 2000000, income: 500000, expense: 300000 },
+        ]
     },
     gallery: []
 };
 
-export const API_URL = 'http://localhost:3001/api/config'; // Admin URL
+export function getApiBaseUrl(): string {
+    if (typeof window !== 'undefined') {
+        let storedUrl = localStorage.getItem('serverUrl');
+        // Migration: If user has 'localhost' stored, switch to 127.0.0.1 for stability
+        if (storedUrl && storedUrl.includes('localhost')) {
+            storedUrl = storedUrl.replace('localhost', '127.0.0.1');
+            localStorage.setItem('serverUrl', storedUrl);
+        }
+        if (storedUrl) return storedUrl;
+    }
+    return 'http://127.0.0.1:3001';
+}
 
 export async function fetchConfig(): Promise<MosqueConfig> {
+    const key = typeof window !== 'undefined' ? localStorage.getItem('mosqueKey') : null;
     try {
-        const res = await fetch(API_URL, {
-            cache: 'no-store', // Disable caching for real-time updates
-            mode: 'cors'
+        if (!key) return DEFAULT_CONFIG;
+
+        const baseUrl = getApiBaseUrl();
+        const apiConfigUrl = `${baseUrl}/api/config?key=${key}`;
+
+        // Device Identification
+        let deviceId = localStorage.getItem('deviceId');
+        if (!deviceId) {
+            deviceId = `clock-${Math.random().toString(36).substr(2, 9)}`;
+            localStorage.setItem('deviceId', deviceId);
+        }
+
+        const res = await fetch(apiConfigUrl, {
+            cache: 'no-store',
+            mode: 'cors',
+            headers: {
+                'x-clock-client': 'true',
+                'x-device-id': deviceId
+            }
         });
+
+        if (res.status === 401 || res.status === 403) {
+            console.error('Device not authorized or key invalid');
+            return null as any; // Return null to trigger logout
+        }
+
         if (!res.ok) throw new Error('Failed to fetch config');
-        return await res.json();
-    } catch (error) {
-        console.error('Error fetching config, using default:', error);
+
+        const config = await res.json();
+
+        // Background registration/heartbeat
+        fetch(`${baseUrl}/api/devices`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-clock-client': 'true',
+                'x-device-id': deviceId
+            },
+            body: JSON.stringify({
+                deviceId,
+                mosqueKey: key,
+                deviceName: `TV Clock - ${config.mosqueInfo.name}`
+            })
+        }).then(r => {
+            if (!r.ok) console.warn('Heartbeat registration failed:', r.status);
+        }).catch((err) => {
+            console.warn('Heartbeat network error:', err);
+        });
+
+        if (config) return config;
+        return config;
+    } catch (error: any) {
+        // DETECT NETWORK ERROR (CORS, DNS, SERVER DOWN)
+        const msg = error?.message || String(error);
+        const isNetworkError = msg.toLowerCase().includes('fetch') ||
+            error?.name === 'TypeError' ||
+            msg.includes('network');
+
+        if (isNetworkError) {
+            // SILENTLY HANDLE NETWORK FAILURES
+            // Logging with console.error here can trigger the Next.js dev overlay crash
+            console.warn('Network unreachable, keeping last state');
+            return 'OFFLINE' as any;
+        }
+
+        // Only log serious logic errors
+        console.error('Logic error in fetchConfig:', error);
+
+        if (key) return DEFAULT_CONFIG;
         return DEFAULT_CONFIG;
     }
 }
@@ -84,6 +160,18 @@ export async function fetchConfig(): Promise<MosqueConfig> {
 export function resolveUrl(url: string | undefined): string {
     if (!url) return '';
     if (url.startsWith('http')) return url;
-    const origin = API_URL.replace('/api/config', '');
-    return `${origin}${url}`;
+
+    const key = typeof window !== 'undefined' ? localStorage.getItem('mosqueKey') : 'default';
+    const origin = getApiBaseUrl();
+
+    let resolvedPath = url;
+
+    // If it's an upload path, ensure it includes the mosque key subdirectory
+    // Legacy: /uploads/filename.jpg
+    // New: /uploads/key/filename.jpg
+    if (url.startsWith('/uploads/') && !url.startsWith(`/uploads/${key}/`)) {
+        resolvedPath = url.replace('/uploads/', `/uploads/${key}/`);
+    }
+
+    return `${origin}${resolvedPath}${resolvedPath.includes('?') ? '&' : '?'}key=${key}`;
 }

@@ -1,7 +1,14 @@
 import { NextResponse } from 'next/server';
 import { MosqueConfig } from '@mosque-digital-clock/shared-types';
-import { readFile, writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
+import { cookies } from 'next/headers';
+import { findUserById } from '../../../lib/user-store';
+import pool from '../../../lib/db';
+
+const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-clock-client, x-device-id',
+};
 
 // Default Config (Fallback)
 const defaultConfig: MosqueConfig = {
@@ -60,74 +67,118 @@ const defaultConfig: MosqueConfig = {
         { role: "Bilal", name: "Sdr. Budi" }
     ],
     finance: {
-        balance: 15000000,
-        income: 2500000,
-        expense: 1000000,
-        lastUpdated: new Date().toISOString().split('T')[0]
+        totalBalance: 15000000,
+        lastUpdated: new Date().toISOString().split('T')[0],
+        accounts: [
+            { name: 'Kas Utama', balance: 15000000, income: 2500000, expense: 1000000 }
+        ]
     },
     gallery: []
 };
 
-const DATA_DIR = join(process.cwd(), 'data');
-const CONFIG_FILE = join(DATA_DIR, 'config.json');
+async function validateAccess(request: Request, key: string) {
+    const cookieStore = await cookies();
+    const userId = cookieStore.get('admin-session')?.value;
 
-async function getConfig(): Promise<MosqueConfig> {
+    if (!userId) return { allowed: false, status: 401 };
+
+    const user = await findUserById(userId);
+    if (!user || (!user.mosqueKeys.includes(key) && key !== 'default')) {
+        return { allowed: false, status: 403 };
+    }
+
+    return { allowed: true, userId };
+}
+
+async function getConfig(key: string): Promise<MosqueConfig> {
     try {
-        const data = await readFile(CONFIG_FILE, 'utf-8');
-        return JSON.parse(data);
+        const [rows]: any = await pool.query(
+            'SELECT config_json FROM mosque_configs WHERE mosque_key = ?',
+            [key]
+        );
+        if (rows.length > 0) {
+            return JSON.parse(rows[0].config_json);
+        }
+
+        // If not found, create with default
+        await pool.query(
+            'INSERT IGNORE INTO mosque_configs (mosque_key, config_json) VALUES (?, ?)',
+            [key, JSON.stringify(defaultConfig)]
+        );
+        return defaultConfig;
     } catch (error) {
-        // If file doesn't exist, ensure dir exists and write default
-        try {
-            await mkdir(DATA_DIR, { recursive: true });
-            await writeFile(CONFIG_FILE, JSON.stringify(defaultConfig, null, 2));
-            return defaultConfig;
-        } catch (writeError) {
-            console.error('Error initializing config:', writeError);
-            return defaultConfig;
+        console.error(`Error fetching config for ${key}:`, error);
+        return defaultConfig;
+    }
+}
+
+async function saveConfig(key: string, config: MosqueConfig) {
+    try {
+        await pool.query(
+            'INSERT INTO mosque_configs (mosque_key, config_json) VALUES (?, ?) ON DUPLICATE KEY UPDATE config_json = VALUES(config_json)',
+            [key, JSON.stringify(config)]
+        );
+    } catch (error) {
+        console.error(`Error saving config for ${key}:`, error);
+    }
+}
+
+export async function GET(request: Request) {
+    const { searchParams } = new URL(request.url);
+    const key = searchParams.get('key') || 'default';
+
+    const isClient = request.headers.get('x-clock-client') === 'true';
+    if (isClient) {
+        const deviceId = request.headers.get('x-device-id');
+        if (!deviceId) {
+            return NextResponse.json({ success: false, message: 'Device ID required' }, { status: 403, headers: corsHeaders });
+        }
+        // Verify device status
+        const [deviceRows]: any = await pool.query(
+            'SELECT status FROM devices WHERE device_id = ? AND mosque_key = ?',
+            [deviceId, key]
+        );
+
+        // CHICKEN-AND-EGG FIX: 
+        // If device is not found, allow the first fetch so it can register itself.
+        // Only block if explicitly marked as 'blocked'.
+        if (deviceRows.length > 0 && deviceRows[0].status === 'blocked') {
+            return NextResponse.json({ success: false, message: 'Device blocked' }, { status: 403, headers: corsHeaders });
+        }
+    } else {
+        const access = await validateAccess(request, key);
+        if (!access.allowed) {
+            return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: access.status, headers: corsHeaders });
         }
     }
-}
 
-async function saveConfig(config: MosqueConfig) {
-    try {
-        await writeFile(CONFIG_FILE, JSON.stringify(config, null, 2));
-    } catch (error) {
-        console.error('Error saving config:', error);
-    }
-}
-
-export async function GET() {
-    const config = await getConfig();
+    const config = await getConfig(key);
     return NextResponse.json(config, {
-        headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        },
+        headers: corsHeaders,
     });
 }
 
 export async function POST(request: Request) {
+    const { searchParams } = new URL(request.url);
+    const key = searchParams.get('key') || 'default';
+
+    const access = await validateAccess(request, key);
+    if (!access.allowed) {
+        return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: access.status, headers: corsHeaders });
+    }
+
     const body = await request.json();
-    const currentConfig = await getConfig();
+    const currentConfig = await getConfig(key);
     const newConfig = { ...currentConfig, ...body };
-    await saveConfig(newConfig);
+    await saveConfig(key, newConfig);
 
     return NextResponse.json(newConfig, {
-        headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        },
+        headers: corsHeaders,
     });
 }
 
 export async function OPTIONS() {
     return NextResponse.json({}, {
-        headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        },
+        headers: corsHeaders,
     });
 }

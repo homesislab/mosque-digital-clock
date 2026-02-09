@@ -4,6 +4,13 @@ import { join } from 'path';
 
 export async function POST(request: Request) {
     try {
+        const { searchParams } = new URL(request.url);
+        const key = searchParams.get('key');
+
+        if (!key) {
+            return NextResponse.json({ success: false, message: 'Mosque key required for upload' }, { status: 400 });
+        }
+
         const data = await request.formData();
         const file: File | null = data.get('file') as unknown as File;
 
@@ -18,16 +25,18 @@ export async function POST(request: Request) {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
         const filename = uniqueSuffix + '-' + file.name.replace(/\s+/g, '-');
 
-        // Save to public/uploads
-        // Note: In dev, this saves to the project folder. In prod (Docker), this needs a volume.
-        const path = join(process.cwd(), 'public', 'uploads', filename);
+        // Isolation: public/uploads/{key}/{filename}
+        const uploadDir = join(process.cwd(), 'public', 'uploads', key);
+
+        // Ensure directory exists
+        const fs = require('fs/promises');
+        await fs.mkdir(uploadDir, { recursive: true });
+
+        const path = join(uploadDir, filename);
         await writeFile(path, buffer);
 
         // Construct public URL
-        // We return the relative path, client UI will handle the domain if needed,
-        // or better, we return the full URL if we knew the host.
-        // For now, let's return just the path and let the UI prepend the origin.
-        const url = `/uploads/${filename}`;
+        const url = `/uploads/${key}/${filename}`;
 
         return NextResponse.json({ success: true, url });
     } catch (error) {

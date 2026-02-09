@@ -1,26 +1,27 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { findUserByEmail } from '../../../../lib/user-store';
 
 export async function POST(request: Request) {
     try {
-        const { password } = await request.json();
-        const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+        const { email, password } = await request.json();
+        const user = await findUserByEmail(email);
 
-        if (password === adminPassword) {
+        if (user && user.passwordHash === password) { // Note: Use hashing in real production
             const cookieStore = await cookies();
-            cookieStore.set('admin-session', 'true', {
+            cookieStore.set('admin-session', user.id, {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
                 sameSite: 'strict',
-                maxAge: 60 * 60 * 24 * 7, // 1 week
+                maxAge: 60 * 60 * 24 * 7,
                 path: '/',
             });
 
-            return NextResponse.json({ success: true });
+            return NextResponse.json({ success: true, mosqueKey: user.mosqueKeys[0] });
         }
 
         return NextResponse.json(
-            { success: false, message: 'Invalid password' },
+            { success: false, message: 'Email atau password salah' },
             { status: 401 }
         );
     } catch (error) {
