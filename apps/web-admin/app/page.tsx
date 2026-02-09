@@ -1387,7 +1387,7 @@ const ContentSection = ({ config, setConfig, onPickAudio }: any) => {
                           onChange={(v: string) => {
                             const n = [...config.finance.accounts];
                             n[idx].balance = parseInt(v) || 0;
-                            const total = n.reduce((acc, curr) => acc + (curr.balance || 0), 0);
+                            const total = n.reduce((acc: number, curr: any) => acc + (curr.balance || 0), 0);
                             setConfig({ ...config, finance: { ...config.finance, accounts: n, totalBalance: total } });
                           }}
                         />
@@ -1415,7 +1415,7 @@ const ContentSection = ({ config, setConfig, onPickAudio }: any) => {
                       <button
                         onClick={() => {
                           const n = config.finance.accounts.filter((_: any, i: number) => i !== idx);
-                          const total = n.reduce((acc, curr) => acc + (curr.balance || 0), 0);
+                          const total = n.reduce((acc: number, curr: any) => acc + (curr.balance || 0), 0);
                           setConfig({ ...config, finance: { ...config.finance, accounts: n, totalBalance: total } });
                         }}
                         className="absolute -top-2 -right-2 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
