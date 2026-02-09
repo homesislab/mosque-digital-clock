@@ -1,0 +1,13 @@
+services:
+  github-runner:
+    image: myoung34/github-runner:latest
+    container_name: mosque-clock-runner
+    restart: always
+    environment:
+      REPO_URL: https://github.com/homesislab/mosque-digital-clock
+      RUNNER_NAME: mosque-clock-server
+      RUNNER_TOKEN: ${RUNNER_TOKEN} # Token from GitHub Settings -> Actions -> Runners -> New self-hosted runner
+      RUNNER_WORKDIR: /tmp/runner/mosque-digital-clock
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./runner-data:/data

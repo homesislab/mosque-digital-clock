@@ -1,0 +1,32 @@
+name: Mosque Digital Clock CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Build Shared Types
+      run: npm run build -w packages/shared-types
+
+    - name: Build Web Client
+      run: npm run build -w apps/web-client
+
+    - name: Build Web Admin
+      run: npm run build -w apps/web-admin
