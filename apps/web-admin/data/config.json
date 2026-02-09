@@ -1,0 +1,74 @@
+{
+  "mosqueInfo": {
+    "name": "Masjid Al-Nufais",
+    "address": "Jatisari, Kec. Cangkuang, Kabupaten Bandung, Jawa Barat",
+    "logoUrl": "http://localhost:3001/uploads/1770459220467-171279575-Makkah_(Mecca).jpg"
+  },
+  "display": {
+    "theme": "dark",
+    "showSeconds": true,
+    "showHijriDate": true
+  },
+  "prayerTimes": {
+    "calculationMethod": "Kemenag",
+    "coordinates": {
+      "lat": -7.062904226490175,
+      "lng": 107.5480628013611
+    },
+    "adjustments": {
+      "subuh": 2,
+      "dzuhur": 2,
+      "ashar": 2,
+      "maghrib": 2,
+      "isya": 2
+    }
+  },
+  "iqamah": {
+    "enabled": true,
+    "waitTime": {
+      "subuh": 10,
+      "dzuhur": 10,
+      "ashar": 10,
+      "maghrib": 10,
+      "isya": 10
+    },
+    "displayDuration": 10
+  },
+  "sliderImages": [
+    "http://localhost:3001/uploads/1770459122074-915511771-makkah-hd-ramadan-worshipers-temple-txcs0ktmbdhd1o4f.jpg"
+  ],
+  "runningText": [
+    "Mohon luruskan dan rapatkan shaf.",
+    "Matikan alat komunikasi saat berada di dalam masjid.",
+    "Kajian rutin ba'da Maghrib: Tafsir Jalalain bersama Ustadz fulan."
+  ],
+  "audio": {
+    "enabled": true,
+    "url": "https://archive.org/download/MurottalMisyariRasyidAlAfasy/001%20Al%20Fatihah.mp3",
+    "playBeforeMinutes": 10
+  },
+  "officers": [
+    {
+      "role": "Khatib",
+      "name": "Ust. Fulan"
+    },
+    {
+      "role": "Imam",
+      "name": "Ust. Fulan"
+    },
+    {
+      "role": "Muadzin",
+      "name": "Sdr. Ahmad"
+    },
+    {
+      "role": "Bilal",
+      "name": "Sdr. Budi"
+    }
+  ],
+  "finance": {
+    "balance": 15000000,
+    "income": 2500000,
+    "expense": 1000000,
+    "lastUpdated": "2026-02-07"
+  }
+}
