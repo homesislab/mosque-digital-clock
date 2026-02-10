@@ -23,13 +23,10 @@ jobs:
             - 'packages/**'
             - 'package.json'
             - 'package-lock.json'
-            - 'Dockerfile'
-          client:
-            - 'apps/web-client/**'
-            - 'packages/**'
-            - 'package.json'
-            - 'package-lock.json'
-            - 'Dockerfile'
+          config:
+            - 'docker-compose.yml'
+            - 'prometheus.yml'
+            - '.github/workflows/ci.yml'
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
@@ -37,11 +34,13 @@ jobs:
         node-version: '20'
 
     - name: Nuclear Reset and Install
+      if: steps.filter.outputs.admin == 'true' || steps.filter.outputs.client == 'true'
       run: |
         rm -rf node_modules package-lock.json
         npm install
 
     - name: Build Shared Types
+      if: steps.filter.outputs.admin == 'true' || steps.filter.outputs.client == 'true'
       run: npm run build -w packages/shared-types
 
     - name: Build Web Client
@@ -79,11 +78,20 @@ jobs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
-    - name: Deploy Modified Services
+    - name: Deploy to Server
       run: |
-        if [ "${{ steps.filter.outputs.admin }}" == "true" ]; then
-          docker compose up -d web-admin
-        fi
-        if [ "${{ steps.filter.outputs.client }}" == "true" ]; then
-          docker compose up -d web-client
-        fi
+        TARGET_DIR="/home/gie/workspace/mosque-digital-clock"
+        echo "Deploying to $TARGET_DIR"
+        
+        # Navigate to target directory
+        cd $TARGET_DIR
+        
+        # Pull latest changes from git
+        git fetch origin main
+        git reset --hard origin/main
+        
+        # Bring up services (this handles recreation if image or config changed)
+        docker compose up -d --remove-orphans
+        
+        # Cleanup unused images
+        docker image prune -f
