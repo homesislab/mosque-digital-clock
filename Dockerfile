@@ -24,6 +24,8 @@ COPY --from=admin-builder /app/apps/web-admin/public ./apps/web-admin/public
 COPY --from=admin-builder /app/packages ./packages
 COPY --from=admin-builder /app/node_modules ./node_modules
 COPY --from=admin-builder /app/package.json ./
+COPY --from=admin-builder /app/apps/web-admin/init-db.js ./apps/web-admin/
+COPY --from=admin-builder /app/apps/web-admin/schema.sql ./apps/web-admin/
 
 EXPOSE 3001
 CMD ["npm", "run", "start", "-w", "apps/web-admin"]
