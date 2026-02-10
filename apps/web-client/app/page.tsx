@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { TimeDisplay } from './components/TimeDisplay';
 import { PrayerTimes } from './components/PrayerTimes';
 import { RunningText } from './components/RunningText';
@@ -26,7 +26,19 @@ export default function Home() {
 
   // Test Audio State
   const [isTestPlaying, setIsTestPlaying] = useState(false);
-  const TEST_AUDIO_URL = "https://archive.org/download/MurottalMisyariRasyidAlAfasy/001%20Al%20Fatihah.mp3";
+  const [testAudioUrl, setTestAudioUrl] = useState("https://archive.org/download/MurottalMisyariRasyidAlAfasy/001%20Al%20Fatihah.mp3");
+  const lastTestTimestamp = useRef(0);
+
+  // Listen for Remote Test Audio signal from Admin
+  useEffect(() => {
+    if (config.audioTest && config.audioTest.playedAt > lastTestTimestamp.current) {
+      console.log("Remote test audio trigger received:", config.audioTest);
+      lastTestTimestamp.current = config.audioTest.playedAt;
+      setTestAudioUrl(config.audioTest.url);
+      setIsTestPlaying(true);
+      setIsManualStopped(false);
+    }
+  }, [config.audioTest]);
 
   // Mounted state to prevent hydration mismatch for time-dependent rendering
   const [mounted, setMounted] = useState(false);
