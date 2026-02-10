@@ -98,21 +98,21 @@ export const InfoSlider = ({ config }: InfoSliderProps) => {
                         exit={{ opacity: 0, scale: 1.05 }}
                         transition={{ duration: 0.8 }}
                     >
-                        <div className="text-amber-500 text-xl font-bold mb-2 tracking-[0.3em] uppercase opacity-80">
+                        <div className="text-amber-500 text-xs lg:text-xl font-bold mb-2 tracking-[0.2em] lg:tracking-[0.3em] uppercase opacity-80">
                             Jadwal Sholat Jumat
                         </div>
-                        <h3 className="text-6xl font-black mb-12 text-white border-b-4 border-amber-500 pb-6 tracking-tight drop-shadow-2xl">
+                        <h3 className="text-2xl sm:text-4xl lg:text-6xl font-black mb-8 lg:mb-12 text-white border-b-2 lg:border-b-4 border-amber-500 pb-2 lg:pb-6 tracking-tight drop-shadow-2xl text-center">
                             {currentSlide.data.date ? new Date(currentSlide.data.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Petugas Pekan Ini'}
                         </h3>
-                        <div className="w-full max-w-5xl grid grid-cols-3 gap-8">
+                        <div className="w-full max-w-5xl grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-8">
                             {[
                                 { role: 'Khotib', name: currentSlide.data.khotib },
                                 { role: 'Imam', name: currentSlide.data.imam },
                                 { role: 'Muadzin', name: currentSlide.data.muadzin }
                             ].map((off, idx) => (
-                                <div key={idx} className="flex flex-col bg-white/5 border border-white/10 p-8 rounded-3xl backdrop-blur-md shadow-2xl items-center text-center">
-                                    <span className="text-amber-400 text-lg font-bold mb-4 uppercase tracking-widest">{off.role}</span>
-                                    <span className="text-4xl font-extrabold text-white leading-tight">{off.name || '-'}</span>
+                                <div key={idx} className="flex flex-col bg-white/5 border border-white/10 p-4 lg:p-8 rounded-2xl lg:rounded-3xl backdrop-blur-md shadow-2xl items-center text-center">
+                                    <span className="text-amber-400 text-xs lg:text-lg font-bold mb-1 lg:mb-4 uppercase tracking-widest">{off.role}</span>
+                                    <span className="text-xl lg:text-4xl font-extrabold text-white leading-tight">{off.name || '-'}</span>
                                 </div>
                             ))}
                         </div>
@@ -128,14 +128,14 @@ export const InfoSlider = ({ config }: InfoSliderProps) => {
                         exit={{ opacity: 0, y: -20 }}
                         transition={{ duration: 0.8 }}
                     >
-                        <h3 className="text-5xl font-bold mb-12 text-emerald-500 border-b-2 border-emerald-500/30 pb-6 tracking-wide drop-shadow-lg uppercase">
+                        <h3 className="text-2xl lg:text-5xl font-bold mb-8 lg:mb-12 text-emerald-500 border-b-2 border-emerald-500/30 pb-2 lg:pb-6 tracking-wide drop-shadow-lg uppercase text-center">
                             Petugas & Pengurus Masjid
                         </h3>
-                        <div className="w-full max-w-4xl grid grid-cols-2 gap-8">
+                        <div className="w-full max-w-4xl grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-8">
                             {config.officers.map((officer, idx) => (
-                                <div key={idx} className="flex flex-col bg-gradient-to-br from-white/5 to-white/[0.02] p-6 rounded-2xl border border-white/10 backdrop-blur-md shadow-2xl group hover:border-emerald-500/50 transition-colors">
-                                    <span className="text-xl text-emerald-200/80 font-medium mb-2 uppercase tracking-widest">{officer.role}</span>
-                                    <span className="text-4xl font-bold text-white tracking-tight">{officer.name}</span>
+                                <div key={idx} className="flex flex-col bg-gradient-to-br from-white/5 to-white/[0.02] p-4 lg:p-6 rounded-xl lg:rounded-2xl border border-white/10 backdrop-blur-md shadow-2xl group hover:border-emerald-500/50 transition-colors">
+                                    <span className="text-xs lg:text-xl text-emerald-200/80 font-medium mb-1 lg:mb-2 uppercase tracking-widest">{officer.role}</span>
+                                    <span className="text-xl lg:text-4xl font-bold text-white tracking-tight">{officer.name}</span>
                                 </div>
                             ))}
                         </div>
@@ -151,21 +151,21 @@ export const InfoSlider = ({ config }: InfoSliderProps) => {
                         exit={{ opacity: 0, y: -20 }}
                         transition={{ duration: 0.8 }}
                     >
-                        <h3 className="text-5xl font-bold mb-10 text-amber-500 border-b-2 border-amber-500/30 pb-4 tracking-wide drop-shadow-lg uppercase">
+                        <h3 className="text-2xl lg:text-5xl font-bold mb-6 lg:mb-10 text-amber-500 border-b-2 border-amber-500/30 pb-2 lg:pb-4 tracking-wide drop-shadow-lg uppercase text-center">
                             Laporan Keuangan Masjid
                         </h3>
 
-                        <div className="w-full max-w-6xl grid grid-cols-12 gap-10 items-start">
+                        <div className="w-full max-w-6xl grid grid-cols-12 gap-6 lg:gap-10 items-start overflow-y-auto">
                             {/* Summary Section */}
-                            <div className="col-span-12 lg:col-span-5 space-y-6">
-                                <div className="bg-gradient-to-br from-amber-700/40 to-black/60 p-10 rounded-3xl border border-amber-500/30 shadow-[0_0_50px_rgba(245,158,11,0.1)] backdrop-blur-md">
-                                    <p className="text-amber-100/60 text-lg font-medium mb-1 uppercase tracking-widest text-center">Total Seluruh Saldo</p>
-                                    <p className="text-7xl font-black text-amber-400 tracking-tighter drop-shadow-[0_0_35px_rgba(245,158,11,0.3)] text-center">
+                            <div className="col-span-12 lg:col-span-5 space-y-4 lg:space-y-6">
+                                <div className="bg-gradient-to-br from-amber-700/40 to-black/60 p-6 lg:p-10 rounded-2xl lg:rounded-3xl border border-amber-500/30 shadow-[0_0_50px_rgba(245,158,11,0.1)] backdrop-blur-md">
+                                    <p className="text-amber-100/60 text-sm lg:text-lg font-medium mb-1 uppercase tracking-widest text-center">Total Seluruh Saldo</p>
+                                    <p className="text-4xl lg:text-7xl font-black text-amber-400 tracking-tighter drop-shadow-[0_0_35px_rgba(245,158,11,0.3)] text-center">
                                         Rp {(config.finance.totalBalance || (config.finance as any).balance || 0).toLocaleString('id-ID')}
                                     </p>
-                                    <div className="mt-8 pt-8 border-t border-white/10 flex items-center justify-between text-zinc-400 text-sm italic">
+                                    <div className="mt-4 lg:mt-8 pt-4 lg:pt-8 border-t border-white/10 flex items-center justify-between text-zinc-400 text-[10px] lg:text-sm italic">
                                         <span>Update: {config.finance.lastUpdated}</span>
-                                        <span className="bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full text-[10px] font-bold uppercase not-italic border border-emerald-500/30 tracking-widest">
+                                        <span className="bg-emerald-500/20 text-emerald-400 px-2 lg:px-3 py-1 rounded-full text-[8px] lg:text-[10px] font-bold uppercase not-italic border border-emerald-500/30 tracking-widest">
                                             Laporan Resmi
                                         </span>
                                     </div>
@@ -184,8 +184,8 @@ export const InfoSlider = ({ config }: InfoSliderProps) => {
                                     config.finance.accounts.slice(0, 4).map((acc: any, idx: number) => (
                                         <div key={idx} className="bg-white/5 border border-white/10 p-6 rounded-2xl backdrop-blur-md flex justify-between items-center group hover:bg-white/10 transition-all shadow-xl">
                                             <div className="flex-1">
-                                                <h4 className="text-2xl font-bold text-white mb-2 group-hover:text-amber-400 transition-colors">{acc.name || 'Akun/Dana'}</h4>
-                                                <div className="flex gap-6 text-[10px] font-bold uppercase tracking-[0.2em]">
+                                                <h4 className="text-lg lg:text-2xl font-bold text-white mb-1 lg:mb-2 group-hover:text-amber-400 transition-colors">{acc.name || 'Akun/Dana'}</h4>
+                                                <div className="flex flex-col sm:flex-row sm:gap-6 text-[8px] lg:text-[10px] font-bold uppercase tracking-[0.2em]">
                                                     <span className="text-emerald-400 flex items-center gap-1.5">
                                                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                                                         Masuk: Rp {(acc.income || 0).toLocaleString('id-ID')}
@@ -197,8 +197,8 @@ export const InfoSlider = ({ config }: InfoSliderProps) => {
                                                 </div>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-zinc-500 text-[10px] mb-1 uppercase tracking-widest font-bold">Saldo Akhir</p>
-                                                <p className="text-4xl font-black text-amber-500 tracking-tight">
+                                                <p className="text-zinc-500 text-[8px] lg:text-[10px] mb-0 lg:mb-1 uppercase tracking-widest font-bold">Saldo Akhir</p>
+                                                <p className="text-xl lg:text-4xl font-black text-amber-500 tracking-tight">
                                                     Rp {(acc.balance || 0).toLocaleString('id-ID')}
                                                 </p>
                                             </div>

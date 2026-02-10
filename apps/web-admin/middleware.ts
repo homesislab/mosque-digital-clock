@@ -6,7 +6,8 @@ export function middleware(request: NextRequest) {
     const isLoginPage = request.nextUrl.pathname === '/login';
     const isUploads = request.nextUrl.pathname.startsWith('/uploads');
     const isPublicApi = request.nextUrl.pathname.startsWith('/api/config') ||
-        request.nextUrl.pathname.startsWith('/api/devices');
+        request.nextUrl.pathname.startsWith('/api/devices') ||
+        request.nextUrl.pathname.startsWith('/api/health');
     const isOptions = request.method === 'OPTIONS';
 
     // If trying to access login page while logged in, redirect to dashboard

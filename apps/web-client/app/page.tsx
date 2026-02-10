@@ -154,41 +154,47 @@ export default function Home() {
 
         {/* HEADER ZONE (Light Glass Theme) */}
         {/* Full width white bar with rounded bottom corners */}
-        <div className="w-full bg-white/90 backdrop-blur-xl shadow-lg rounded-b-[2rem] px-8 border-b-4 border-orange-500/20 mx-auto max-w-[95%] mt-0 relative z-30">
-          <div className="grid grid-cols-12 gap-0 items-center h-20">
+        <div className="w-full bg-white/90 backdrop-blur-xl shadow-lg rounded-b-[2rem] px-2 lg:px-8 border-b-4 border-orange-500/20 mx-auto max-w-[98%] lg:max-w-[95%] mt-0 relative z-30">
+          <div className="grid grid-cols-12 gap-0 items-center h-16 lg:h-20">
 
             {/* 1. Clock (Left) */}
-            <div className="col-span-3 flex justify-center items-center h-full pr-6">
-              <TimeDisplay className="text-6xl font-bold tracking-tighter text-slate-900 font-mono tabular-nums leading-none drop-shadow-sm" />
+            <div className="col-span-3 flex justify-center items-center h-full sm:pr-2 lg:pr-6 whitespace-nowrap">
+              <TimeDisplay className="text-2xl sm:text-4xl lg:text-6xl font-bold tracking-tighter text-slate-900 font-mono tabular-nums leading-none drop-shadow-sm" />
             </div>
 
-            {/* Separator */}
-            <div className="col-span-1 h-10 w-[2px] bg-gradient-to-b from-transparent via-amber-400 to-transparent mx-auto"></div>
+            {/* Separator - Desktop Only */}
+            <div className="hidden lg:block lg:col-span-1 h-10 w-[2px] bg-gradient-to-b from-transparent via-amber-400 to-transparent mx-auto"></div>
 
             {/* 2. Mosque Info (Center) */}
-            <div className="col-span-4 flex flex-col justify-center items-center h-full text-center">
-              <div className="flex items-center gap-3 mb-0">
+            <div className="col-span-6 lg:col-span-4 flex flex-col justify-center items-center h-full text-center px-1">
+              <div className="flex items-center gap-1 lg:gap-3 mb-0">
                 {config.mosqueInfo.logoUrl ? (
-                  <img src={resolveUrl(config.mosqueInfo.logoUrl)} alt="Logo" className="w-10 h-10 object-contain drop-shadow-md" />
+                  <img src={resolveUrl(config.mosqueInfo.logoUrl)} alt="Logo" className="w-4 h-4 sm:w-8 sm:h-8 lg:w-10 lg:h-10 object-contain drop-shadow-md" />
                 ) : (
-                  <span className="text-xl">🕌</span>
+                  <span className="text-sm lg:text-xl">🕌</span>
                 )}
-                <h1 className="text-2xl font-bold uppercase tracking-wide text-slate-800 line-clamp-1">
+                <h1 className="text-[10px] sm:text-lg lg:text-2xl font-bold uppercase tracking-tight lg:tracking-wide text-slate-800 line-clamp-1">
                   {name}
                 </h1>
               </div>
-              <p className="text-sm text-slate-600 font-medium tracking-wide line-clamp-1">
+              <p className="hidden sm:block text-[8px] lg:text-sm text-slate-600 font-medium tracking-wide line-clamp-1">
                 {address}
               </p>
             </div>
 
-            {/* Separator */}
-            <div className="col-span-1 h-10 w-[2px] bg-gradient-to-b from-transparent via-amber-400 to-transparent mx-auto"></div>
+            {/* Separator - Desktop Only */}
+            <div className="hidden lg:block lg:col-span-1 h-10 w-[2px] bg-gradient-to-b from-transparent via-amber-400 to-transparent mx-auto"></div>
 
             {/* 3. Date (Right) */}
-            <div className="col-span-3 flex flex-col items-center justify-center h-full pl-6">
-              <div className="text-xl font-bold text-slate-900 font-mono mb-0">{hijriStr}</div>
-              <div className="text-sm text-slate-500 font-semibold uppercase tracking-widest">{dateStr}</div>
+            <div className="col-span-3 flex flex-col items-center justify-center h-full sm:pl-2 lg:pl-6 text-right">
+              <div className="text-[10px] sm:text-base lg:text-xl font-bold text-slate-900 font-mono mb-0 leading-tight">
+                {hijriStr.split(' ').slice(0, 2).join(' ')}
+                <span className="hidden sm:inline"> {hijriStr.split(' ').slice(2).join(' ')}</span>
+              </div>
+              <div className="text-[8px] sm:text-xs lg:text-sm text-slate-500 font-semibold uppercase tracking-tighter lg:tracking-widest truncate w-full px-1">
+                {dateStr.split(',')[0]}
+                <span className="hidden sm:inline">,{dateStr.split(',')[1]}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -197,7 +203,7 @@ export default function Home() {
         <div className="w-full flex flex-col relative z-30 mt-auto">
 
           {/* Prayer Times Strip - Floating White Card Look */}
-          <div className="w-[98%] mx-auto bg-white/90 backdrop-blur-xl rounded-t-[1.5rem] shadow-[0_-10px_30px_rgba(0,0,0,0.1)] overflow-hidden border-t-4 border-orange-500/20 h-24">
+          <div className="w-[98%] mx-auto bg-white/90 backdrop-blur-xl rounded-t-[1.5rem] shadow-[0_-10px_30px_rgba(0,0,0,0.1)] overflow-hidden border-t-4 border-orange-500/20 h-auto lg:h-24">
             <PrayerTimes
               config={config}
               nextPrayer={nextEvent.name}
