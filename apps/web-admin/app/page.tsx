@@ -295,6 +295,7 @@ export default function AdminDashboard() {
                     setPickerTarget({ section: 'ramadhan-audio', prayer: target });
                     setPickerOpen(true);
                   }}
+                  mosqueKey={mosqueKey}
                 />
               )}
               {activeTab === 'devices' && <DevicesSection mosqueKey={mosqueKey} />}
@@ -1245,7 +1246,7 @@ const GallerySection = ({ config, setConfig, updateConfig, mosqueKey }: any) => 
   );
 };
 
-const ContentSection = ({ config, setConfig, onPickAudio }: any) => {
+const ContentSection = ({ config, setConfig, onPickAudio, mosqueKey }: any) => {
   const [subTab, setSubTab] = useState<'info' | 'finance' | 'officers'>('info');
 
   const updateKajian = (idx: number, field: string, val: any) => {
