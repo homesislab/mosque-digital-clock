@@ -35,6 +35,9 @@ export const InfoSlider = ({ config }: InfoSliderProps) => {
     // Generate Playlist
     const playlist: SlideType[] = [
         ...(config.sliderImages || []).map(url => ({ type: 'IMAGE' as const, url })),
+        ...(config.kajian?.schedule || [])
+            .filter((k: any) => k.imageUrl)
+            .map((k: any) => ({ type: 'IMAGE' as const, url: k.imageUrl })),
     ];
 
     if (activeJumat) {
