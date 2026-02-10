@@ -9,7 +9,7 @@ import {
   Save, RefreshCw, LogOut, LayoutDashboard, MapPin,
   Clock, Image as ImageIcon, MessageSquare, Users,
   Wallet, Settings, ChevronRight, UploadCloud,
-  Music, Library, Plus, Moon, Menu, X
+  Music, Library, Plus, Moon, Menu, X, Play
 } from 'lucide-react';
 
 // Dynamic import for MapPicker to avoid SSR issues with Leaflet
@@ -801,6 +801,14 @@ const AudioSection = ({ config, setConfig, onPickAudio, mosqueKey }: any) => {
                     Your browser does not support the audio element.
                   </audio>
                 )}
+                {config.audio.url && (
+                  <button
+                    onClick={() => setConfig({ ...config, audioTest: { url: config.audio.url, playedAt: Date.now() } })}
+                    className="flex items-center gap-2 px-4 py-2 bg-emerald-100 text-emerald-700 rounded-lg text-sm font-bold hover:bg-emerald-200 transition-colors w-full justify-center"
+                  >
+                    <Play size={16} /> Test Putar di TV / Client
+                  </button>
+                )}
                 <InputGroup label="Default Durasi Putar (Menit)" value={config.audio.playBeforeMinutes} type="number" onChange={(v: string) => {
                   setConfig({ ...config, audio: { ...config.audio, playBeforeMinutes: parseInt(v) } });
                 }} />
@@ -1300,8 +1308,95 @@ const ContentSection = ({ config, setConfig, onPickAudio, mosqueKey }: any) => {
                   <div className="space-y-4">
                     {(config.kajian?.schedule || []).map((kj: any, idx: number) => (
                       <div key={idx} className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-white p-4 rounded-xl border border-slate-200 relative group">
-                        <InputGroup label="Hari" value={kj.day} onChange={(v: string) => updateKajian(idx, 'day', v)} placeholder="Ahad" />
-                        <InputGroup label="Waktu" value={kj.time} onChange={(v: string) => updateKajian(idx, 'time', v)} placeholder="Ba'da Maghrib" />
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Hari</label>
+                          <select
+                            value={kj.day}
+                            onChange={(e) => updateKajian(idx, 'day', e.target.value)}
+                            className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm font-medium transition-all"
+                          >
+                            <option value="">Pilih Hari</option>
+                            {['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Ahad'].map(d => (
+                              <option key={d} value={d}>{d}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Waktu</label>
+                          {(() => {
+                            const STANDARD_TIMES = [
+                              "Ba'da Subuh", "Ba'da Dzuhur", "Ba'da Ashar", "Ba'da Maghrib", "Ba'da Isya",
+                              "05:00", "06:00", "07:00", "08:00", "09:00", "10:00", "11:00",
+                              "13:00", "14:00", "15:30", "16:00", "16:30", "17:00",
+                              "18:30", "19:00", "19:30", "20:00"
+                            ];
+                            const isCustom = kj.time && !STANDARD_TIMES.includes(kj.time);
+
+                            return (
+                              <div className="flex flex-col gap-2">
+                                <select
+                                  value={isCustom ? 'custom' : kj.time}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val === 'custom') {
+                                      // Only switch to custom mode, don't change value yet if it was empty, 
+                                      // or keep current value if it's already custom
+                                      if (!kj.time) updateKajian(idx, 'time', ' '); // Space to trigger custom mode
+                                      else if (!isCustom) updateKajian(idx, 'time', ''); // Reset if switching from standard
+                                    } else {
+                                      updateKajian(idx, 'time', val);
+                                    }
+                                  }}
+                                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm font-medium transition-all"
+                                >
+                                  <option value="">Pilih Waktu</option>
+                                  <optgroup label="Waktu Sholat">
+                                    <option value="Ba'da Subuh">Ba'da Subuh</option>
+                                    <option value="Ba'da Dzuhur">Ba'da Dzuhur</option>
+                                    <option value="Ba'da Ashar">Ba'da Ashar</option>
+                                    <option value="Ba'da Maghrib">Ba'da Maghrib</option>
+                                    <option value="Ba'da Isya">Ba'da Isya</option>
+                                  </optgroup>
+                                  <optgroup label="Jam Pagi">
+                                    <option value="05:00">05:00</option>
+                                    <option value="06:00">06:00</option>
+                                    <option value="07:00">07:00</option>
+                                    <option value="08:00">08:00</option>
+                                    <option value="09:00">09:00</option>
+                                    <option value="10:00">10:00</option>
+                                    <option value="11:00">11:00</option>
+                                  </optgroup>
+                                  <optgroup label="Jam Siang/Sore">
+                                    <option value="13:00">13:00</option>
+                                    <option value="14:00">14:00</option>
+                                    <option value="15:30">15:30</option>
+                                    <option value="16:00">16:00</option>
+                                    <option value="16:30">16:30</option>
+                                    <option value="17:00">17:00</option>
+                                  </optgroup>
+                                  <optgroup label="Jam Malam">
+                                    <option value="18:30">18:30</option>
+                                    <option value="19:00">19:00</option>
+                                    <option value="19:30">19:30</option>
+                                    <option value="20:00">20:00</option>
+                                  </optgroup>
+                                  <option value="custom" className="font-bold text-emerald-600">+ Custom / Lainnya...</option>
+                                </select>
+                                {(isCustom || kj.time === ' ') && (
+                                  <input
+                                    type="text"
+                                    value={kj.time === ' ' ? '' : kj.time}
+                                    onChange={(e) => updateKajian(idx, 'time', e.target.value)}
+                                    placeholder="Ketik waktu... (misal: 08:45)"
+                                    className="w-full p-2.5 bg-white border border-emerald-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm font-medium animate-in fade-in slide-in-from-top-1"
+                                    autoFocus
+                                  />
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </div>
                         <InputGroup label="Tema" value={kj.title} onChange={(v: string) => updateKajian(idx, 'title', v)} placeholder="Tafsir Al-Quran" />
                         <InputGroup label="Pemateri" value={kj.speaker} onChange={(v: string) => updateKajian(idx, 'speaker', v)} placeholder="Ust. Fulan" />
 

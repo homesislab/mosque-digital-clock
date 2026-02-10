@@ -88,4 +88,8 @@ export interface MosqueConfig {
         imsakAudioUrl?: string;
         imsakAudioDuration?: number; // duration in minutes before imsak
     };
+    audioTest?: {
+        url: string;
+        playedAt: number;
+    };
 }
