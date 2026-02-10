@@ -13,7 +13,7 @@ if (dbUrl) {
 const pool = dbUrl
     ? mysql.createPool(dbUrl)
     : mysql.createPool({
-        host: 'mariadb_server',
+        host: 'localhost',
         user: 'mosque_user',
         password: 'Moalnyaho135',
         database: 'mosque-digitaldb',
