@@ -72,7 +72,8 @@ export const AudioPlayer = ({ url, isPlaying, onStop }: AudioPlayerProps) => {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isPaused, onStop]);
 
-    if (!url || !isPlaying) return (
+    if (!url) return null;
+    if (!isPlaying) return (
         <audio ref={audioRef} src={url} preload="auto" />
     );
 
