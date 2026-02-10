@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import pool from '../../../lib/db';
 import { cookies } from 'next/headers';
@@ -45,6 +46,7 @@ export async function GET(request: Request) {
             headers: corsHeaders,
         });
     } catch (error) {
+        console.error('Device GET error:', error);
         return NextResponse.json({ success: false, message: 'DB Error' }, { status: 500, headers: corsHeaders });
     }
 }
@@ -97,6 +99,7 @@ export async function DELETE(request: Request) {
             headers: corsHeaders,
         });
     } catch (error) {
+        console.error('Device DELETE error:', error);
         return NextResponse.json({ success: false, message: 'DB Error' }, { status: 500, headers: corsHeaders });
     }
 }

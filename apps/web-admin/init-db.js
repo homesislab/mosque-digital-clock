@@ -3,10 +3,14 @@ const fs = require('fs');
 const path = require('path');
 
 async function initDb() {
-    const connection = await mysql.createConnection({
+    const connectionConfig = process.env.DATABASE_URL || {
         host: 'localhost',
         user: 'mosque_user', // Fixed user as per request
         password: 'Moalnyaho135',
+    };
+
+    const connection = await mysql.createConnection({
+        ...(typeof connectionConfig === 'string' ? { uri: connectionConfig } : connectionConfig),
         multipleStatements: true
     });
 

@@ -1,8 +1,11 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { findUserByEmail } from '../../../../lib/user-store';
+import { httpRequestsTotal, httpRequestDuration } from '../../../../lib/metrics';
 
 export async function POST(request: Request) {
+    const start = Date.now();
     try {
         const { email, password } = await request.json();
         const user = await findUserByEmail(email);
@@ -25,9 +28,15 @@ export async function POST(request: Request) {
             { status: 401 }
         );
     } catch (error) {
-        return NextResponse.json(
+        console.error('Login error:', error);
+        const response = NextResponse.json(
             { success: false, message: 'Internal server error' },
             { status: 500 }
         );
+        return response;
+    } finally {
+        const duration = (Date.now() - start) / 1000;
+        httpRequestDuration.observe({ method: 'POST', route: '/api/auth/login', status: 'all' }, duration);
+        httpRequestsTotal.inc({ method: 'POST', route: '/api/auth/login', status: 'all' });
     }
 }

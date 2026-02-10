@@ -26,7 +26,7 @@ yarn-error.log*
 # OS files
 .DS_Store
 Thumbs.db
-
+apps/android-tv/java_pid*.hprof
 # Config and Uploads (Keep as template if needed, but ignore actual data for safety)
 # apps/web-admin/data/config.json
 # apps/web-admin/public/uploads/

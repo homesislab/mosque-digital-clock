@@ -9,5 +9,11 @@
     "workspaces": [
         "apps/*",
         "packages/*"
-    ]
+    ],
+    "dependencies": {
+        "bintrees": "1.0.2"
+    },
+    "devDependencies": {
+        "@babel/compat-data": "^7.29.0"
+    }
 }

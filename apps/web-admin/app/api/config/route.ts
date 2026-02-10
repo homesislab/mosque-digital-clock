@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { MosqueConfig } from '@mosque-digital-clock/shared-types';
 import { cookies } from 'next/headers';
