@@ -10,7 +10,7 @@ interface InfoSliderProps {
     config: MosqueConfig;
 }
 
-type SlideType = { type: 'IMAGE'; url: string } | { type: 'JUMAT'; data: any } | { type: 'OFFICERS' } | { type: 'FINANCE' };
+type SlideType = { type: 'IMAGE'; url: string } | { type: 'JUMAT'; data: any } | { type: 'OFFICERS' } | { type: 'FINANCE' } | { type: 'KAJIAN' };
 
 export const InfoSlider = ({ config }: InfoSliderProps) => {
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -31,7 +31,8 @@ export const InfoSlider = ({ config }: InfoSliderProps) => {
 
     const activeJumat = getActiveJumat();
 
-    // Generate Playlist: Images -> Jumat -> Officers -> Finance -> Repeat
+
+    // Generate Playlist
     const playlist: SlideType[] = [
         ...(config.sliderImages || []).map(url => ({ type: 'IMAGE' as const, url })),
     ];
@@ -39,6 +40,12 @@ export const InfoSlider = ({ config }: InfoSliderProps) => {
     if (activeJumat) {
         playlist.push({ type: 'JUMAT', data: activeJumat });
     }
+
+    // Add Kajian Slide if enabled and has data
+    if (config.kajian?.enabled && config.kajian?.schedule?.length > 0) {
+        playlist.push({ type: 'KAJIAN' });
+    }
+
     if (config.officers && config.officers.length > 0) {
         playlist.push({ type: 'OFFICERS' });
     }
@@ -51,18 +58,12 @@ export const InfoSlider = ({ config }: InfoSliderProps) => {
 
         const timer = setInterval(() => {
             setCurrentIndex((prev) => (prev + 1) % playlist.length);
-        }, 10000); // Change slide every 10 seconds
+        }, 15000); // Increased to 15s for better readability
 
         return () => clearInterval(timer);
     }, [playlist.length]);
 
-    if (playlist.length === 0) {
-        return (
-            <div className="w-full h-full flex items-center justify-center text-gray-500">
-                No content configured
-            </div>
-        );
-    }
+    if (playlist.length === 0) return null;
 
     const currentSlide = playlist[currentIndex];
 
@@ -84,7 +85,7 @@ export const InfoSlider = ({ config }: InfoSliderProps) => {
                             className="w-full h-full object-cover"
                             initial={{ scale: 1.1 }}
                             animate={{ scale: 1 }}
-                            transition={{ duration: 10, ease: "linear" }}
+                            transition={{ duration: 15, ease: "linear" }}
                         />
                     </motion.div>
                 )}
@@ -113,6 +114,39 @@ export const InfoSlider = ({ config }: InfoSliderProps) => {
                                 <div key={idx} className="flex flex-col bg-white/5 border border-white/10 p-4 lg:p-8 rounded-2xl lg:rounded-3xl backdrop-blur-md shadow-2xl items-center text-center">
                                     <span className="text-amber-400 text-xs lg:text-lg font-bold mb-1 lg:mb-4 uppercase tracking-widest">{off.role}</span>
                                     <span className="text-xl lg:text-4xl font-extrabold text-white leading-tight">{off.name || '-'}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </motion.div>
+                )}
+
+                {currentSlide.type === 'KAJIAN' && (
+                    <motion.div
+                        key="kajian"
+                        className="absolute inset-0 w-full h-full flex flex-col items-center justify-center p-8 bg-zinc-950/80 text-white backdrop-blur-sm"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.8 }}
+                    >
+                        <h3 className="text-2xl lg:text-5xl font-bold mb-8 lg:mb-12 text-cyan-400 border-b-2 border-cyan-500/30 pb-2 lg:pb-6 tracking-wide drop-shadow-lg uppercase text-center flex items-center gap-4">
+                            <span>✨</span> Jadwal Kajian Rutin <span>✨</span>
+                        </h3>
+                        <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 overflow-y-auto max-h-[70vh] px-4">
+                            {(config.kajian?.schedule || []).map((kj: any, idx: number) => (
+                                <div key={idx} className="bg-gradient-to-r from-cyan-950/30 to-blue-950/30 border border-cyan-500/20 p-6 rounded-2xl backdrop-blur-md flex gap-6 items-center shadow-lg group hover:border-cyan-400/50 transition-all">
+                                    <div className="flex flex-col items-center justify-center bg-cyan-900/20 w-24 h-24 rounded-xl border border-cyan-500/30 text-cyan-300">
+                                        <span className="text-xs font-bold uppercase tracking-widest mb-1">Hari</span>
+                                        <span className="text-xl font-black">{kj.day}</span>
+                                        <span className="text-[10px] bg-cyan-500/20 px-2 py-0.5 rounded-full mt-1 border border-cyan-500/20">{kj.time}</span>
+                                    </div>
+                                    <div className="flex-1">
+                                        <h4 className="text-xl lg:text-2xl font-bold text-white mb-1 group-hover:text-cyan-300 transition-colors line-clamp-2">{kj.title}</h4>
+                                        <div className="flex items-center gap-2 text-cyan-100/60 text-sm lg:text-lg font-medium">
+                                            <span className="bg-white/10 px-2 py-0.5 rounded text-xs uppercase tracking-wider">Pemateri</span>
+                                            {kj.speaker}
+                                        </div>
+                                    </div>
                                 </div>
                             ))}
                         </div>

@@ -127,6 +127,10 @@ export default function Home() {
     hijriStr = "";
   }
 
+  // Test Audio State
+  const [isTestPlaying, setIsTestPlaying] = useState(false);
+  const TEST_AUDIO_URL = "https://archive.org/download/MurottalMisyariRasyidAlAfasy/001%20Al%20Fatihah.mp3";
+
   return (
     <main className="w-screen h-screen relative bg-zinc-100 overflow-hidden font-sans text-slate-900 selection:bg-orange-500/30">
       <div className="bg-noise fixed inset-0 pointer-events-none z-50 opacity-50 mix-blend-overlay"></div>
@@ -141,6 +145,13 @@ export default function Home() {
         secondsRemaining={nextEvent.seconds}
       />
       <SholatOverlay isVisible={appState === 'SHOLAT'} />
+
+      {/* Test Audio Indicator */}
+      {isTestPlaying && (
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[60] bg-emerald-500 text-white px-6 py-2 rounded-full shadow-xl font-bold animate-pulse flex items-center gap-2">
+          🔊 Sedang Tes Audio... (Klik Logo untuk Stop)
+        </div>
+      )}
 
       {/* Layer 1: Background Slider */}
       <div className="absolute inset-0 z-0">
@@ -167,7 +178,11 @@ export default function Home() {
 
             {/* 2. Mosque Info (Center) */}
             <div className="col-span-6 lg:col-span-4 flex flex-col justify-center items-center h-full text-center px-1">
-              <div className="flex items-center gap-1 lg:gap-3 mb-0">
+              <button
+                onClick={() => setIsTestPlaying(!isTestPlaying)}
+                className="flex items-center gap-1 lg:gap-3 mb-0 hover:scale-105 active:scale-95 transition-transform cursor-pointer outline-none"
+                title="Klik untuk Test Audio"
+              >
                 {config.mosqueInfo.logoUrl ? (
                   <img src={resolveUrl(config.mosqueInfo.logoUrl)} alt="Logo" className="w-4 h-4 sm:w-8 sm:h-8 lg:w-10 lg:h-10 object-contain drop-shadow-md" />
                 ) : (
@@ -176,7 +191,7 @@ export default function Home() {
                 <h1 className="text-[10px] sm:text-lg lg:text-2xl font-bold uppercase tracking-tight lg:tracking-wide text-slate-800 line-clamp-1">
                   {name}
                 </h1>
-              </div>
+              </button>
               <p className="hidden sm:block text-[8px] lg:text-sm text-slate-600 font-medium tracking-wide line-clamp-1">
                 {address}
               </p>
@@ -226,9 +241,12 @@ export default function Home() {
       </div>
 
       <AudioPlayer
-        url={resolveUrl(nextEvent.activeAudioUrl)}
-        isPlaying={nextEvent.shouldPlayAudio && !isManualStopped}
-        onStop={() => setIsManualStopped(true)}
+        url={isTestPlaying ? TEST_AUDIO_URL : resolveUrl(nextEvent.activeAudioUrl)}
+        isPlaying={isTestPlaying || (nextEvent.shouldPlayAudio && !isManualStopped)}
+        onStop={() => {
+          if (isTestPlaying) setIsTestPlaying(false);
+          else setIsManualStopped(true);
+        }}
       />
     </main>
   );
