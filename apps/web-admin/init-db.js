@@ -7,7 +7,7 @@ async function initDb() {
     console.log('DATABASE_URL is', dbUrl ? 'DEFINED' : 'UNDEFINED');
 
     const connectionConfig = dbUrl || {
-        host: 'mariadb_server',
+        host: 'localhost',
         user: 'mosque_user',
         password: 'Moalnyaho135',
     };
