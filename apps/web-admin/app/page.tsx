@@ -794,6 +794,12 @@ const AudioSection = ({ config, setConfig, onPickAudio, mosqueKey }: any) => {
                     <Library size={16} />
                   </button>
                 </div>
+                {config.audio.url && (
+                  <audio controls className="w-full mt-2 h-10 rounded-lg">
+                    <source src={resolveUrl(config.audio.url, mosqueKey)} type="audio/mpeg" />
+                    Your browser does not support the audio element.
+                  </audio>
+                )}
                 <InputGroup label="Default Durasi Putar (Menit)" value={config.audio.playBeforeMinutes} type="number" onChange={(v: string) => {
                   setConfig({ ...config, audio: { ...config.audio, playBeforeMinutes: parseInt(v) } });
                 }} />
