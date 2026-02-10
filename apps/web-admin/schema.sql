@@ -1,6 +1,6 @@
-CREATE DATABASE IF NOT EXISTS mosque_digitaldb;
+CREATE DATABASE IF NOT EXISTS `mosque-digitaldb`;
 
-USE mosque_digitaldb;
+USE `mosque-digitaldb`;
 
 CREATE TABLE IF NOT EXISTS users (
     id VARCHAR(255) PRIMARY KEY,
