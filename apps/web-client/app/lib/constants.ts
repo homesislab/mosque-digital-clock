@@ -78,7 +78,7 @@ export function getApiBaseUrl(): string {
         }
         if (storedUrl) return storedUrl;
     }
-    return 'http://127.0.0.1:3001';
+    return process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001';
 }
 
 export async function fetchConfig(): Promise<MosqueConfig> {
