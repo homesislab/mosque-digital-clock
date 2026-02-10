@@ -1303,6 +1303,49 @@ const ContentSection = ({ config, setConfig, onPickAudio }: any) => {
                         <InputGroup label="Waktu" value={kj.time} onChange={(v: string) => updateKajian(idx, 'time', v)} placeholder="Ba'da Maghrib" />
                         <InputGroup label="Tema" value={kj.title} onChange={(v: string) => updateKajian(idx, 'title', v)} placeholder="Tafsir Al-Quran" />
                         <InputGroup label="Pemateri" value={kj.speaker} onChange={(v: string) => updateKajian(idx, 'speaker', v)} placeholder="Ust. Fulan" />
+
+                        {/* Image Upload for Kajian Poster */}
+                        <div className="md:col-span-4">
+                          <label className="block text-sm font-semibold text-slate-600 mb-1.5">Poster / Gambar (Opsional)</label>
+                          <div className="flex items-center gap-4">
+                            {kj.imageUrl && (
+                              <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-200 group/img">
+                                <img src={resolveUrl(kj.imageUrl, mosqueKey)} alt="Poster" className="w-full h-full object-cover" />
+                                <button
+                                  onClick={() => updateKajian(idx, 'imageUrl', '')}
+                                  className="absolute inset-0 bg-black/50 text-white opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center"
+                                >
+                                  <LogOut size={12} />
+                                </button>
+                              </div>
+                            )}
+                            <label className="cursor-pointer flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-600 text-sm font-medium transition-colors">
+                              <UploadCloud size={16} />
+                              {kj.imageUrl ? 'Ganti Poster' : 'Upload Poster'}
+                              <input
+                                type="file"
+                                hidden
+                                accept="image/*"
+                                onChange={async (e) => {
+                                  const file = e.target.files?.[0];
+                                  if (!file) return;
+                                  try {
+                                    const formData = new FormData();
+                                    formData.append('file', file);
+                                    const res = await fetch(`/api/upload?key=${mosqueKey}`, { method: 'POST', body: formData });
+                                    const data = await res.json();
+                                    if (data.success) {
+                                      updateKajian(idx, 'imageUrl', data.url);
+                                    }
+                                  } catch (err) {
+                                    alert('Gagal upload poster');
+                                  }
+                                }}
+                              />
+                            </label>
+                          </div>
+                        </div>
+
                         <button
                           onClick={() => {
                             const n = config.kajian.schedule.filter((_: any, i: number) => i !== idx);
