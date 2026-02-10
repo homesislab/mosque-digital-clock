@@ -27,14 +27,30 @@ export async function POST(request: Request) {
         const filename = uniqueSuffix + '-' + file.name.replace(/\s+/g, '-');
 
         // Isolation: public/uploads/{key}/{filename}
-        const uploadDir = join(process.cwd(), 'public', 'uploads', key);
+        const cwd = process.cwd();
+        console.log('Upload Debug - CWD:', cwd);
+
+        // Fix for Docker monorepo structure:
+        // If running from /app, but files are in apps/web-admin, we might need to adjust
+        // But let's log first to see what's happening.
+
+        const uploadDir = join(cwd, 'public', 'uploads', key);
+        console.log('Upload Debug - Target Dir:', uploadDir);
 
         // Ensure directory exists
         const fs = require('fs/promises');
-        await fs.mkdir(uploadDir, { recursive: true });
+        try {
+            await fs.mkdir(uploadDir, { recursive: true });
+        } catch (mkdirError) {
+            console.error('Upload Debug - Mkdir Error:', mkdirError);
+            throw mkdirError;
+        }
 
         const path = join(uploadDir, filename);
+        console.log('Upload Debug - Writing to:', path);
+
         await writeFile(path, buffer);
+        console.log('Upload Debug - Write Success');
 
         // Construct public URL
         const url = `/uploads/${key}/${filename}`;
@@ -42,6 +58,10 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: true, url });
     } catch (error) {
         console.error('Upload API error:', error);
-        return NextResponse.json({ success: false, message: 'Upload failed' }, { status: 500 });
+        return NextResponse.json({
+            success: false,
+            message: 'Upload failed',
+            debug: error instanceof Error ? error.message : String(error)
+        }, { status: 500 });
     }
 }
