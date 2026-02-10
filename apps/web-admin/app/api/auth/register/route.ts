@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { addUser, findUserByEmail } from '../../../../lib/user-store';
 import { cookies } from 'next/headers';
@@ -32,6 +33,7 @@ export async function POST(request: Request) {
 
         return NextResponse.json({ success: true, mosqueKey });
     } catch (error) {
+        console.error('Registration error:', error);
         return NextResponse.json({ success: false, message: 'Internal error' }, { status: 500 });
     }
 }

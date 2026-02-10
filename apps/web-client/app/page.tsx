@@ -22,6 +22,7 @@ export default function Home() {
   const [appState, setAppState] = useState<AppState>('NORMAL');
   const [nextEvent, setNextEvent] = useState({ name: '', seconds: 0, activeAudioUrl: '', shouldPlayAudio: false });
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [isManualStopped, setIsManualStopped] = useState(false);
 
   // Mounted state to prevent hydration mismatch for time-dependent rendering
   const [mounted, setMounted] = useState(false);
@@ -83,6 +84,11 @@ export default function Home() {
         activeAudioUrl: result.activeAudioUrl,
         shouldPlayAudio: result.shouldPlayAudio
       });
+
+      // Reset manual stop if audio URL changes (new event)
+      if (result.activeAudioUrl !== nextEvent.activeAudioUrl) {
+        setIsManualStopped(false);
+      }
     };
 
     tick();
@@ -215,7 +221,8 @@ export default function Home() {
 
       <AudioPlayer
         url={resolveUrl(nextEvent.activeAudioUrl)}
-        isPlaying={nextEvent.shouldPlayAudio}
+        isPlaying={nextEvent.shouldPlayAudio && !isManualStopped}
+        onStop={() => setIsManualStopped(true)}
       />
     </main>
   );

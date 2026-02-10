@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { writeFile } from 'fs/promises';
 import { join } from 'path';
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
 
         return NextResponse.json({ success: true, url });
     } catch (error) {
-        console.error('Upload error:', error);
+        console.error('Upload API error:', error);
         return NextResponse.json({ success: false, message: 'Upload failed' }, { status: 500 });
     }
 }
