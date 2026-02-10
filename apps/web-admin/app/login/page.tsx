@@ -83,7 +83,7 @@ export default function LoginPage() {
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-zinc-950 text-white p-4">
-            <div className="w-full max-w-md bg-zinc-900 border border-white/10 rounded-3xl p-8 shadow-2xl">
+            <div className="w-full max-w-md bg-zinc-900 border border-white/10 rounded-3xl p-6 lg:p-8 shadow-2xl">
                 <div className="flex flex-col items-center mb-10">
                     <div className="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center mb-4 text-amber-500 rotate-3">
                         {mode === 'login' ? <Lock size={32} /> : <UserPlus size={32} />}

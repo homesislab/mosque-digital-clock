@@ -37,32 +37,32 @@ export const PrayerTimes = ({ config, nextPrayer, secondsRemaining }: PrayerTime
     // But to match the mockup, let's highlight "Dzuhur" as an example or pass a prop.
     // Ideally, we should pass `nextPrayer` prop to this component. 
     return (
-        <div className="flex flex-row w-full h-full">
+        <div className="grid grid-cols-4 lg:flex lg:flex-row w-full h-full">
             {prayers.map((prayer, index) => {
                 const isActive = nextPrayer?.toLowerCase() === prayer.name.toLowerCase();
                 return (
                     <div
                         key={prayer.name}
                         className={`
-                            relative flex-1 flex flex-col items-center justify-center h-full transition-all duration-300
-                            ${!isActive && index < prayers.length - 1 ? 'border-r-2 border-amber-400/30' : ''}
+                            relative flex-1 flex flex-col items-center justify-center p-2 lg:p-0 transition-all duration-300
+                            ${!isActive && index < prayers.length - 1 ? 'lg:border-r-2 lg:border-amber-400/30' : ''}
                             ${isActive
-                                ? 'bg-orange-500 text-white shadow-lg transform scale-y-110 origin-bottom rounded-t-lg z-10 -mt-1'
+                                ? 'bg-orange-500 text-white shadow-lg lg:transform lg:scale-y-110 lg:origin-bottom lg:rounded-t-lg z-10 lg:-mt-1'
                                 : 'bg-transparent text-slate-800 hover:bg-slate-50'}
                         `}
                     >
                         {/* Ornamental top line for non-active items */}
-                        {!isActive && <div className="absolute top-3 w-1 h-4 bg-amber-400/20 rounded-full mb-1"></div>}
+                        {!isActive && <div className="hidden lg:block absolute top-3 w-1 h-4 bg-amber-400/20 rounded-full mb-1"></div>}
 
-                        <span className={`text-sm uppercase tracking-widest font-bold mb-0 z-10 ${isActive ? 'text-orange-100' : 'text-slate-500'}`}>
+                        <span className={`text-[10px] lg:text-sm uppercase tracking-widest font-bold mb-0 z-10 ${isActive ? 'text-orange-100' : 'text-slate-500'}`}>
                             {prayer.name}
                         </span>
-                        <span className={`text-4xl font-bold font-mono tracking-tighter tabular-nums z-10 ${isActive ? 'text-white' : 'text-slate-900'}`}>
+                        <span className={`text-xl sm:text-2xl lg:text-4xl font-bold font-mono tracking-tighter tabular-nums z-10 ${isActive ? 'text-white' : 'text-slate-900'}`}>
                             {prayer.time}
                         </span>
 
                         {isActive && secondsRemaining !== undefined && secondsRemaining > 0 && (
-                            <div className="absolute bottom-1 bg-black/20 px-3 py-0.5 rounded-full text-xs font-mono font-bold tracking-widest text-white backdrop-blur-sm">
+                            <div className="absolute bottom-1 bg-black/20 px-2 lg:px-3 py-0.5 rounded-full text-[8px] lg:text-xs font-mono font-bold tracking-widest text-white backdrop-blur-sm">
                                 -{new Date(secondsRemaining * 1000).toISOString().substr(11, 8)}
                             </div>
                         )}

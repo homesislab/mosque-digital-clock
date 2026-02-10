@@ -3,9 +3,12 @@ const fs = require('fs');
 const path = require('path');
 
 async function initDb() {
-    const connectionConfig = process.env.DATABASE_URL || {
-        host: 'localhost',
-        user: 'mosque_user', // Fixed user as per request
+    const dbUrl = process.env.DATABASE_URL;
+    console.log('DATABASE_URL is', dbUrl ? 'DEFINED' : 'UNDEFINED');
+
+    const connectionConfig = dbUrl || {
+        host: 'mariadb_server',
+        user: 'mosque_user',
         password: 'Moalnyaho135',
     };
 
@@ -16,8 +19,8 @@ async function initDb() {
 
     try {
         console.log('Creating database if not exists...');
-        await connection.query('CREATE DATABASE IF NOT EXISTS mosque_digitaldb');
-        await connection.query('USE mosque_digitaldb');
+        await connection.query('CREATE DATABASE IF NOT EXISTS `mosque-digitaldb`');
+        await connection.query('USE `mosque-digitaldb`');
 
         console.log('Reading schema.sql...');
         const schemaPath = path.join(__dirname, 'schema.sql');

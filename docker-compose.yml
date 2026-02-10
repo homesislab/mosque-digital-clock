@@ -1,5 +1,8 @@
 services:
   web-admin:
+    build:
+      context: .
+      target: admin
     image: mosque-digital-clock-admin:latest
     ports:
       - "3011:3001"
@@ -15,6 +18,9 @@ services:
       - shared_apps
 
   web-client:
+    build:
+      context: .
+      target: client
     image: mosque-digital-clock-client:latest
     ports:
       - "3012:3000"
@@ -23,16 +29,15 @@ services:
       - NEXT_PUBLIC_API_URL=https://mosque.homesislab.my.id
     networks:
       - shared_apps
-
-  prometheus:
-    image: prom/prometheus:latest
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-    restart: always
-    networks:
-      - shared_apps
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   ports:
+  #     - "9090:9090"
+  #   volumes:
+  #     - ./prometheus.yml:/etc/prometheus/prometheus.yml
+  #   restart: always
+  #   networks:
+  #     - shared_apps
 
 networks:
   shared_apps:
