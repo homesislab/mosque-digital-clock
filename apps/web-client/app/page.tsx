@@ -24,6 +24,10 @@ export default function Home() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isManualStopped, setIsManualStopped] = useState(false);
 
+  // Test Audio State
+  const [isTestPlaying, setIsTestPlaying] = useState(false);
+  const TEST_AUDIO_URL = "https://archive.org/download/MurottalMisyariRasyidAlAfasy/001%20Al%20Fatihah.mp3";
+
   // Mounted state to prevent hydration mismatch for time-dependent rendering
   const [mounted, setMounted] = useState(false);
 
@@ -127,9 +131,7 @@ export default function Home() {
     hijriStr = "";
   }
 
-  // Test Audio State
-  const [isTestPlaying, setIsTestPlaying] = useState(false);
-  const TEST_AUDIO_URL = "https://archive.org/download/MurottalMisyariRasyidAlAfasy/001%20Al%20Fatihah.mp3";
+
 
   return (
     <main className="w-screen h-screen relative bg-zinc-100 overflow-hidden font-sans text-slate-900 selection:bg-orange-500/30">
