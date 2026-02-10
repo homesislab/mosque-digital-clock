@@ -58,7 +58,7 @@ const defaultConfig: MosqueConfig = {
     ],
     audio: {
         enabled: true,
-        url: 'https://archive.org/download/MurottalMisyariRasyidAlAfasy/001%20Al%20Fatihah.mp3',
+        url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
         playBeforeMinutes: 10,
     },
     officers: [

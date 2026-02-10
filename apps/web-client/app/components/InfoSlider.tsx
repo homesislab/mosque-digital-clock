@@ -35,9 +35,6 @@ export const InfoSlider = ({ config }: InfoSliderProps) => {
     // Generate Playlist
     const playlist: SlideType[] = [
         ...(config.sliderImages || []).map(url => ({ type: 'IMAGE' as const, url })),
-        ...(config.kajian?.schedule || [])
-            .filter((k: any) => k.imageUrl)
-            .map((k: any) => ({ type: 'IMAGE' as const, url: k.imageUrl })),
     ];
 
     if (activeJumat) {
@@ -47,6 +44,13 @@ export const InfoSlider = ({ config }: InfoSliderProps) => {
     // Add Kajian Slide if enabled and has data
     if (config.kajian?.enabled && config.kajian?.schedule?.length > 0) {
         playlist.push({ type: 'KAJIAN' });
+
+        // Add Kajian Posters immediately after the schedule list
+        (config.kajian.schedule || []).forEach((k: any) => {
+            if (k.imageUrl) {
+                playlist.push({ type: 'IMAGE', url: k.imageUrl });
+            }
+        });
     }
 
     if (config.officers && config.officers.length > 0) {

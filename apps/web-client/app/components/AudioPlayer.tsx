@@ -15,11 +15,16 @@ export const AudioPlayer = ({ url, isPlaying, onStop }: AudioPlayerProps) => {
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
     const [isPaused, setIsPaused] = useState(false);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
     // Sync isPaused with prop isPlaying
     useEffect(() => {
         setIsPaused(!isPlaying);
     }, [isPlaying]);
+
+    useEffect(() => {
+        setLoadError(null);
+    }, [url, isPlaying]);
 
     useEffect(() => {
         if (!audioRef.current || !url) return;
@@ -47,16 +52,36 @@ export const AudioPlayer = ({ url, isPlaying, onStop }: AudioPlayerProps) => {
             if (onStop) onStop();
         };
 
+        const handleError = (e: any) => {
+            const err = audio.error;
+            let msg = "Unknown Audio Error";
+            if (err) {
+                switch (err.code) {
+                    case 1: msg = "Aborted"; break;
+                    case 2: msg = "Network Error"; break;
+                    case 3: msg = "Decode Error"; break;
+                    case 4: msg = "Source Not Supported"; break;
+                }
+                setLoadError(`[${err.code}] ${msg}: ${err.message || 'Check URL/CORS'}`);
+                console.error(`Audio Load Error [${err.code}]: ${msg}`, err.message);
+            } else {
+                setLoadError("Audio Load Error (no error object)");
+                console.error("Audio Load Error (no error object)", e);
+            }
+        };
+
         audio.addEventListener('timeupdate', handleTimeUpdate);
         audio.addEventListener('durationchange', handleDurationChange);
         audio.addEventListener('ended', handleEnded);
+        audio.addEventListener('error', handleError);
 
         return () => {
             audio.removeEventListener('timeupdate', handleTimeUpdate);
             audio.removeEventListener('durationchange', handleDurationChange);
             audio.removeEventListener('ended', handleEnded);
+            audio.removeEventListener('error', handleError);
         };
-    }, [onStop]);
+    }, [onStop, url]); // Re-bind on URL change to catch initial load errors
 
     // Keyboard Shortcuts
     useEffect(() => {
@@ -101,17 +126,23 @@ export const AudioPlayer = ({ url, isPlaying, onStop }: AudioPlayerProps) => {
 
                         <div className="flex-1 space-y-2">
                             <div className="flex justify-between items-end">
-                                <span className="text-white/60 text-xs font-medium uppercase tracking-wider">Audio Pengingat / Murrotal Aktif</span>
-                                <span className="text-emerald-400 font-mono text-sm">{formatTime(currentTime)} / {formatTime(duration)}</span>
+                                <span className={`${loadError ? 'text-red-400 font-bold' : 'text-white/60'} text-xs font-medium uppercase tracking-wider`}>
+                                    {loadError ? `Gagal Memuat Audio: ${loadError}` : 'Audio Pengingat / Murrotal Aktif'}
+                                </span>
+                                {!loadError && <span className="text-emerald-400 font-mono text-sm">{formatTime(currentTime)} / {formatTime(duration)}</span>}
                             </div>
 
                             <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-                                <motion.div
-                                    className="h-full bg-emerald-500"
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${(currentTime / duration) * 100}%` }}
-                                    transition={{ ease: "linear" }}
-                                />
+                                {loadError ? (
+                                    <div className="h-full bg-red-500/50 w-full animate-pulse" />
+                                ) : (
+                                    <motion.div
+                                        className="h-full bg-emerald-500"
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
+                                        transition={{ ease: "linear" }}
+                                    />
+                                )}
                             </div>
                         </div>
 

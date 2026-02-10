@@ -21,6 +21,17 @@ export function calculateAppState(
     let activeAudioUrl = '';
     let shouldPlayAudio = false;
 
+    // --- Simulation Override ---
+    if (config.simulation?.isSimulating) {
+        return {
+            state: config.simulation.state,
+            nextPrayerName: config.simulation.prayerName,
+            secondsRemaining: Math.floor((Date.now() - config.simulation.startTime) / 1000), // Incremental counter
+            activeAudioUrl: '', // Simulation doesn't force audio URL yet, unless specifically handled
+            shouldPlayAudio: false
+        };
+    }
+
     if (!prayerTimes) return { state, nextPrayerName, secondsRemaining, activeAudioUrl, shouldPlayAudio };
 
     const prayers = ['subuh', 'dzuhur', 'ashar', 'maghrib', 'isya'] as const;

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { TimeDisplay } from './components/TimeDisplay';
 import { PrayerTimes } from './components/PrayerTimes';
 import { RunningText } from './components/RunningText';
-import { fetchConfig, DEFAULT_CONFIG, resolveUrl } from './lib/constants';
+import { fetchConfig, DEFAULT_CONFIG, resolveUrl, getApiBaseUrl } from './lib/constants';
 import { MosqueConfig } from '@mosque-digital-clock/shared-types';
 import { getPrayerTimes } from './lib/prayer-times';
 import { calculateAppState, AppState } from './lib/logic';
@@ -15,6 +15,7 @@ import { AudioPlayer } from './components/AudioPlayer';
 import { getPasaran } from './lib/javanese-date';
 import { SetupOverlay } from './components/SetupOverlay';
 import { ImsakOverlay } from './components/ImsakOverlay';
+import { CheckCircle2 } from 'lucide-react';
 
 export default function Home() {
   const [mosqueKey, setMosqueKey] = useState<string | null>(null);
@@ -24,21 +25,6 @@ export default function Home() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isManualStopped, setIsManualStopped] = useState(false);
 
-  // Test Audio State
-  const [isTestPlaying, setIsTestPlaying] = useState(false);
-  const [testAudioUrl, setTestAudioUrl] = useState("https://archive.org/download/MurottalMisyariRasyidAlAfasy/001%20Al%20Fatihah.mp3");
-  const lastTestTimestamp = useRef(0);
-
-  // Listen for Remote Test Audio signal from Admin
-  useEffect(() => {
-    if (config.audioTest && config.audioTest.playedAt > lastTestTimestamp.current) {
-      console.log("Remote test audio trigger received:", config.audioTest);
-      lastTestTimestamp.current = config.audioTest.playedAt;
-      setTestAudioUrl(config.audioTest.url);
-      setIsTestPlaying(true);
-      setIsManualStopped(false);
-    }
-  }, [config.audioTest]);
 
   // Mounted state to prevent hydration mismatch for time-dependent rendering
   const [mounted, setMounted] = useState(false);
@@ -77,7 +63,7 @@ export default function Home() {
   useEffect(() => {
     if (mosqueKey) {
       loadConfig();
-      const configInterval = setInterval(loadConfig, 30000);
+      const configInterval = setInterval(loadConfig, 5000);
       return () => clearInterval(configInterval);
     }
   }, [mosqueKey, loadConfig]);
@@ -146,8 +132,11 @@ export default function Home() {
 
 
   return (
-    <main className="w-screen h-screen relative bg-zinc-100 overflow-hidden font-sans text-slate-900 selection:bg-orange-500/30">
+    <main
+      className="w-screen h-screen relative bg-zinc-100 overflow-hidden font-sans text-slate-900 selection:bg-orange-500/30"
+    >
       <div className="bg-noise fixed inset-0 pointer-events-none z-50 opacity-50 mix-blend-overlay"></div>
+
 
       <IqamahOverlay
         isVisible={appState === 'IQAMAH'}
@@ -159,13 +148,6 @@ export default function Home() {
         secondsRemaining={nextEvent.seconds}
       />
       <SholatOverlay isVisible={appState === 'SHOLAT'} />
-
-      {/* Test Audio Indicator */}
-      {isTestPlaying && (
-        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[60] bg-emerald-500 text-white px-6 py-2 rounded-full shadow-xl font-bold animate-pulse flex items-center gap-2">
-          🔊 Sedang Tes Audio... (Klik Logo untuk Stop)
-        </div>
-      )}
 
       {/* Layer 1: Background Slider */}
       <div className="absolute inset-0 z-0">
@@ -192,11 +174,7 @@ export default function Home() {
 
             {/* 2. Mosque Info (Center) */}
             <div className="col-span-6 lg:col-span-4 flex flex-col justify-center items-center h-full text-center px-1">
-              <button
-                onClick={() => setIsTestPlaying(!isTestPlaying)}
-                className="flex items-center gap-1 lg:gap-3 mb-0 hover:scale-105 active:scale-95 transition-transform cursor-pointer outline-none"
-                title="Klik untuk Test Audio"
-              >
+              <div className="flex items-center gap-1 lg:gap-3 mb-0 transition-transform">
                 {config.mosqueInfo.logoUrl ? (
                   <img src={resolveUrl(config.mosqueInfo.logoUrl)} alt="Logo" className="w-4 h-4 sm:w-8 sm:h-8 lg:w-10 lg:h-10 object-contain drop-shadow-md" />
                 ) : (
@@ -205,7 +183,7 @@ export default function Home() {
                 <h1 className="text-[10px] sm:text-lg lg:text-2xl font-bold uppercase tracking-tight lg:tracking-wide text-slate-800 line-clamp-1">
                   {name}
                 </h1>
-              </button>
+              </div>
               <p className="hidden sm:block text-[8px] lg:text-sm text-slate-600 font-medium tracking-wide line-clamp-1">
                 {address}
               </p>
@@ -255,12 +233,9 @@ export default function Home() {
       </div>
 
       <AudioPlayer
-        url={isTestPlaying ? TEST_AUDIO_URL : resolveUrl(nextEvent.activeAudioUrl)}
-        isPlaying={isTestPlaying || (nextEvent.shouldPlayAudio && !isManualStopped)}
-        onStop={() => {
-          if (isTestPlaying) setIsTestPlaying(false);
-          else setIsManualStopped(true);
-        }}
+        url={resolveUrl(nextEvent.activeAudioUrl)}
+        isPlaying={nextEvent.shouldPlayAudio && !isManualStopped}
+        onStop={() => setIsManualStopped(true)}
       />
     </main>
   );
