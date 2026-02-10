@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS devices (
     device_id VARCHAR(255) PRIMARY KEY,
     mosque_key VARCHAR(255) NOT NULL,
     device_name VARCHAR(255),
+    status VARCHAR(50) DEFAULT 'active',
     last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (mosque_key) REFERENCES mosque_configs (mosque_key) ON DELETE CASCADE
 );

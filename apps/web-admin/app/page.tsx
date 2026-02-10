@@ -9,7 +9,7 @@ import {
   Save, RefreshCw, LogOut, LayoutDashboard, MapPin,
   Clock, Image as ImageIcon, MessageSquare, Users,
   Wallet, Settings, ChevronRight, UploadCloud,
-  Music, Library, Plus, Moon, Menu, X, Play
+  Music, Library, Plus, Moon, Menu, X, Play, XCircle, AlarmCheck
 } from 'lucide-react';
 
 // Dynamic import for MapPicker to avoid SSR issues with Leaflet
@@ -110,14 +110,16 @@ export default function AdminDashboard() {
     if (!config || !mosqueKey) return;
     setSaving(true);
     try {
-      await fetch(`/api/config?key=${mosqueKey}`, {
+      const res = await fetch(`/api/config?key=${mosqueKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config),
       });
+      if (!res.ok) throw new Error(`Server responded with ${res.status}`);
       // Optional: Add toast notification
-    } catch (error) {
-      alert('Gagal menyimpan');
+    } catch (error: any) {
+      console.error('Save error:', error);
+      alert(`Gagal menyimpan: ${error.message || 'Unknown error'}`);
     } finally {
       setTimeout(() => setSaving(false), 500);
     }
@@ -375,324 +377,356 @@ export default function AdminDashboard() {
             {saving ? 'Saving...' : 'Simpan Perubahan'}
           </button>
         </div>
-      </main>
-    </div>
+      </main >
+    </div >
   );
 }
 
 // --- Subcomponents ---
 
-const SidebarItem = ({ icon: Icon, label, active, onClick }: { icon: any, label: string, active: boolean, onClick: () => void }) => (
-  <button
-    onClick={onClick}
-    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 relative overflow-hidden group ${active ? 'text-emerald-700 bg-emerald-50' : 'text-slate-600 hover:bg-slate-50'
-      }`}
-  >
-    <Icon size={20} className={active ? 'text-emerald-600' : 'text-slate-400 group-hover:text-slate-600'} />
-    {label}
-    {active && <motion.div layoutId="active-pill" className="absolute left-0 top-0 w-1 h-full bg-emerald-500 rounded-r" />}
-    <ChevronRight size={14} className={`ml-auto transition-transform ${active ? 'opacity-100 text-emerald-400' : 'opacity-0 -translate-x-2'}`} />
-  </button>
-);
+const tabLabels: Record<Tab, string> = {
+  dashboard: 'Dashboard Overview',
+  identity: 'Identitas & Lokasi Masjid',
+  prayer: 'Konfigurasi Jadwal Sholat',
+  media: 'Media & Fitur Unggulan',
+  gallery: 'Galeri Media',
+  content: 'Konten Informasi',
+  devices: 'Manajemen Perangkat TV',
+};
 
-const SectionCard = ({ title, children, className = '' }: { title: string, children: React.ReactNode, className?: string }) => (
-  <div className={`bg-white rounded-xl shadow-sm border border-slate-100 p-6 mb-6 ${className}`}>
-    <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2 after:content-[''] after:h-px after:flex-1 after:bg-slate-100 after:ml-4">
-      {title}
-    </h3>
-    {children}
-  </div>
-);
+function SidebarItem({ icon: Icon, label, active, onClick }: { icon: any, label: string, active: boolean, onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 relative overflow-hidden group ${active ? 'text-emerald-700 bg-emerald-50' : 'text-slate-600 hover:bg-slate-50'
+        }`}
+    >
+      <Icon size={20} className={active ? 'text-emerald-600' : 'text-slate-400 group-hover:text-slate-600'} />
+      {label}
+      {active && <motion.div layoutId="active-pill" className="absolute left-0 top-0 w-1 h-full bg-emerald-500 rounded-r" />}
+      <ChevronRight size={14} className={`ml-auto transition-transform ${active ? 'opacity-100 text-emerald-400' : 'opacity-0 -translate-x-2'}`} />
+    </button>
+  );
+}
 
-const DashboardOverview = ({ config, setActiveTab }: { config: MosqueConfig, setActiveTab: (t: Tab) => void }) => (
-  <div className="space-y-6">
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <StatCard
-        title="Saldo Kas"
-        val={`Rp ${(config.finance.totalBalance || 0).toLocaleString('id-ID')}`}
-        sub={`Update: ${config.finance.lastUpdated}`}
-        icon={Wallet}
-        color="green"
-        onClick={() => setActiveTab('content')}
-      />
-      <StatCard
-        title="Gambar Slider"
-        val={`${config.sliderImages.length} Foto`}
-        sub="Rotasi per 10 detik"
-        icon={ImageIcon}
-        color="blue"
-        onClick={() => setActiveTab('media')}
-      />
-      <StatCard
-        title="Info Berjalan"
-        val={`${config.runningText.length} Pesan`}
-        sub="Tampil di footer"
-        icon={MessageSquare}
-        color="orange"
-        onClick={() => setActiveTab('content')}
-      />
+function SectionCard({ title, children, className = '' }: { title: string, children: React.ReactNode, className?: string }) {
+  return (
+    <div className={`bg-white rounded-xl shadow-sm border border-slate-100 p-6 mb-6 ${className}`}>
+      <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2 after:content-[''] after:h-px after:flex-1 after:bg-slate-100 after:ml-4">
+        {title}
+      </h3>
+      {children}
     </div>
-    <div className="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-2xl p-8 text-white shadow-xl shadow-emerald-200">
-      <h3 className="text-2xl font-bold mb-2">Selamat Datang, Admin!</h3>
-      <p className="opacity-90 max-w-2xl">
-        Gunakan panel navigasi di sebelah kiri untuk mengatur seluruh konfigurasi Jam Digital Masjid.
-        Semua perubahan akan langsung tersimpan dan tersinkronisasi.
-      </p>
-    </div>
-  </div>
-);
+  );
+}
 
-const StatCard = ({ title, val, sub, icon: Icon, color, onClick }: any) => {
+function DashboardOverview({ config, setActiveTab }: { config: MosqueConfig, setActiveTab: (t: Tab) => void }) {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <StatCard
+          title="Saldo Kas"
+          val={`Rp ${(config.finance.totalBalance || 0).toLocaleString('id-ID')}`}
+          sub={`Update: ${config.finance.lastUpdated}`}
+          icon={Wallet}
+          color="green"
+          onClick={() => setActiveTab('content')}
+        />
+        <StatCard
+          title="Gambar Slider"
+          val={`${config.sliderImages.length} Foto`}
+          sub="Rotasi per 10 detik"
+          icon={ImageIcon}
+          color="blue"
+          onClick={() => setActiveTab('media')}
+        />
+        <StatCard
+          title="Info Berjalan"
+          val={`${config.runningText.length} Pesan`}
+          sub="Tampil di footer"
+          icon={MessageSquare}
+          color="orange"
+          onClick={() => setActiveTab('content')}
+        />
+      </div>
+      <div className="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-2xl p-8 text-white shadow-xl shadow-emerald-200">
+        <h3 className="text-2xl font-bold mb-2">Selamat Datang, Admin!</h3>
+        <p className="opacity-90 max-w-2xl">
+          Gunakan panel navigasi di sebelah kiri untuk mengatur seluruh konfigurasi Jam Digital Masjid.
+          Semua perubahan akan langsung tersimpan dan tersinkronisasi.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ title, val, sub, icon: Icon, color, onClick }: any) {
   const colors: any = {
     green: 'bg-emerald-50 text-emerald-600 border-emerald-100',
     blue: 'bg-blue-50 text-blue-600 border-blue-100',
     orange: 'bg-orange-50 text-orange-600 border-orange-100',
   };
+
   return (
-    <button onClick={onClick} className={`text-left p-6 rounded-xl border transition-all hover:shadow-md ${colors[color]} bg-white`}>
+    <button
+      onClick={onClick}
+      className={`p-6 rounded-2xl border ${colors[color]} hover:shadow-md transition-all text-left group relative overflow-hidden`}
+    >
       <div className="flex justify-between items-start mb-4">
-        <div className={`p-3 rounded-lg ${colors[color].split(' ')[0]}`}>
+        <div className="p-3 bg-white rounded-xl shadow-sm group-hover:scale-110 transition-transform">
           <Icon size={24} />
         </div>
+        <ChevronRight size={16} className="opacity-30 group-hover:opacity-100 transition-opacity" />
       </div>
-      <div className="text-3xl font-bold text-slate-800 mb-1">{val}</div>
-      <div className="text-sm text-slate-500 font-medium">{title}</div>
-      <div className="text-xs text-slate-400 mt-2">{sub}</div>
+      <h4 className="text-xs font-bold uppercase tracking-widest opacity-70 mb-1">{title}</h4>
+      <div className="text-2xl font-black mb-1">{val}</div>
+      <div className="text-[10px] opacity-60 font-medium">{sub}</div>
     </button>
-  )
+  );
 }
 
-const IdentitySection = ({ config, setConfig, updateConfig, onPickLogo, mosqueKey }: any) => (
-  <div className="space-y-6">
-    <SectionCard title="Identitas Masjid">
-      <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-8">
-        <div className="space-y-4">
-          <InputGroup label="Nama Masjid" value={config.mosqueInfo.name} onChange={(v: string) => updateConfig('mosqueInfo', 'name', v)} />
-          <InputGroup label="Alamat Lengkap" value={config.mosqueInfo.address} onChange={(v: string) => updateConfig('mosqueInfo', 'address', v)} type="textarea" />
-        </div>
 
-        {/* Logo Upload */}
-        <div className="bg-slate-50 rounded-xl p-4 border border-dashed border-slate-300 flex flex-col items-center justify-center text-center">
-          <div className="w-32 h-32 bg-white rounded-lg border border-slate-200 shadow-sm mb-4 flex items-center justify-center overflow-hidden p-2">
-            {config.mosqueInfo.logoUrl ? (
-              <img src={resolveUrl(config.mosqueInfo.logoUrl, mosqueKey)} className="w-full h-full object-contain" alt="Logo" />
-            ) : (
-              <span className="text-4xl">🕌</span>
+function IdentitySection({ config, setConfig, updateConfig, onPickLogo, mosqueKey }: any) {
+  return (
+    <div className="space-y-6">
+      <SectionCard title="Identitas Masjid">
+        <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-8">
+          <div className="space-y-4">
+            <InputGroup label="Nama Masjid" value={config.mosqueInfo.name} onChange={(v: string) => updateConfig('mosqueInfo', 'name', v)} />
+            <InputGroup label="Alamat Lengkap" value={config.mosqueInfo.address} onChange={(v: string) => updateConfig('mosqueInfo', 'address', v)} type="textarea" />
+          </div>
+
+          {/* Logo Upload */}
+          <div className="bg-slate-50 rounded-xl p-4 border border-dashed border-slate-300 flex flex-col items-center justify-center text-center">
+            <div className="w-32 h-32 bg-white rounded-lg border border-slate-200 shadow-sm mb-4 flex items-center justify-center overflow-hidden p-2">
+              {config.mosqueInfo.logoUrl ? (
+                <img src={resolveUrl(config.mosqueInfo.logoUrl, mosqueKey)} className="w-full h-full object-contain" alt="Logo" />
+              ) : (
+                <span className="text-4xl">🕌</span>
+              )}
+            </div>
+            <div className="flex flex-col gap-2 w-full">
+              <label className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg border-2 border-dashed border-emerald-200 bg-emerald-50 text-emerald-700 text-sm font-bold cursor-pointer hover:bg-emerald-100 transition shadow-sm group">
+                <UploadCloud size={18} className="group-hover:scale-110 transition-transform" />
+                Upload Logo
+                <input type="file" hidden accept="image/*" onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const formData = new FormData();
+                  formData.append('file', file);
+                  const res = await fetch(`/api/upload?key=${mosqueKey}`, { method: 'POST', body: formData });
+                  const data = await res.json();
+                  if (data.success) {
+                    const url = data.url;
+                    setConfig({
+                      ...config,
+                      mosqueInfo: { ...config.mosqueInfo, logoUrl: url },
+                      gallery: config.gallery?.includes(url) ? config.gallery : [...(config.gallery || []), url]
+                    });
+                  }
+                }} />
+              </label>
+              <button
+                onClick={onPickLogo}
+                className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition shadow-sm"
+              >
+                <Library size={18} />
+                Pilih dari Galeri
+              </button>
+            </div>
+            <p className="text-xs text-slate-400 mt-2">Max 2MB (PNG/Transparent)</p>
+          </div>
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Lokasi & Titik Koordinat">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-8">
+          <div className="space-y-4">
+            <p className="text-sm text-slate-500 mb-4">
+              Tentukan titik koordinat masjid untuk perhitungan waktu sholat yang akurat.
+              Anda bisa mengisi manual atau klik langsung pada peta.
+            </p>
+            <InputGroup
+              label="Latitude (Lintang)"
+              value={config.prayerTimes.coordinates.lat}
+              onChange={(v: string) => {
+                const newC = { ...config.prayerTimes.coordinates, lat: parseFloat(v) };
+                setConfig({ ...config, prayerTimes: { ...config.prayerTimes, coordinates: newC } });
+              }}
+              type="number"
+              step="0.000001"
+            />
+            <InputGroup
+              label="Longitude (Bujur)"
+              value={config.prayerTimes.coordinates.lng}
+              onChange={(v: string) => {
+                const newC = { ...config.prayerTimes.coordinates, lng: parseFloat(v) };
+                setConfig({ ...config, prayerTimes: { ...config.prayerTimes, coordinates: newC } });
+              }}
+              type="number"
+              step="0.000001"
+            />
+            <div className="mt-4 p-4 bg-amber-50 text-amber-700 text-xs rounded-lg flex items-start gap-2 border border-amber-100 italic">
+              <MapPin size={16} className="mt-0.5 flex-shrink-0" />
+              <span>Tip: Klik pada peta untuk mengambil titik koordinat secara otomatis.</span>
+            </div>
+          </div>
+
+          <MapPicker
+            lat={config.prayerTimes.coordinates.lat}
+            lng={config.prayerTimes.coordinates.lng}
+            onChange={(lat: number, lng: number) => {
+              const newC = { lat, lng };
+              setConfig({ ...config, prayerTimes: { ...config.prayerTimes, coordinates: newC } });
+            }}
+          />
+        </div>
+      </SectionCard>
+    </div>
+  );
+}
+
+
+function PrayerSection({ config, setConfig, onPickIqamahAudio }: any) {
+  return (
+    <div className="space-y-6">
+      <SectionCard title="Metode & Hisab">
+        <div className="p-4 bg-emerald-50 text-emerald-700 text-sm rounded-lg flex items-center gap-2 mb-6 border border-emerald-100">
+          <MapPin size={16} /> Lokasi masjid telah diatur di menu <b>Identitas & Lokasi</b>.
+        </div>
+      </SectionCard>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <SectionCard title="Koreksi Waktu (Menit)">
+          <div className="grid grid-cols-2 gap-4">
+            {Object.entries(config.prayerTimes.adjustments).map(([k, v]) => (
+              <InputGroup key={k} label={`Koreksi ${k}`} value={v} type="number" onChange={(val: string) => {
+                const n = { ...config.prayerTimes.adjustments, [k]: parseInt(val) };
+                setConfig({ ...config, prayerTimes: { ...config.prayerTimes, adjustments: n } });
+              }} />
+            ))}
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Countdown Iqamah">
+          <div className="flex items-center gap-3 mb-6 bg-slate-50 p-3 rounded-lg border border-slate-100">
+            <input type="checkbox" checked={config.iqamah.enabled} onChange={(e) =>
+              setConfig({ ...config, iqamah: { ...config.iqamah, enabled: e.target.checked } })
+            } className="w-5 h-5 accent-emerald-600" />
+            <span className="font-medium text-slate-700">Aktifkan Hitung Mundur</span>
+          </div>
+          {config.iqamah.enabled && (
+            <div className="grid grid-cols-2 gap-4 animate-in fade-in zoom-in-95 duration-200">
+              {Object.entries(config.iqamah.waitTime).map(([k, v]) => (
+                <div key={k} className="flex flex-col">
+                  <span className="text-xs text-slate-500 uppercase tracking-wider mb-1 font-bold">{k}</span>
+                  <div className="flex items-center gap-2">
+                    <input type="number" className="w-full p-2 border rounded-lg text-center font-bold text-slate-700" value={v as number}
+                      onChange={(e) => {
+                        const n = { ...config.iqamah.waitTime, [k]: parseInt(e.target.value) };
+                        setConfig({ ...config, iqamah: { ...config.iqamah, waitTime: n } });
+                      }} />
+                    <span className="text-xs text-slate-400">mnt</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-8 pt-6 border-t border-slate-100">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={config.iqamah.audioEnabled}
+                  onChange={(e) => setConfig({ ...config, iqamah: { ...config.iqamah, audioEnabled: e.target.checked } })}
+                  className="w-5 h-5 accent-emerald-600"
+                />
+                <div>
+                  <span className="font-bold text-slate-700 block text-sm">Audio Pengingat Sholat</span>
+                  <span className="text-[10px] text-slate-400">Putar audio pengingat saat detik-detik akhir Iqamah (sholat akan dimulai)</span>
+                </div>
+              </div>
+            </div>
+
+            {config.iqamah.audioEnabled && (
+              <div className="flex items-center gap-3 animate-in slide-in-from-top-2 duration-200">
+                <div className="flex-1 p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between truncate">
+                  <div className="flex items-center gap-2 truncate">
+                    <Music size={16} className="text-emerald-500" />
+                    <span className="text-xs font-mono text-slate-600 truncate">
+                      {config.iqamah.audioUrl ? config.iqamah.audioUrl.split('/').pop() : 'Belum ada audio terpilih'}
+                    </span>
+                  </div>
+                  <button onClick={onPickIqamahAudio} className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-sm ml-2 shrink-0">
+                    PILIH
+                  </button>
+                </div>
+              </div>
             )}
           </div>
-          <div className="flex flex-col gap-2 w-full">
-            <label className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg border-2 border-dashed border-emerald-200 bg-emerald-50 text-emerald-700 text-sm font-bold cursor-pointer hover:bg-emerald-100 transition shadow-sm group">
-              <UploadCloud size={18} className="group-hover:scale-110 transition-transform" />
-              Upload Logo
+        </SectionCard>
+
+      </div>
+
+    </div>
+  );
+}
+
+
+function SlideshowSection({ config, setConfig, onPickSlide, mosqueKey }: any) {
+  return (
+    <div className="space-y-6">
+      <SectionCard title="Pengaturan Slide Show">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-6">
+          {config.sliderImages.map((url: string, idx: number) => (
+            <div key={idx} className="group relative aspect-video bg-slate-100 rounded-lg overflow-hidden border border-slate-200 shadow-sm">
+              <img src={resolveUrl(url, mosqueKey)} alt={`Slide ${idx + 1}`} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+              <button
+                onClick={() => {
+                  const n = config.sliderImages.filter((_: any, i: number) => i !== idx);
+                  setConfig({ ...config, sliderImages: n });
+                }}
+                className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+              >
+                <LogOut size={12} className="rotate-180" />
+              </button>
+              <div className="absolute bottom-0 left-0 w-full bg-black/50 text-white text-[10px] p-1 truncate px-2 backdrop-blur-sm">
+                Urutan #{idx + 1}
+              </div>
+            </div>
+          ))}
+          <div className="flex gap-4">
+            <label className="flex-1 aspect-video border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center text-slate-400 hover:text-emerald-600 hover:border-emerald-400 hover:bg-emerald-50 transition-all cursor-pointer group gap-2">
+              <UploadCloud size={32} className="group-hover:scale-110 transition-transform" />
+              <span className="text-xs font-bold uppercase tracking-widest">Upload Baru</span>
               <input type="file" hidden accept="image/*" onChange={async (e) => {
                 const file = e.target.files?.[0];
-                if (!file) return;
-                const formData = new FormData();
-                formData.append('file', file);
-                const res = await fetch(`/api/upload?key=${mosqueKey}`, { method: 'POST', body: formData });
-                const data = await res.json();
-                if (data.success) {
-                  const url = data.url;
-                  setConfig({
-                    ...config,
-                    mosqueInfo: { ...config.mosqueInfo, logoUrl: url },
-                    gallery: config.gallery?.includes(url) ? config.gallery : [...(config.gallery || []), url]
-                  });
+                if (file) {
+                  const formData = new FormData();
+                  formData.append('file', file);
+                  const res = await fetch(`/api/upload?key=${mosqueKey}`, { method: 'POST', body: formData });
+                  const data = await res.json();
+                  if (data.success) setConfig({ ...config, sliderImages: [...config.sliderImages, data.url], gallery: [...(config.gallery || []), data.url] });
                 }
               }} />
             </label>
             <button
-              onClick={onPickLogo}
-              className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition shadow-sm"
+              onClick={onPickSlide}
+              className="flex-1 aspect-video border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center text-slate-400 hover:text-emerald-600 hover:border-emerald-400 hover:bg-emerald-50 transition-all cursor-pointer group gap-2"
             >
-              <Library size={18} />
-              Pilih dari Galeri
+              <Library size={32} className="group-hover:scale-110 transition-transform" />
+              <span className="text-xs font-bold uppercase tracking-widest">Pilih dari Galeri</span>
             </button>
           </div>
-          <p className="text-xs text-slate-400 mt-2">Max 2MB (PNG/Transparent)</p>
-        </div>
-      </div>
-    </SectionCard>
-
-    <SectionCard title="Lokasi & Titik Koordinat">
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-8">
-        <div className="space-y-4">
-          <p className="text-sm text-slate-500 mb-4">
-            Tentukan titik koordinat masjid untuk perhitungan waktu sholat yang akurat.
-            Anda bisa mengisi manual atau klik langsung pada peta.
-          </p>
-          <InputGroup
-            label="Latitude (Lintang)"
-            value={config.prayerTimes.coordinates.lat}
-            onChange={(v: string) => {
-              const newC = { ...config.prayerTimes.coordinates, lat: parseFloat(v) };
-              setConfig({ ...config, prayerTimes: { ...config.prayerTimes, coordinates: newC } });
-            }}
-            type="number"
-            step="0.000001"
-          />
-          <InputGroup
-            label="Longitude (Bujur)"
-            value={config.prayerTimes.coordinates.lng}
-            onChange={(v: string) => {
-              const newC = { ...config.prayerTimes.coordinates, lng: parseFloat(v) };
-              setConfig({ ...config, prayerTimes: { ...config.prayerTimes, coordinates: newC } });
-            }}
-            type="number"
-            step="0.000001"
-          />
-          <div className="mt-4 p-4 bg-amber-50 text-amber-700 text-xs rounded-lg flex items-start gap-2 border border-amber-100 italic">
-            <MapPin size={16} className="mt-0.5 flex-shrink-0" />
-            <span>Tip: Klik pada peta untuk mengambil titik koordinat secara otomatis.</span>
-          </div>
-        </div>
-
-        <MapPicker
-          lat={config.prayerTimes.coordinates.lat}
-          lng={config.prayerTimes.coordinates.lng}
-          onChange={(lat: number, lng: number) => {
-            const newC = { lat, lng };
-            setConfig({ ...config, prayerTimes: { ...config.prayerTimes, coordinates: newC } });
-          }}
-        />
-      </div>
-    </SectionCard>
-  </div>
-);
-
-const PrayerSection = ({ config, setConfig, onPickIqamahAudio }: any) => (
-  <div className="space-y-6">
-    <SectionCard title="Metode & Hisab">
-      <div className="p-4 bg-emerald-50 text-emerald-700 text-sm rounded-lg flex items-center gap-2 mb-6 border border-emerald-100">
-        <MapPin size={16} /> Lokasi masjid telah diatur di menu <b>Identitas & Lokasi</b>.
-      </div>
-    </SectionCard>
-
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <SectionCard title="Koreksi Waktu (Menit)">
-        <div className="grid grid-cols-2 gap-4">
-          {Object.entries(config.prayerTimes.adjustments).map(([k, v]) => (
-            <InputGroup key={k} label={`Koreksi ${k}`} value={v} type="number" onChange={(val: string) => {
-              const n = { ...config.prayerTimes.adjustments, [k]: parseInt(val) };
-              setConfig({ ...config, prayerTimes: { ...config.prayerTimes, adjustments: n } });
-            }} />
-          ))}
         </div>
       </SectionCard>
-
-      <SectionCard title="Countdown Iqamah">
-        <div className="flex items-center gap-3 mb-6 bg-slate-50 p-3 rounded-lg border border-slate-100">
-          <input type="checkbox" checked={config.iqamah.enabled} onChange={(e) =>
-            setConfig({ ...config, iqamah: { ...config.iqamah, enabled: e.target.checked } })
-          } className="w-5 h-5 accent-emerald-600" />
-          <span className="font-medium text-slate-700">Aktifkan Hitung Mundur</span>
-        </div>
-        {config.iqamah.enabled && (
-          <div className="grid grid-cols-2 gap-4 animate-in fade-in zoom-in-95 duration-200">
-            {Object.entries(config.iqamah.waitTime).map(([k, v]) => (
-              <div key={k} className="flex flex-col">
-                <span className="text-xs text-slate-500 uppercase tracking-wider mb-1 font-bold">{k}</span>
-                <div className="flex items-center gap-2">
-                  <input type="number" className="w-full p-2 border rounded-lg text-center font-bold text-slate-700" value={v as number}
-                    onChange={(e) => {
-                      const n = { ...config.iqamah.waitTime, [k]: parseInt(e.target.value) };
-                      setConfig({ ...config, iqamah: { ...config.iqamah, waitTime: n } });
-                    }} />
-                  <span className="text-xs text-slate-400">mnt</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="mt-8 pt-6 border-t border-slate-100">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                checked={config.iqamah.audioEnabled}
-                onChange={(e) => setConfig({ ...config, iqamah: { ...config.iqamah, audioEnabled: e.target.checked } })}
-                className="w-5 h-5 accent-emerald-600"
-              />
-              <div>
-                <span className="font-bold text-slate-700 block text-sm">Audio Pengingat Sholat</span>
-                <span className="text-[10px] text-slate-400">Putar audio pengingat saat detik-detik akhir Iqamah (sholat akan dimulai)</span>
-              </div>
-            </div>
-          </div>
-
-          {config.iqamah.audioEnabled && (
-            <div className="flex items-center gap-3 animate-in slide-in-from-top-2 duration-200">
-              <div className="flex-1 p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between truncate">
-                <div className="flex items-center gap-2 truncate">
-                  <Music size={16} className="text-emerald-500" />
-                  <span className="text-xs font-mono text-slate-600 truncate">
-                    {config.iqamah.audioUrl ? config.iqamah.audioUrl.split('/').pop() : 'Belum ada audio terpilih'}
-                  </span>
-                </div>
-                <button onClick={onPickIqamahAudio} className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-sm ml-2 shrink-0">
-                  PILIH
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </SectionCard>
-    </div>
-  </div>
-);
-
-const SlideshowSection = ({ config, setConfig, onPickSlide, mosqueKey }: any) => (
-  <div className="space-y-6">
-    <SectionCard title="Pengaturan Slide Show">
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-6">
-        {config.sliderImages.map((url: string, idx: number) => (
-          <div key={idx} className="group relative aspect-video bg-slate-100 rounded-lg overflow-hidden border border-slate-200 shadow-sm">
-            <img src={resolveUrl(url, mosqueKey)} alt={`Slide ${idx + 1}`} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
-            <button
-              onClick={() => {
-                const n = config.sliderImages.filter((_: any, i: number) => i !== idx);
-                setConfig({ ...config, sliderImages: n });
-              }}
-              className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
-            >
-              <LogOut size={12} className="rotate-180" />
-            </button>
-            <div className="absolute bottom-0 left-0 w-full bg-black/50 text-white text-[10px] p-1 truncate px-2 backdrop-blur-sm">
-              Urutan #{idx + 1}
-            </div>
-          </div>
-        ))}
-        <div className="flex gap-4">
-          <label className="flex-1 aspect-video border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center text-slate-400 hover:text-emerald-600 hover:border-emerald-400 hover:bg-emerald-50 transition-all cursor-pointer group gap-2">
-            <UploadCloud size={32} className="group-hover:scale-110 transition-transform" />
-            <span className="text-xs font-bold uppercase tracking-widest">Upload Baru</span>
-            <input type="file" hidden accept="image/*" onChange={async (e) => {
-              const file = e.target.files?.[0];
-              if (file) {
-                const formData = new FormData();
-                formData.append('file', file);
-                const res = await fetch(`/api/upload?key=${mosqueKey}`, { method: 'POST', body: formData });
-                const data = await res.json();
-                if (data.success) setConfig({ ...config, sliderImages: [...config.sliderImages, data.url], gallery: [...(config.gallery || []), data.url] });
-              }
-            }} />
-          </label>
-          <button
-            onClick={onPickSlide}
-            className="flex-1 aspect-video border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center text-slate-400 hover:text-emerald-600 hover:border-emerald-400 hover:bg-emerald-50 transition-all cursor-pointer group gap-2"
-          >
-            <Library size={32} className="group-hover:scale-110 transition-transform" />
-            <span className="text-xs font-bold uppercase tracking-widest">Pilih dari Galeri</span>
-          </button>
-        </div>
-      </div>
       <p className="text-sm text-slate-400 italic">Tip: Gunakan menu Galeri untuk mengelola file dan menambahkannya ke Slide.</p>
-    </SectionCard>
-  </div>
-);
+    </div>
+  );
+}
 
-const AudioSection = ({ config, setConfig, onPickAudio, mosqueKey }: any) => {
+function AudioSection({ config, setConfig, onPickAudio, mosqueKey }: any) {
   const [uploading, setUploading] = useState<string | null>(null);
 
   const prayers = ['subuh', 'dzuhur', 'ashar', 'maghrib', 'isya', 'jumat'] as const;
@@ -801,14 +835,6 @@ const AudioSection = ({ config, setConfig, onPickAudio, mosqueKey }: any) => {
                     Your browser does not support the audio element.
                   </audio>
                 )}
-                {config.audio.url && (
-                  <button
-                    onClick={() => setConfig({ ...config, audioTest: { url: config.audio.url, playedAt: Date.now() } })}
-                    className="flex items-center gap-2 px-4 py-2 bg-emerald-100 text-emerald-700 rounded-lg text-sm font-bold hover:bg-emerald-200 transition-colors w-full justify-center"
-                  >
-                    <Play size={16} /> Test Putar di TV / Client
-                  </button>
-                )}
                 <InputGroup label="Default Durasi Putar (Menit)" value={config.audio.playBeforeMinutes} type="number" onChange={(v: string) => {
                   setConfig({ ...config, audio: { ...config.audio, playBeforeMinutes: parseInt(v) } });
                 }} />
@@ -907,10 +933,12 @@ const AudioSection = ({ config, setConfig, onPickAudio, mosqueKey }: any) => {
       </SectionCard>
     </div>
   );
-};
+}
 
-const MediaConfigSection = ({ config, setConfig, onPickSlide, onPickAudio, mosqueKey }: any) => {
-  const [subTab, setSubTab] = useState<'slideshow' | 'audio' | 'ramadhan'>('slideshow');
+function MediaConfigSection({ config, setConfig, onPickSlide, onPickAudio, mosqueKey }: any) {
+  const [subTab, setSubTab] = useState<'slideshow' | 'audio' | 'ramadhan' | 'simulation'>('slideshow');
+  const [simPrayer, setSimPrayer] = useState('Subuh');
+  const [simMode, setSimMode] = useState<'ADZAN' | 'IQAMAH' | 'SHOLAT' | 'NORMAL'>('ADZAN');
 
   return (
     <div className="space-y-6">
@@ -919,6 +947,7 @@ const MediaConfigSection = ({ config, setConfig, onPickSlide, onPickAudio, mosqu
           { id: 'slideshow', label: 'Slide Show', icon: <ImageIcon size={16} /> },
           { id: 'audio', label: 'Audio MP3', icon: <Music size={16} /> },
           { id: 'ramadhan', label: 'Fitur Ramadhan', icon: <Moon size={16} /> },
+          { id: 'simulation', label: 'Simulasi Waktu', icon: <AlarmCheck size={16} /> },
         ].map((t) => (
           <button
             key={t.id}
@@ -1059,12 +1088,113 @@ const MediaConfigSection = ({ config, setConfig, onPickSlide, onPickAudio, mosqu
               </SectionCard>
             </div>
           )}
+          {subTab === 'simulation' && (
+            <SectionCard title="Simulasi Waktu Sholat">
+              <div className="space-y-6">
+                <div className="p-4 bg-emerald-50 rounded-lg text-emerald-800 text-sm border border-emerald-100 flex items-center gap-3">
+                  <AlarmCheck size={20} className="shrink-0" />
+                  <div>
+                    <h3 className="font-bold">Simulasi Kondisi</h3>
+                    <p>Paksa client untuk masuk ke kondisi waktu sholat tertentu (Adzan/Iqamah/Sholat). Berguna untuk testing audio dan tampilan tanpa menunggu waktu sholat asli.</p>
+                  </div>
+                </div>
+
+                {config.simulation?.isSimulating && (
+                  <div className="p-4 bg-orange-100 rounded-lg text-orange-800 text-sm border border-orange-200 flex items-center justify-between animate-pulse">
+                    <div className="font-bold flex items-center gap-2">
+                      <span>⚠️ SEDANG SIMULASI: {config.simulation.prayerName} ({config.simulation.state})</span>
+                    </div>
+                    <button
+                      onClick={() => setConfig({ ...config, simulation: null as any })}
+                      className="bg-white text-orange-700 px-3 py-1 rounded shadow text-xs font-bold hover:bg-orange-50"
+                    >
+                      HENTIKAN
+                    </button>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Select Prayer */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-slate-700 uppercase tracking-wider">1. Pilih Waktu Sholat</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {['Subuh', 'Dzuhur', 'Ashar', 'Maghrib', 'Isya', 'Jumat'].map(p => (
+                        <button
+                          key={p}
+                          onClick={() => setSimPrayer(p)}
+                          className={`px-3 py-2 rounded-lg text-sm font-bold border transition-all ${simPrayer === p
+                            ? 'bg-slate-800 text-white border-slate-800 shadow-md'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                            }`}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Select Phase */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-slate-700 uppercase tracking-wider">2. Pilih Kondisi</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { id: 'ADZAN', label: 'Adzan / Masuk Waktu' },
+                        { id: 'IQAMAH', label: 'Iqamah (Countdown)' },
+                        { id: 'SHOLAT', label: 'Sholat (Blank/Mode)' },
+                        { id: 'NORMAL', label: 'Normal (Reset)' },
+                      ].map(m => (
+                        <button
+                          key={m.id}
+                          onClick={() => setSimMode(m.id as any)}
+                          className={`px-3 py-2 rounded-lg text-sm font-bold border transition-all ${simMode === m.id
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                            }`}
+                        >
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-slate-100">
+                  <button
+                    onClick={() => {
+                      if (simMode === 'NORMAL') {
+                        setConfig({ ...config, simulation: null as any });
+                      } else {
+                        setConfig({
+                          ...config,
+                          simulation: {
+                            isSimulating: true,
+                            prayerName: simPrayer,
+                            state: simMode,
+                            startTime: Date.now()
+                          }
+                        });
+                      }
+                    }}
+                    className={`w-full font-bold py-3 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 ${simMode === 'NORMAL'
+                      ? 'bg-slate-500 hover:bg-slate-600 text-white shadow-slate-200'
+                      : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200'
+                      }`}
+                  >
+                    {simMode === 'NORMAL' ? <XCircle size={20} /> : <Play size={20} />}
+                    {simMode === 'NORMAL' ? 'HENTIKAN SIMULASI' : `MULAI SIMULASI ${simPrayer.toUpperCase()} (${simMode})`}
+                  </button>
+                </div>
+
+              </div>
+            </SectionCard>
+          )}
         </motion.div>
       </AnimatePresence>
     </div>
   );
-};
-const MediaPickerModal = ({
+}
+
+function MediaPickerModal({
   isOpen,
   onClose,
   onSelect,
@@ -1078,7 +1208,7 @@ const MediaPickerModal = ({
   gallery: string[];
   mosqueKey: string;
   type?: 'image' | 'audio' | 'any'
-}) => {
+}) {
   if (!isOpen) return null;
 
   const filteredGallery = gallery.filter(url => {
@@ -1143,9 +1273,10 @@ const MediaPickerModal = ({
       </div>
     </div>
   );
-};
+}
 
-const GallerySection = ({ config, setConfig, updateConfig, mosqueKey }: any) => {
+
+function GallerySection({ config, setConfig, updateConfig, mosqueKey }: any) {
   const gallery = config.gallery || [];
   const [uploading, setUploading] = useState(false);
 
@@ -1252,9 +1383,10 @@ const GallerySection = ({ config, setConfig, updateConfig, mosqueKey }: any) => 
       </SectionCard>
     </div>
   );
-};
+}
 
-const ContentSection = ({ config, setConfig, onPickAudio, mosqueKey }: any) => {
+
+function ContentSection({ config, setConfig, onPickAudio, mosqueKey }: any) {
   const [subTab, setSubTab] = useState<'info' | 'finance' | 'officers'>('info');
 
   const updateKajian = (idx: number, field: string, val: any) => {
@@ -1444,7 +1576,7 @@ const ContentSection = ({ config, setConfig, onPickAudio, mosqueKey }: any) => {
 
                         <button
                           onClick={() => {
-                            const n = config.kajian.schedule.filter((_: any, i: number) => i !== idx);
+                            const n = (config.kajian?.schedule || []).filter((_: any, i: number) => i !== idx);
                             setConfig({ ...config, kajian: { ...config.kajian, schedule: n } });
                           }}
                           className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
@@ -1713,9 +1845,10 @@ const ContentSection = ({ config, setConfig, onPickAudio, mosqueKey }: any) => {
       </AnimatePresence>
     </div>
   );
-};
+}
 
-const DevicesSection = ({ mosqueKey }: { mosqueKey: string }) => {
+
+function DevicesSection({ mosqueKey }: { mosqueKey: string }) {
   const [devices, setDevices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -1728,8 +1861,16 @@ const DevicesSection = ({ mosqueKey }: { mosqueKey: string }) => {
     try {
       const res = await fetch(`/api/devices?key=${mosqueKey}`);
       const data = await res.json();
-      setDevices(data);
-    } catch (e) { console.error(e); }
+      if (Array.isArray(data)) {
+        setDevices(data);
+      } else {
+        console.error("Failed to load devices:", data);
+        setDevices([]);
+      }
+    } catch (e) {
+      console.error(e);
+      setDevices([]);
+    }
     setLoading(false);
   };
 
@@ -1781,47 +1922,39 @@ const DevicesSection = ({ mosqueKey }: { mosqueKey: string }) => {
       </div>
     </SectionCard>
   );
-};
+}
 
 
-// --- Helpers ---
 
-const resolveUrl = (url: string | undefined, mosqueKey: string) => {
+function resolveUrl(url: string | undefined, mosqueKey: string) {
   if (!url) return '';
   if (url.startsWith('http')) return url;
   if (url.startsWith('/uploads/') && !url.startsWith(`/uploads/${mosqueKey}/`)) {
     return url.replace('/uploads/', `/uploads/${mosqueKey}/`);
   }
   return url;
-};
+}
 
-const InputGroup = ({ label, value, onChange, type = 'text', step }: any) => (
-  <div className="w-full">
-    <label className="block text-sm font-semibold text-slate-600 mb-1.5">{label}</label>
-    {type === 'textarea' ? (
-      <textarea
-        className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-slate-800 text-sm shadow-sm min-h-[100px]"
-        value={value ?? ""}
-        onChange={(e) => onChange(e.target.value)}
-      />
-    ) : (
-      <input
-        type={type}
-        step={step}
-        className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-slate-800 text-sm shadow-sm"
-        value={value ?? ""}
-        onChange={(e) => onChange(e.target.value)}
-      />
-    )}
-  </div>
-);
+function InputGroup({ label, value, onChange, type = 'text', step }: any) {
+  return (
+    <div className="w-full">
+      <label className="block text-sm font-semibold text-slate-600 mb-1.5">{label}</label>
+      {type === 'textarea' ? (
+        <textarea
+          className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-slate-800 text-sm shadow-sm min-h-[100px]"
+          value={value ?? ""}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      ) : (
+        <input
+          type={type}
+          step={step}
+          className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-slate-800 text-sm shadow-sm"
+          value={value ?? ""}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      )}
+    </div>
+  );
+}
 
-const tabLabels: Record<Tab, string> = {
-  dashboard: 'Dashboard Overview',
-  identity: 'Identitas & Lokasi Masjid',
-  prayer: 'Konfigurasi Jadwal Sholat',
-  media: 'Media & Fitur Unggulan',
-  gallery: 'Galeri Media',
-  content: 'Konten Informasi',
-  devices: 'Manajemen Perangkat TV',
-};

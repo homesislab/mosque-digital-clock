@@ -47,7 +47,7 @@ export const DEFAULT_CONFIG: MosqueConfig = {
     audio: {
         enabled: true,
         // Example URL: Murottal 30 Juz
-        url: 'https://archive.org/download/MurottalMisyariRasyidAlAfasy/001%20Al%20Fatihah.mp3',
+        url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
         playBeforeMinutes: 10,
     },
     officers: [
@@ -71,14 +71,15 @@ export const DEFAULT_CONFIG: MosqueConfig = {
 export function getApiBaseUrl(): string {
     if (typeof window !== 'undefined') {
         let storedUrl = localStorage.getItem('serverUrl');
-        // Migration: If user has 'localhost' stored, switch to 127.0.0.1 for stability
         if (storedUrl && storedUrl.includes('localhost')) {
             storedUrl = storedUrl.replace('localhost', '127.0.0.1');
             localStorage.setItem('serverUrl', storedUrl);
         }
         if (storedUrl) return storedUrl;
     }
-    return process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001';
+    const envUrl = process.env.NEXT_PUBLIC_API_URL;
+    const defaultUrl = 'http://127.0.0.1:3001';
+    return envUrl || defaultUrl;
 }
 
 export async function fetchConfig(): Promise<MosqueConfig> {
@@ -166,12 +167,9 @@ export function resolveUrl(url: string | undefined): string {
 
     let resolvedPath = url;
 
-    // If it's an upload path, ensure it includes the mosque key subdirectory
-    // Legacy: /uploads/filename.jpg
-    // New: /uploads/key/filename.jpg
     if (url.startsWith('/uploads/') && !url.startsWith(`/uploads/${key}/`)) {
         resolvedPath = url.replace('/uploads/', `/uploads/${key}/`);
     }
 
-    return `${origin}${resolvedPath}${resolvedPath.includes('?') ? '&' : '?'}key=${key}`;
+    return `${origin}${resolvedPath}`;
 }

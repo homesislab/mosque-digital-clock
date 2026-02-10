@@ -92,4 +92,10 @@ export interface MosqueConfig {
         url: string;
         playedAt: number;
     };
+    simulation?: {
+        isSimulating: boolean;
+        prayerName: string; // 'Subuh', 'Dzuhur', etc.
+        state: 'ADZAN' | 'IQAMAH' | 'SHOLAT' | 'IMSAK' | 'NORMAL';
+        startTime: number; // Timestamp of simulation start
+    };
 }
