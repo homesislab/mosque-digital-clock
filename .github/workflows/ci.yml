@@ -2,7 +2,7 @@ name: Mosque Digital Clock CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, staging, development ]
   pull_request:
     branches: [ main ]
 
@@ -13,10 +13,29 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Check for changes
+      id: filter
+      uses: dorny/paths-filter@v3
+      with:
+        filters: |
+          admin:
+            - 'apps/web-admin/**'
+            - 'packages/**'
+            - 'package.json'
+            - 'package-lock.json'
+            - 'Dockerfile'
+          client:
+            - 'apps/web-client/**'
+            - 'packages/**'
+            - 'package.json'
+            - 'package-lock.json'
+            - 'Dockerfile'
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '20'
+
     - name: Nuclear Reset and Install
       run: |
         rm -rf node_modules package-lock.json
@@ -26,19 +45,45 @@ jobs:
       run: npm run build -w packages/shared-types
 
     - name: Build Web Client
+      if: steps.filter.outputs.client == 'true'
       run: npm run build -w apps/web-client
 
     - name: Build Web Admin
+      if: steps.filter.outputs.admin == 'true'
       run: npm run build -w apps/web-admin
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Build and Push Docker Image
+    - name: Build and Push Admin Docker Image
+      if: steps.filter.outputs.admin == 'true'
       uses: docker/build-push-action@v5
       with:
         context: .
-        push: false # Set to true once you have Docker Hub credentials configured
-        tags: mosque-digital-clock:latest
+        target: admin
+        push: false
+        load: true
+        tags: mosque-digital-clock-admin:latest
         cache-from: type=gha
         cache-to: type=gha,mode=max
+
+    - name: Build and Push Client Docker Image
+      if: steps.filter.outputs.client == 'true'
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        target: client
+        push: false
+        load: true
+        tags: mosque-digital-clock-client:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Deploy Modified Services
+      run: |
+        if [ "${{ steps.filter.outputs.admin }}" == "true" ]; then
+          docker compose up -d web-admin
+        fi
+        if [ "${{ steps.filter.outputs.client }}" == "true" ]; then
+          docker compose up -d web-client
+        fi

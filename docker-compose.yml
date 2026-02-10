@@ -1,0 +1,21 @@
+services:
+  web-admin:
+    image: mosque-digital-clock-admin:latest
+    ports:
+      - "3005:3001"
+    restart: always
+    environment:
+      - DATABASE_URL=mysql://mosque_user:Moalnyaho135@host.docker.internal:3306/mosque_digitaldb
+      - ADMIN_PASSWORD=admin123
+    volumes:
+      - /home/gie/workspace/mosque-digital-clock/apps/web-admin/public/uploads:/app/apps/web-admin/public/uploads
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  web-client:
+    image: mosque-digital-clock-client:latest
+    ports:
+      - "3004:3000"
+    restart: always
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:3001
