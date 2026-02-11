@@ -98,4 +98,26 @@ export interface MosqueConfig {
         state: 'ADZAN' | 'IQAMAH' | 'SHOLAT' | 'IMSAK' | 'NORMAL';
         startTime: number; // Timestamp of simulation start
     };
+    advancedDisplay?: {
+        showLogo: boolean;
+        showDate: boolean;
+        showClock: boolean;
+        showRunningText: boolean;
+        showPrayerTimes: boolean;
+        theme: 'light' | 'dark' | 'glass';
+        fontScale: 'small' | 'normal' | 'large';
+        customCss?: string;
+        headerOpacity?: number; // 0.1 to 1.0
+        prayerTimesOpacity?: number; // 0.1 to 1.0
+
+        // Custom Colors (Hex codes preferred)
+        headerTextColor?: string;
+        dateTextColor?: string;
+        clockTextColor?: string;
+        runningTextColor?: string;
+        runningTextBgColor?: string;
+        prayerTimesTextColor?: string;
+        prayerTimesBgColor?: string;
+        prayerTimesActiveColor?: string;
+    };
 }

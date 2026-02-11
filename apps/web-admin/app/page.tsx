@@ -9,7 +9,7 @@ import {
   Save, RefreshCw, LogOut, LayoutDashboard, MapPin,
   Clock, Image as ImageIcon, MessageSquare, Users,
   Wallet, Settings, ChevronRight, UploadCloud,
-  Music, Library, Plus, Moon, Menu, X, Play, XCircle, AlarmCheck
+  Music, Library, Plus, Moon, Menu, X, Play, XCircle, AlarmCheck, Sliders
 } from 'lucide-react';
 
 // Dynamic import for MapPicker to avoid SSR issues with Leaflet
@@ -18,7 +18,9 @@ const MapPicker = dynamic(() => import('./components/MapPicker'), {
   loading: () => <div className="h-[400px] w-full bg-slate-100 flex items-center justify-center rounded-xl font-medium text-slate-400">Memuat Peta...</div>
 });
 
-type Tab = 'dashboard' | 'identity' | 'prayer' | 'media' | 'gallery' | 'content' | 'devices';
+import AdvancedConfigSection from './components/AdvancedConfigSection';
+
+type Tab = 'dashboard' | 'identity' | 'prayer' | 'media' | 'gallery' | 'content' | 'devices' | 'advance';
 
 export default function AdminDashboard() {
   const [mosqueKey, setMosqueKey] = useState<string>('');
@@ -189,6 +191,7 @@ export default function AdminDashboard() {
           <SidebarItem icon={Library} label="Galeri Media" active={activeTab === 'gallery'} onClick={() => { setActiveTab('gallery'); setSidebarOpen(false); }} />
           <SidebarItem icon={MessageSquare} label="Konten Informasi" active={activeTab === 'content'} onClick={() => { setActiveTab('content'); setSidebarOpen(false); }} />
           <SidebarItem icon={LayoutDashboard} label="Manajemen Device" active={activeTab === 'devices'} onClick={() => { setActiveTab('devices'); setSidebarOpen(false); }} />
+          <SidebarItem icon={Sliders} label="Advance Config" active={activeTab === 'advance'} onClick={() => { setActiveTab('advance'); setSidebarOpen(false); }} />
         </nav>
 
         <div className="p-4 border-t border-slate-100">
@@ -301,6 +304,7 @@ export default function AdminDashboard() {
                 />
               )}
               {activeTab === 'devices' && <DevicesSection mosqueKey={mosqueKey} />}
+              {activeTab === 'advance' && <AdvancedConfigSection config={config} setConfig={setConfig} />}
             </motion.div>
           </AnimatePresence>
 
@@ -392,6 +396,7 @@ const tabLabels: Record<Tab, string> = {
   gallery: 'Galeri Media',
   content: 'Konten Informasi',
   devices: 'Manajemen Perangkat TV',
+  advance: 'Advanced Configuration (Tampilan)',
 };
 
 function SidebarItem({ icon: Icon, label, active, onClick }: { icon: any, label: string, active: boolean, onClick: () => void }) {

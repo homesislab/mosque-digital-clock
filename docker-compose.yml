@@ -3,7 +3,7 @@ services:
     build:
       context: .
       target: admin
-    image: mosque-digital-clock-admin:latest
+    image: mosque-digital-clock-admin:${IMAGE_TAG:-latest}
     ports:
       - "3011:3001"
     restart: always
@@ -21,7 +21,7 @@ services:
     build:
       context: .
       target: client
-    image: mosque-digital-clock-client:latest
+    image: mosque-digital-clock-client:${IMAGE_TAG:-latest}
     ports:
       - "3012:3000"
     restart: always

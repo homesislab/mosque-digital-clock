@@ -36,10 +36,22 @@ export const PrayerTimes = ({ config, nextPrayer, secondsRemaining }: PrayerTime
     // For simplicity, we'll basic highlighting here. The parent component usually handles "next event".
     // But to match the mockup, let's highlight "Dzuhur" as an example or pass a prop.
     // Ideally, we should pass `nextPrayer` prop to this component. 
+
+    const adv = config.advancedDisplay;
+
     return (
-        <div className="grid grid-cols-4 lg:flex lg:flex-row w-full h-full">
+        <div
+            className="grid grid-cols-4 lg:flex lg:flex-row w-full h-full"
+            style={{ opacity: adv?.prayerTimesOpacity ?? 1 }}
+        >
             {prayers.map((prayer, index) => {
                 const isActive = nextPrayer?.toLowerCase() === prayer.name.toLowerCase();
+
+                // Dynamic Styles
+                const itemStyle = isActive
+                    ? { backgroundColor: adv?.prayerTimesActiveColor || undefined, color: '#ffffff' }
+                    : { backgroundColor: adv?.prayerTimesBgColor || 'transparent', color: adv?.prayerTimesTextColor || undefined };
+
                 return (
                     <div
                         key={prayer.name}
@@ -50,14 +62,21 @@ export const PrayerTimes = ({ config, nextPrayer, secondsRemaining }: PrayerTime
                                 ? 'bg-orange-500 text-white shadow-lg lg:transform lg:scale-y-110 lg:origin-bottom lg:rounded-t-lg z-10 lg:-mt-1'
                                 : 'bg-transparent text-slate-800 hover:bg-slate-50'}
                         `}
+                        style={itemStyle}
                     >
                         {/* Ornamental top line for non-active items */}
                         {!isActive && <div className="hidden lg:block absolute top-3 w-1 h-4 bg-amber-400/20 rounded-full mb-1"></div>}
 
-                        <span className={`text-[10px] lg:text-sm uppercase tracking-widest font-bold mb-0 z-10 ${isActive ? 'text-orange-100' : 'text-slate-500'}`}>
+                        <span
+                            className={`text-[10px] lg:text-sm uppercase tracking-widest font-bold mb-0 z-10 ${isActive ? 'text-orange-100' : 'text-slate-500'}`}
+                            style={{ color: isActive ? '#ffffff' : adv?.prayerTimesTextColor }}
+                        >
                             {prayer.name}
                         </span>
-                        <span className={`text-xl sm:text-2xl lg:text-4xl font-bold font-mono tracking-tighter tabular-nums z-10 ${isActive ? 'text-white' : 'text-slate-900'}`}>
+                        <span
+                            className={`text-xl sm:text-2xl lg:text-4xl font-bold font-mono tracking-tighter tabular-nums z-10 ${isActive ? 'text-white' : 'text-slate-900'}`}
+                            style={{ color: isActive ? '#ffffff' : adv?.prayerTimesTextColor }}
+                        >
                             {prayer.time}
                         </span>
 
@@ -68,7 +87,7 @@ export const PrayerTimes = ({ config, nextPrayer, secondsRemaining }: PrayerTime
                         )}
 
                         {/* Decorative bottom accent for active */}
-                        {isActive && <div className="absolute bottom-0 w-full h-1 bg-orange-700/30"></div>}
+                        {isActive && <div className="absolute bottom-0 w-full h-1 bg-white/30"></div>}
                     </div>
                 );
             })}

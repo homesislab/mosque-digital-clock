@@ -22,9 +22,8 @@ export async function POST(request: Request) {
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
 
-        // Create unique filename
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        const filename = uniqueSuffix + '-' + file.name.replace(/\s+/g, '-');
+        // Use original filename (sanitized)
+        const filename = file.name.replace(/\s+/g, '-');
 
         // Isolation: public/uploads/{key}/{filename}
         const cwd = process.cwd();
