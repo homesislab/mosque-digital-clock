@@ -105,6 +105,7 @@ export default function Home() {
   }
 
   const { name, address } = config.mosqueInfo;
+  const adv = config.advancedDisplay;
 
   // Date Formatting (Safe for Hydration)
   const dayName = currentTime.toLocaleDateString('id-ID', { weekday: 'long' });
@@ -161,73 +162,109 @@ export default function Home() {
 
         {/* HEADER ZONE (Light Glass Theme) */}
         {/* Full width white bar with rounded bottom corners */}
-        <div className="w-full bg-white/90 backdrop-blur-xl shadow-lg rounded-b-[2rem] px-2 lg:px-8 border-b-4 border-orange-500/20 mx-auto max-w-[98%] lg:max-w-[95%] mt-0 relative z-30">
-          <div className="grid grid-cols-12 gap-0 items-center h-16 lg:h-20">
+        <div
+          className="w-full bg-white/90 backdrop-blur-xl shadow-lg rounded-b-[2rem] px-2 lg:px-8 border-b-4 border-orange-500/20 mx-auto max-w-[98%] lg:max-w-[95%] mt-0 relative z-30"
+          style={{ opacity: adv?.headerOpacity ?? 1 }}
+        >
+          <div className="flex w-full items-center justify-between h-16 lg:h-20 px-1">
+            {adv?.customCss && <style>{adv.customCss}</style>}
 
             {/* 1. Clock (Left) */}
-            <div className="col-span-3 flex justify-center items-center h-full sm:pr-2 lg:pr-6 whitespace-nowrap">
-              <TimeDisplay className="text-2xl sm:text-4xl lg:text-6xl font-bold tracking-tighter text-slate-900 font-mono tabular-nums leading-none drop-shadow-sm" />
-            </div>
+            {adv?.showClock !== false && (
+              <div className="w-[25%] flex justify-center items-center h-full sm:pr-2 lg:pr-6 whitespace-nowrap">
+                <TimeDisplay
+                  className="text-2xl sm:text-4xl lg:text-6xl font-bold tracking-tighter text-slate-900 font-mono tabular-nums leading-none drop-shadow-sm"
+                  style={{ color: adv?.clockTextColor }}
+                />
+              </div>
+            )}
 
             {/* Separator - Desktop Only */}
-            <div className="hidden lg:block lg:col-span-1 h-10 w-[2px] bg-gradient-to-b from-transparent via-amber-400 to-transparent mx-auto"></div>
+            <div className="hidden lg:block h-10 w-[2px] bg-gradient-to-b from-transparent via-amber-400 to-transparent mx-auto flex-shrink-0"></div>
 
             {/* 2. Mosque Info (Center) */}
-            <div className="col-span-6 lg:col-span-4 flex flex-col justify-center items-center h-full text-center px-1">
-              <div className="flex items-center gap-1 lg:gap-3 mb-0 transition-transform">
-                {config.mosqueInfo.logoUrl ? (
-                  <img src={resolveUrl(config.mosqueInfo.logoUrl)} alt="Logo" className="w-4 h-4 sm:w-8 sm:h-8 lg:w-10 lg:h-10 object-contain drop-shadow-md" />
-                ) : (
-                  <span className="text-sm lg:text-xl">🕌</span>
-                )}
-                <h1 className="text-[10px] sm:text-lg lg:text-2xl font-bold uppercase tracking-tight lg:tracking-wide text-slate-800 line-clamp-1">
+            {/* 2. Mosque Info (Center) */}
+            <div className="flex-1 flex flex-row justify-center items-center h-full px-1 gap-3 lg:gap-4 overflow-hidden">
+              {adv?.showLogo !== false && (config.mosqueInfo.logoUrl ? (
+                <img
+                  src={resolveUrl(config.mosqueInfo.logoUrl)}
+                  alt="Logo"
+                  className="h-[50px] sm:h-[8vh] w-auto object-contain drop-shadow-md"
+                />
+              ) : (
+                <span className="text-2xl lg:text-4xl">🕌</span>
+              ))}
+
+              <div className="flex flex-col items-start justify-center text-left min-w-0">
+                <h1
+                  className="text-sm sm:text-lg lg:text-2xl font-bold uppercase tracking-tight lg:tracking-wide text-slate-800 line-clamp-1 leading-tight truncate"
+                  style={{ color: adv?.headerTextColor }}
+                >
                   {name}
                 </h1>
+                <p
+                  className="block text-[10px] sm:text-xs lg:text-sm text-slate-600 font-medium tracking-wide line-clamp-1 mt-0.5 truncate"
+                  style={{ color: adv?.headerTextColor ? adv?.headerTextColor + 'cc' : undefined }}
+                >
+                  {address}
+                </p>
               </div>
-              <p className="hidden sm:block text-[8px] lg:text-sm text-slate-600 font-medium tracking-wide line-clamp-1">
-                {address}
-              </p>
             </div>
 
             {/* Separator - Desktop Only */}
-            <div className="hidden lg:block lg:col-span-1 h-10 w-[2px] bg-gradient-to-b from-transparent via-amber-400 to-transparent mx-auto"></div>
+            <div className="hidden lg:block h-10 w-[2px] bg-gradient-to-b from-transparent via-amber-400 to-transparent mx-auto flex-shrink-0"></div>
 
             {/* 3. Date (Right) */}
-            <div className="col-span-3 flex flex-col items-center justify-center h-full sm:pl-2 lg:pl-6 text-right">
-              <div className="text-[10px] sm:text-base lg:text-xl font-bold text-slate-900 font-mono mb-0 leading-tight">
-                {hijriStr.split(' ').slice(0, 2).join(' ')}
-                <span className="hidden sm:inline"> {hijriStr.split(' ').slice(2).join(' ')}</span>
+            {adv?.showDate !== false && (
+              <div className="w-[25%] flex flex-col items-end justify-center h-full pr-1 lg:pr-4">
+                <div
+                  className="text-[10px] sm:text-base lg:text-3xl font-bold text-slate-800 font-mono mb-1 leading-none tracking-tight whitespace-nowrap"
+                  style={{ color: adv?.dateTextColor }}
+                >
+                  {hijriStr}
+                </div>
+                <div
+                  className="text-[8px] sm:text-xs lg:text-lg text-slate-500 font-semibold uppercase tracking-widest whitespace-nowrap"
+                  style={{ color: adv?.dateTextColor ? adv?.dateTextColor + 'cc' : undefined }}
+                >
+                  {dateStr.replace(/\s+,/, ',')} {/* Fix potential space before comma */}
+                </div>
               </div>
-              <div className="text-[8px] sm:text-xs lg:text-sm text-slate-500 font-semibold uppercase tracking-tighter lg:tracking-widest truncate w-full px-1">
-                {dateStr.split(',')[0]}
-                <span className="hidden sm:inline">,{dateStr.split(',')[1]}</span>
-              </div>
-            </div>
+            )}
           </div>
         </div>
 
         {/* FOOTER ZONE (Light Glass Theme) */}
         <div className="w-full flex flex-col relative z-30 mt-auto">
 
+
           {/* Prayer Times Strip - Floating White Card Look */}
-          <div className="w-[98%] mx-auto bg-white/90 backdrop-blur-xl rounded-t-[1.5rem] shadow-[0_-10px_30px_rgba(0,0,0,0.1)] overflow-hidden border-t-4 border-orange-500/20 h-auto lg:h-24">
-            <PrayerTimes
-              config={config}
-              nextPrayer={nextEvent.name}
-              secondsRemaining={nextEvent.seconds}
-            />
-          </div>
+          {adv?.showPrayerTimes !== false && (
+            <div className="w-[98%] mx-auto bg-white/90 backdrop-blur-xl rounded-t-[1.5rem] shadow-[0_-10px_30px_rgba(0,0,0,0.1)] overflow-hidden border-t-4 border-orange-500/20 h-auto lg:h-24">
+              <PrayerTimes
+                config={config}
+                nextPrayer={nextEvent.name}
+                secondsRemaining={nextEvent.seconds}
+              />
+            </div>
+          )}
 
           {/* Running Text - Bottom Bar */}
           {/* Can be black for high contrast or stay white. Let's try dark for contrast as typical in these designs */}
-          <div className="w-full bg-slate-900 text-white h-12 flex items-center shadow-inner relative z-40">
-            <div className="bg-orange-600 h-full px-8 flex items-center justify-center text-white font-bold uppercase tracking-widest text-sm shadow-md z-50 skew-x-6 -ml-4 pl-8">
-              <span className="-skew-x-6">Info Terkini</span>
+          {adv?.showRunningText !== false && (
+            <div className="w-full bg-slate-900 text-white h-12 flex items-center shadow-inner relative z-40">
+              <div className="bg-orange-600 h-full px-8 flex items-center justify-center text-white font-bold uppercase tracking-widest text-sm shadow-md z-50 skew-x-6 -ml-4 pl-8">
+                <span className="-skew-x-6">Info Terkini</span>
+              </div>
+              <div className="flex-1 relative h-full overflow-hidden">
+                <RunningText
+                  texts={config.runningText}
+                  color={adv?.runningTextColor}
+                  bgColor={adv?.runningTextBgColor}
+                />
+              </div>
             </div>
-            <div className="flex-1 relative h-full overflow-hidden">
-              <RunningText />
-            </div>
-          </div>
+          )}
         </div>
 
       </div>

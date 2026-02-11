@@ -4,16 +4,21 @@ import { motion } from 'framer-motion';
 
 interface RunningTextProps {
     texts?: string[];
+    color?: string;
+    bgColor?: string;
 }
 
-export const RunningText = ({ texts = [] }: RunningTextProps) => {
+export const RunningText = ({ texts = [], color, bgColor }: RunningTextProps) => {
     // If no text, show default or empty
     const content = texts.length > 0
         ? texts.join(' | ')
         : "Mohon luruskan dan rapatkan shaf. | Matikan alat komunikasi.";
 
     return (
-        <div className="overflow-hidden whitespace-nowrap w-full h-full flex items-center">
+        <div
+            className="overflow-hidden whitespace-nowrap w-full h-full flex items-center"
+            style={{ backgroundColor: bgColor, color: color }}
+        >
             <motion.div
                 className="inline-block"
                 initial={{ x: '100%' }}

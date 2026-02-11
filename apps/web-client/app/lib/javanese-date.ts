@@ -23,5 +23,6 @@ export function getPasaran(date: Date): string {
     let index = (refPasaranIndex + diffDays) % 5;
     if (index < 0) index += 5;
 
-    return pasaranNames[index];
+    // return pasaranNames[index];
+    return ''; // User requested to remove Pasaran (Wage, Kliwon, etc.)
 }

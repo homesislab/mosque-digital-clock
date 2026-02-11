@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react';
 
 interface TimeDisplayProps {
     className?: string;
+    style?: React.CSSProperties;
 }
 
-export const TimeDisplay = ({ className = '' }: TimeDisplayProps) => {
+export const TimeDisplay = ({ className = '', style }: TimeDisplayProps) => {
     const [time, setTime] = useState<Date | null>(null);
 
     useEffect(() => {
@@ -40,7 +41,7 @@ export const TimeDisplay = ({ className = '' }: TimeDisplayProps) => {
     const timeStr = formatTime(time);
 
     return (
-        <div className={className}>
+        <div className={className} style={style}>
             {timeStr}
         </div>
     );
