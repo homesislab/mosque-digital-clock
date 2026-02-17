@@ -1,6 +1,6 @@
 import { MosqueConfig } from '@mosque-digital-clock/shared-types';
 
-export type AppState = 'NORMAL' | 'ADZAN' | 'IQAMAH' | 'SHOLAT' | 'IMSAK';
+export type AppState = 'NORMAL' | 'ADZAN' | 'IQAMAH' | 'SHOLAT' | 'IMSAK' | 'PLAYLIST';
 
 export interface NextEvent {
     state: AppState;
@@ -9,6 +9,7 @@ export interface NextEvent {
     activeAudioUrl: string;
     activePlaylistId?: string;
     shouldPlayAudio: boolean;
+    eventTime?: Date;
 }
 
 export function calculateAppState(
@@ -20,20 +21,44 @@ export function calculateAppState(
     let nextPrayerName = '';
     let secondsRemaining = 0;
     let activeAudioUrl = '';
+    let activePlaylistId = '';
     let shouldPlayAudio = false;
+    let eventTime: Date | undefined = undefined;
 
     // --- Simulation Override ---
     if (config.simulation?.isSimulating) {
+        const sim = config.simulation as any;
+        const simState = sim.state || 'NORMAL';
+        const simPrayerName = sim.prayerName || '';
+        const simStartTime = sim.startTime || Date.now();
+
+        // --- Simulation: Populate Audio URL if applicable ---
+        if (simState === 'ADZAN' && config.adzan?.audioEnabled && config.adzan.audioUrl) {
+            activeAudioUrl = config.adzan.audioUrl;
+            shouldPlayAudio = true;
+        } else if (simState === 'IQAMAH' && config.iqamah?.audioEnabled && config.iqamah.audioUrl) {
+            activeAudioUrl = config.iqamah.audioUrl;
+            shouldPlayAudio = true;
+        } else if (simState === 'PLAYLIST' && sim.activePlaylistId) {
+            activePlaylistId = sim.activePlaylistId;
+            shouldPlayAudio = true;
+        } else if (simState === 'IMSAK' && config.ramadhan?.enabled && config.ramadhan.imsakAudioEnabled && config.ramadhan.imsakAudioUrl) {
+            activeAudioUrl = config.ramadhan.imsakAudioUrl;
+            shouldPlayAudio = true;
+        }
+
         return {
-            state: config.simulation.state,
-            nextPrayerName: config.simulation.prayerName,
-            secondsRemaining: Math.floor((Date.now() - config.simulation.startTime) / 1000), // Incremental counter
-            activeAudioUrl: '', // Simulation doesn't force audio URL yet, unless specifically handled
-            shouldPlayAudio: false
+            state: simState as AppState,
+            nextPrayerName: simPrayerName,
+            secondsRemaining: Math.floor((Date.now() - simStartTime) / 1000),
+            activeAudioUrl,
+            activePlaylistId,
+            shouldPlayAudio,
+            eventTime: new Date(simStartTime)
         };
     }
 
-    if (!prayerTimes) return { state, nextPrayerName, secondsRemaining, activeAudioUrl, shouldPlayAudio };
+    if (!prayerTimes) return { state, nextPrayerName, secondsRemaining, activeAudioUrl, activePlaylistId, shouldPlayAudio };
 
     const prayers = ['subuh', 'dzuhur', 'ashar', 'maghrib', 'isya'] as const;
 
@@ -77,6 +102,7 @@ export function calculateAppState(
                 state = 'IMSAK';
                 secondsRemaining = Math.floor((pTime.getTime() - now.getTime()) / 1000);
                 nextPrayerName = 'Subuh';
+                eventTime = imsakTime;
                 break;
             }
         }
@@ -99,6 +125,7 @@ export function calculateAppState(
                 state = 'ADZAN';
                 secondsRemaining = Math.floor((adzanEndTime.getTime() - now.getTime()) / 1000);
                 nextPrayerName = prayer;
+                eventTime = pTime;
                 break;
             }
 
@@ -122,11 +149,12 @@ export function calculateAppState(
     }
 
     // --- 3. Audio Trigger Logic ---
-    let activePlaylistId = '';
 
-    // Check for Imsak Audio (Ramadhan Mode) - KEEPING LEGACY FOR NOW OR MIGRATE TO SCHEDULE?
-    // User asked for "Playlist & Custom Schedule". Ideally Ramadhan Imsak is just another schedule.
-    // But for safety, let's keep specific logic if enabled, but prioritize schedules.
+    // Check for Imsak Audio (Ramadhan Mode)
+    if (!shouldPlayAudio && state === 'IMSAK' && config.ramadhan?.enabled && config.ramadhan.imsakAudioEnabled && config.ramadhan.imsakAudioUrl) {
+        shouldPlayAudio = true;
+        activeAudioUrl = config.ramadhan.imsakAudioUrl;
+    }
 
     // Evaluate Schedules
     if (config.audio?.schedules && config.audio.schedules.length > 0) {
@@ -204,6 +232,6 @@ export function calculateAppState(
         }
     }
 
-    return { state, nextPrayerName, secondsRemaining, activeAudioUrl, activePlaylistId, shouldPlayAudio };
+    return { state, nextPrayerName, secondsRemaining, activeAudioUrl, activePlaylistId, shouldPlayAudio, eventTime };
 }
 
