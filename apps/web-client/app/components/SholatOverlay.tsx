@@ -14,11 +14,27 @@ export const SholatOverlay = ({ isVisible }: SholatOverlayProps) => {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="absolute inset-0 z-[60] bg-black flex flex-col items-center justify-center cursor-none"
+                    className="absolute inset-0 z-[60] bg-black/95 flex flex-col items-center justify-center cursor-none"
                 >
-                    <div className="text-center opacity-50">
-                        <h1 className="text-4xl font-bold text-emerald-700 tracking-[1em] uppercase mb-4">Sholat</h1>
-                        <p className="text-xl text-gray-800 tracking-widest">Sedang Berlangsung... Harap Tenang</p>
+                    <div className="flex flex-col items-center justify-center space-y-8 opacity-90">
+                        {/* Silhouette Image */}
+                        <div className="relative w-48 h-48 lg:w-64 lg:h-64 mb-6 invert">
+                            <img
+                                src="/praying-silhouette.png"
+                                alt="Sholat"
+                                className="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]"
+                            />
+                        </div>
+
+                        <div className="text-center space-y-4">
+                            <h1 className="text-5xl lg:text-7xl font-bold text-white tracking-[0.5em] uppercase drop-shadow-lg">
+                                Sholat
+                            </h1>
+                            <div className="h-1 w-32 bg-amber-500 mx-auto rounded-full"></div>
+                            <p className="text-xl lg:text-3xl text-slate-300 tracking-widest font-light">
+                                Sedang Berlangsung... Harap Tenang
+                            </p>
+                        </div>
                     </div>
                 </motion.div>
             )}

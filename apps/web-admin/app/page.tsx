@@ -9,7 +9,7 @@ import {
   Save, RefreshCw, LogOut, LayoutDashboard, MapPin,
   Clock, Image as ImageIcon, MessageSquare, Users,
   Wallet, Settings, ChevronRight, UploadCloud,
-  Music, Library, Plus, Moon, Menu, X, Play, XCircle, AlarmCheck, Sliders
+  Music, Library, Plus, Moon, Menu, X, Play, XCircle, AlarmCheck, Sliders, Smartphone
 } from 'lucide-react';
 
 // Dynamic import for MapPicker to avoid SSR issues with Leaflet
@@ -19,8 +19,19 @@ const MapPicker = dynamic(() => import('./components/MapPicker'), {
 });
 
 import AdvancedConfigSection from './components/AdvancedConfigSection';
+import PlaylistManager from './components/PlaylistManager';
+import ScheduleManager from './components/ScheduleManager';
+// InputGroup is defined locally in AdvancedConfigSection usually, OR I need to check where it is.
+// Actually, looking at line 500 of page.tsx, InputGroup is used but I don't see it defined in page.tsx in the views I had.
+// Wait, at line 21, `import AdvancedConfigSection from ...`.
+// Let me check if InputGroup is exported or local.
 
-type Tab = 'dashboard' | 'identity' | 'prayer' | 'media' | 'gallery' | 'content' | 'devices' | 'advance';
+// I see `InputGroup` usage in `IdentitySection` (line 500).
+// If it is used there, it must be defined in `page.tsx` or imported.
+// I will check lines 1300+ of `page.tsx` later to see helper components.
+// For now, I will just add the imports.
+
+type Tab = 'dashboard' | 'identity' | 'prayer' | 'wabot' | 'media' | 'gallery' | 'content' | 'devices' | 'advance';
 
 export default function AdminDashboard() {
   const [mosqueKey, setMosqueKey] = useState<string>('');
@@ -31,7 +42,7 @@ export default function AdminDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerType, setPickerType] = useState<'image' | 'audio' | 'any'>('any');
-  const [pickerTarget, setPickerTarget] = useState<{ section: string, prayer?: string } | null>(null);
+  const [pickerTarget, setPickerTarget] = useState<{ section: string, prayer?: string, playlistId?: string } | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -129,10 +140,14 @@ export default function AdminDashboard() {
 
   const updateConfig = (section: keyof MosqueConfig, key: string, value: any) => {
     if (!config) return;
+
+    // Check if section is 'simulation' or any other nested object that might be undefined
+    const currentSection = config[section as keyof MosqueConfig] || {};
+
     setConfig({
       ...config,
       [section]: {
-        ...config[section as keyof MosqueConfig],
+        ...currentSection,
         [key]: value,
       },
     });
@@ -171,11 +186,11 @@ export default function AdminDashboard() {
         <div className="p-6 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-emerald-200 shadow-md">
-              M
+              <Moon size={20} className="text-white" />
             </div>
             <div>
-              <h1 className="font-bold text-slate-800 text-lg leading-tight">SaaS Admin</h1>
-              <p className="text-xs text-slate-400 font-medium">Mosque Digital Clock</p>
+              <h1 className="font-bold text-slate-800 text-lg leading-tight">Smart Mosque</h1>
+              <p className="text-xs text-slate-400 font-medium">Digital Signage System</p>
             </div>
           </div>
           <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-2 text-slate-400 hover:text-slate-600">
@@ -187,6 +202,7 @@ export default function AdminDashboard() {
           <SidebarItem icon={LayoutDashboard} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }} />
           <SidebarItem icon={MapPin} label="Identitas & Lokasi" active={activeTab === 'identity'} onClick={() => { setActiveTab('identity'); setSidebarOpen(false); }} />
           <SidebarItem icon={Clock} label="Jadwal Sholat" active={activeTab === 'prayer'} onClick={() => { setActiveTab('prayer'); setSidebarOpen(false); }} />
+          <SidebarItem icon={Smartphone} label="Integrasi WhatsApp" active={activeTab === 'wabot'} onClick={() => { setActiveTab('wabot'); setSidebarOpen(false); }} />
           <SidebarItem icon={Settings} label="Media & Fitur" active={activeTab === 'media'} onClick={() => { setActiveTab('media'); setSidebarOpen(false); }} />
           <SidebarItem icon={Library} label="Galeri Media" active={activeTab === 'gallery'} onClick={() => { setActiveTab('gallery'); setSidebarOpen(false); }} />
           <SidebarItem icon={MessageSquare} label="Konten Informasi" active={activeTab === 'content'} onClick={() => { setActiveTab('content'); setSidebarOpen(false); }} />
@@ -247,7 +263,7 @@ export default function AdminDashboard() {
               transition={{ duration: 0.2 }}
               className="max-w-5xl mx-auto pb-24"
             >
-              {activeTab === 'dashboard' && <DashboardOverview config={config} setActiveTab={setActiveTab} />}
+              {activeTab === 'dashboard' && <DashboardOverview config={config} setActiveTab={setActiveTab} updateConfig={updateConfig} />}
               {activeTab === 'identity' && (
                 <IdentitySection
                   config={config}
@@ -272,6 +288,13 @@ export default function AdminDashboard() {
                   }}
                 />
               )}
+              {activeTab === 'wabot' && (
+                <div className="space-y-6">
+                  <SectionCard title="Integrasi WhatsApp (Wabot Sisia)">
+                    <WabotConfigSection config={config} setConfig={setConfig} />
+                  </SectionCard>
+                </div>
+              )}
               {activeTab === 'media' && (
                 <MediaConfigSection
                   config={config}
@@ -286,6 +309,11 @@ export default function AdminDashboard() {
                     const target = prayer === 'imsak' ? 'ramadhan-audio' : 'audio';
                     setPickerType('audio');
                     setPickerTarget({ section: target, prayer });
+                    setPickerOpen(true);
+                  }}
+                  onOpenPicker={(type: any, target: any) => {
+                    setPickerType(type);
+                    setPickerTarget(target);
                     setPickerOpen(true);
                   }}
                 />
@@ -321,23 +349,21 @@ export default function AdminDashboard() {
                 if (!config.sliderImages.includes(url)) {
                   setConfig({ ...config, sliderImages: [...config.sliderImages, url] });
                 }
-              } else if (pickerTarget?.section === 'audio') {
-                if (pickerTarget.prayer) {
-                  const prayer = pickerTarget.prayer;
-                  const currentSchedule = (config.audio.customSchedule as any) || {};
-                  const prayerSchedule = currentSchedule[prayer] || { url: '', playMode: 'before', offsetMinutes: 10, enabled: false };
-                  setConfig({
-                    ...config,
-                    audio: {
-                      ...config.audio,
-                      customSchedule: {
-                        ...currentSchedule,
-                        [prayer]: { ...prayerSchedule, url, enabled: true }
-                      } as any
-                    }
-                  });
-                } else {
-                  setConfig({ ...config, audio: { ...config.audio, url } });
+              } else if (pickerTarget?.section === 'global-audio') {
+                setConfig({ ...config, audio: { ...config.audio, globalUrl: url } });
+              } else if (pickerTarget?.section === 'playlist-track') {
+                const playlistId = pickerTarget.playlistId;
+                const playlist = config.audio.playlists.find(p => p.id === playlistId);
+                if (playlist) {
+                  const newTrack = {
+                    id: `track-${Date.now()}`,
+                    title: url.split('/').pop() || 'Unknown',
+                    url: url
+                  };
+                  const newPlaylists = config.audio.playlists.map(p =>
+                    p.id === playlistId ? { ...p, tracks: [...p.tracks, newTrack] } : p
+                  );
+                  setConfig({ ...config, audio: { ...config.audio, playlists: newPlaylists } });
                 }
               } else if (pickerTarget?.section === 'ramadhan-audio') {
                 setConfig({
@@ -392,6 +418,7 @@ const tabLabels: Record<Tab, string> = {
   dashboard: 'Dashboard Overview',
   identity: 'Identitas & Lokasi Masjid',
   prayer: 'Konfigurasi Jadwal Sholat',
+  wabot: 'Integrasi WhatsApp (Wabot Sisia)',
   media: 'Media & Fitur Unggulan',
   gallery: 'Galeri Media',
   content: 'Konten Informasi',
@@ -425,7 +452,7 @@ function SectionCard({ title, children, className = '' }: { title: string, child
   );
 }
 
-function DashboardOverview({ config, setActiveTab }: { config: MosqueConfig, setActiveTab: (t: Tab) => void }) {
+function DashboardOverview({ config, setActiveTab, updateConfig }: { config: MosqueConfig, setActiveTab: (t: Tab) => void, updateConfig: (section: keyof MosqueConfig, key: string, value: any) => void }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -461,7 +488,11 @@ function DashboardOverview({ config, setActiveTab }: { config: MosqueConfig, set
           Semua perubahan akan langsung tersimpan dan tersinkronisasi.
         </p>
       </div>
-    </div>
+
+
+
+
+    </div >
   );
 }
 
@@ -613,6 +644,37 @@ function PrayerSection({ config, setConfig, onPickIqamahAudio }: any) {
           </div>
         </SectionCard>
 
+        <SectionCard title="Durasi Fase Sholat">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <InputGroup
+              label="Durasi Adzan (Menit)"
+              value={config.adzan?.duration || 4}
+              type="number"
+              onChange={(v: string) => {
+                setConfig({
+                  ...config,
+                  adzan: { ...config.adzan, duration: parseInt(v) }
+                });
+              }}
+            />
+            <InputGroup
+              label="Durasi Sholat (Layar Blank)"
+              value={config.sholat?.duration || 10}
+              type="number"
+              onChange={(v: string) => {
+                setConfig({
+                  ...config,
+                  sholat: { ...config.sholat, duration: parseInt(v) }
+                });
+              }}
+            />
+          </div>
+          <p className="text-xs text-slate-500 mt-2 italic">
+            <strong>Durasi Adzan:</strong> Waktu untuk menampilkan notifikasi Adzan sebelum masuk hitung mundur Iqamah.<br />
+            <strong>Durasi Sholat:</strong> Waktu layar gelap/tenang setelah Iqamah selesai.
+          </p>
+        </SectionCard>
+
         <SectionCard title="Countdown Iqamah">
           <div className="flex items-center gap-3 mb-6 bg-slate-50 p-3 rounded-lg border border-slate-100">
             <input type="checkbox" checked={config.iqamah.enabled} onChange={(e) =>
@@ -672,8 +734,377 @@ function PrayerSection({ config, setConfig, onPickIqamahAudio }: any) {
           </div>
         </SectionCard>
 
+
       </div>
 
+      <SectionCard title="Mode Ramadhan (Imsak & Sahur)">
+        <div className="flex items-center gap-3 mb-6 bg-emerald-50 p-4 rounded-lg border border-emerald-100">
+          <input type="checkbox" checked={config.ramadhan?.enabled || false} onChange={(e) =>
+            setConfig({ ...config, ramadhan: { ...config.ramadhan, enabled: e.target.checked } })
+          } className="w-6 h-6 accent-emerald-600 cursor-pointer" />
+          <div onClick={() => setConfig({ ...config, ramadhan: { ...config.ramadhan, enabled: !config.ramadhan?.enabled } })} className="cursor-pointer">
+            <span className="font-bold text-emerald-800 block text-lg">Aktifkan Mode Ramadhan</span>
+            <span className="text-sm text-emerald-600">Menampilkan hitung mundur Imsak sebelum Subuh.</span>
+          </div>
+        </div>
+
+        {config.ramadhan?.enabled && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-top-2 duration-300">
+            <InputGroup
+              label="Offset Imsak (Menit sebelum Subuh)"
+              value={config.ramadhan?.imsakOffset || 10}
+              type="number"
+              onChange={(v: string) => {
+                setConfig({
+                  ...config,
+                  ramadhan: { ...config.ramadhan, imsakOffset: parseInt(v) }
+                });
+              }}
+            />
+          </div>
+        )}
+      </SectionCard>
+
+    </div>
+  );
+}
+
+function WabotConfigSection({ config, setConfig }: { config: MosqueConfig, setConfig: any }) {
+  const [loading, setLoading] = useState(false);
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [groups, setGroups] = useState<any[]>([]);
+  const [token, setToken] = useState<string | null>(config.wabot?.authToken || null);
+  const [view, setView] = useState<'config' | 'login'>('config');
+  const [activeWabotTab, setActiveWabotTab] = useState<'sholat' | 'imsak'>('sholat');
+
+  const wabotConfig = config.wabot || { enabled: false, apiUrl: '', targetNumber: '' };
+
+  const handleLogin = async () => {
+    if (!wabotConfig.username || !wabotConfig.password || !wabotConfig.apiUrl) {
+      alert('Mohon isi API URL, Username, dan Password');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch('/api/wabot/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          apiUrl: wabotConfig.apiUrl,
+          username: wabotConfig.username,
+          password: wabotConfig.password
+        })
+      });
+      const data = await res.json();
+
+      if (data.token) {
+        setToken(data.token);
+        setConfig({ ...config, wabot: { ...wabotConfig, authToken: data.token } });
+        // Fetch sessions
+        const resSess = await fetch(`/api/wabot/auth/sessions?apiUrl=${encodeURIComponent(wabotConfig.apiUrl)}&token=${data.token}`);
+        const dataSess = await resSess.json();
+        setSessions(dataSess);
+        setView('login');
+      } else {
+        alert('Login Gagal: ' + (data.error || 'Unknown error'));
+      }
+    } catch (e: any) {
+      alert('Error: ' + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFetchGroups = async (sessionId: string) => {
+    const currentToken = token || config.wabot?.authToken;
+    if (!sessionId || !currentToken) {
+      if (!currentToken) alert("Token tidak ditemukan. Silakan login ulang.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/wabot/auth/groups?apiUrl=${encodeURIComponent(wabotConfig.apiUrl)}&token=${currentToken}&sessionId=${sessionId}`);
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setGroups(data);
+      } else {
+        console.error("Failed to fetch groups", data);
+        alert("Gagal mengambil grup: " + (data.error || 'Unknown error'));
+      }
+    } catch (e: any) {
+      console.error(e);
+      alert("Error fetching groups: " + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+  return (
+    <div>
+      <div className="flex items-center gap-3 mb-6 bg-green-50 p-3 rounded-lg border border-green-100">
+        <input type="checkbox" checked={wabotConfig.enabled} onChange={(e) =>
+          setConfig({ ...config, wabot: { ...wabotConfig, enabled: e.target.checked } })
+        } className="w-5 h-5 accent-emerald-600" />
+        <div>
+          <span className="font-medium text-green-800">Aktifkan Notifikasi WhatsApp</span>
+          <p className="text-xs text-green-600">Kirim pesan otomatis ke grup/nomor saat waktu sholat tiba.</p>
+        </div>
+      </div>
+
+      {wabotConfig.enabled && (
+        <div className="space-y-6 animate-in fade-in slide-in-from-top-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div className="flex justify-between items-end border-b pb-2">
+                <h4 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Koneksi Server</h4>
+                <a href="https://wabot.homesislab.my.id/" target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:underline">
+                  Belum punya akun? Daftar di sini
+                </a>
+              </div>
+              <InputGroup
+                label="Wabot API URL"
+                value={wabotConfig.apiUrl}
+                onChange={(v: string) => setConfig({ ...config, wabot: { ...wabotConfig, apiUrl: v } })}
+                placeholder="https://api.wabotsisia.com"
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <InputGroup
+                  label="Username"
+                  value={wabotConfig.username || ''}
+                  onChange={(v: string) => setConfig({ ...config, wabot: { ...wabotConfig, username: v } })}
+                  placeholder="admin"
+                />
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm font-semibold text-slate-600">Password</label>
+                  <input
+                    type="password"
+                    className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
+                    value={wabotConfig.password || ''}
+                    onChange={(e) => setConfig({ ...config, wabot: { ...wabotConfig, password: e.target.value } })}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-4 pt-4 border-t border-slate-100">
+                <h4 className="font-bold text-slate-700 mb-2">Konfigurasi Pesan & AI</h4>
+
+                {/* Tab Navigation */}
+                <div className="flex gap-2 mb-4 border-b border-slate-200">
+                  <button
+                    onClick={() => setActiveWabotTab('sholat')}
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeWabotTab === 'sholat' ? 'border-emerald-500 text-emerald-700' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                  >
+                    Sholat (Umum)
+                  </button>
+                  <button
+                    onClick={() => setActiveWabotTab('imsak')}
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeWabotTab === 'imsak' ? 'border-emerald-500 text-emerald-700' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                  >
+                    Imsak (Khusus)
+                  </button>
+                </div>
+
+                {/* Content Sholat */}
+                {activeWabotTab === 'sholat' && (
+                  <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                    <InputGroup
+                      label="Template Pesan Sholat"
+                      value={wabotConfig.messageTemplate || 'Waktu sholat {sholat} telah tiba.'}
+                      onChange={(v: string) => setConfig({ ...config, wabot: { ...wabotConfig, messageTemplate: v } })}
+                      type="textarea"
+                    />
+
+                    <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                      <label className="flex items-center gap-2 mb-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={wabotConfig.aiEnabled || false}
+                          onChange={(e) => setConfig({ ...config, wabot: { ...wabotConfig, aiEnabled: e.target.checked } })}
+                          className="w-5 h-5 accent-purple-600 rounded"
+                        />
+                        <span className="font-bold text-slate-700">Gunakan AI (Auto-Generate) untuk Sholat</span>
+                      </label>
+
+                      {wabotConfig.aiEnabled && (
+                        <InputGroup
+                          label="Prompt / Instruksi untuk AI (Sholat)"
+                          value={wabotConfig.aiPrompt || 'buatkan pesan ajakan sholat {sholat} yang puitis dan mengingatkan pahala sholat berjamaah'}
+                          onChange={(v: string) => setConfig({ ...config, wabot: { ...wabotConfig, aiPrompt: v } })}
+                          type="textarea"
+                          placeholder="Contoh: Buatkan pesan singkat yang Islami..."
+                        />
+                      )}
+                      <p className="text-xs text-slate-400 mt-1">AI akan membuat pesan otomatis setiap waktu sholat berdasarkan instruksi ini.</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Content Imsak */}
+                {activeWabotTab === 'imsak' && (
+                  <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                    <InputGroup
+                      label="Template Pesan Imsak"
+                      value={wabotConfig.imsakMessageTemplate || 'Waktu Imsak telah tiba, segera selesaikan sahur Anda.'}
+                      onChange={(v: string) => setConfig({ ...config, wabot: { ...wabotConfig, imsakMessageTemplate: v } })}
+                      type="textarea"
+                    />
+
+                    <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                      <label className="flex items-center gap-2 mb-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={wabotConfig.imsakAiEnabled || false}
+                          onChange={(e) => setConfig({ ...config, wabot: { ...wabotConfig, imsakAiEnabled: e.target.checked } })}
+                          className="w-5 h-5 accent-purple-600 rounded"
+                        />
+                        <span className="font-bold text-slate-700">Gunakan AI (Auto-Generate) untuk Imsak</span>
+                      </label>
+
+                      {wabotConfig.imsakAiEnabled && (
+                        <InputGroup
+                          label="Prompt / Instruksi untuk AI (Imsak)"
+                          value={wabotConfig.imsakAiPrompt || 'Buatkan pesan pengingat waktu Imsak yang puitis, mengingatkan batas akhir sahur dan niat puasa.'}
+                          onChange={(v: string) => setConfig({ ...config, wabot: { ...wabotConfig, imsakAiPrompt: v } })}
+                          type="textarea"
+                          placeholder="Contoh: Ingatkan untuk berhenti makan minum..."
+                        />
+                      )}
+                      <p className="text-xs text-slate-400 mt-1">AI akan membuat pesan otomatis saat waktu Imsak tiba.</p>
+                    </div>
+                  </div>
+                )}
+
+                <p className="text-xs text-slate-400 block mt-2">Gunakan placeholder <b>{`{sholat}`}</b> untuk nama waktu dan <b>{`{jam}`}</b> untuk pukul.</p>
+              </div>
+
+              <button
+                onClick={handleLogin}
+                disabled={loading}
+                className="w-full py-2 bg-emerald-600 text-white rounded-lg font-bold text-sm hover:bg-emerald-700 transition disabled:opacity-50"
+              >
+                {loading ? 'Menghubungkan...' : 'Login & Ambil Session'}
+              </button>
+
+              {sessions.length > 0 && (
+                <div className="space-y-2 animate-in fade-in">
+                  <label className="text-sm font-semibold text-slate-600">Pilih Session (Device)</label>
+                  <select
+                    className="w-full p-2 border border-slate-300 rounded-lg"
+                    value={wabotConfig.sessionId || ''}
+                    onChange={async (e) => {
+                      const sid = e.target.value;
+                      setConfig({ ...config, wabot: { ...wabotConfig, sessionId: sid } });
+                      handleFetchGroups(sid);
+                    }}
+                  >
+                    <option value="">-- Pilih Session --</option>
+                    {sessions.map((s: any) => (
+                      <option key={s.id} value={s.id}>{s.name} ({s.status})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {groups.length > 0 && (
+                <div className="space-y-2 animate-in fade-in">
+                  <label className="text-sm font-semibold text-slate-600">Pilih Group Tujuan</label>
+                  <select
+                    className="w-full p-2 border border-slate-300 rounded-lg"
+                    value={wabotConfig.targetNumber || ''}
+                    onChange={(e) => {
+                      setConfig({ ...config, wabot: { ...wabotConfig, targetNumber: e.target.value } });
+                    }}
+                  >
+                    <option value="">-- Pilih Group --</option>
+                    {groups.map((g: any) => (
+                      <option key={g.id || g.jid} value={g.id || g.jid}>
+                        {g.subject || g.name} ({g.id || g.jid})
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-slate-400">Atau input ID manual di kolom kanan.</p>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-4">
+              <h4 className="text-sm font-bold text-slate-700 uppercase tracking-wider border-b pb-2">Tujuan & Pesan</h4>
+              <InputGroup
+                label="Nomor Target / Group ID"
+                value={wabotConfig.targetNumber}
+                onChange={(v: string) => setConfig({ ...config, wabot: { ...wabotConfig, targetNumber: v } })}
+                placeholder="1203xxx@g.us"
+              />
+
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                <div className="flex items-center gap-2 mb-3">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 accent-purple-600"
+                    checked={!!wabotConfig.aiEnabled}
+                    onChange={(e) => setConfig({ ...config, wabot: { ...wabotConfig, aiEnabled: e.target.checked } })}
+                  />
+                  <span className="font-bold text-slate-700 text-sm">Gunakan AI (Auto-Generate)</span>
+                </div>
+
+                {wabotConfig.aiEnabled ? (
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-slate-500">Prompt / Instruksi untuk AI</label>
+                    <textarea
+                      className="w-full p-2 border border-slate-300 rounded-lg text-sm h-24 focus:ring-2 focus:ring-purple-500 outline-none"
+                      value={wabotConfig.aiPrompt || ''}
+                      onChange={(e) => setConfig({ ...config, wabot: { ...wabotConfig, aiPrompt: e.target.value } })}
+                      placeholder="Buatkan pesan ajakan sholat {prayer} yang puitis dan mengingatkan tentang pahala berjamaah..."
+                    />
+                    <p className="text-[10px] text-slate-400">AI akan membuat pesan otomatis setiap waktu sholat berdasarkan instruksi ini.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-slate-500">Template Pesan Manual</label>
+                    <textarea
+                      className="w-full p-2 border border-slate-300 rounded-lg text-sm h-24 focus:ring-2 focus:ring-emerald-500 outline-none"
+                      value={wabotConfig.messageTemplate || ''}
+                      onChange={(e) => setConfig({ ...config, wabot: { ...wabotConfig, messageTemplate: e.target.value } })}
+                      placeholder="Waktu sholat {sholat} telah tiba..."
+                    />
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={async () => {
+                  // Test logic
+                  const btn = document.getElementById('btn-test-wabot') as HTMLButtonElement;
+                  if (btn) { btn.innerText = 'Mengirim...'; btn.disabled = true; }
+                  try {
+                    const res = await fetch('/api/wabot/test', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        apiUrl: wabotConfig.apiUrl,
+                        targetNumber: wabotConfig.targetNumber,
+                        sessionId: wabotConfig.sessionId,
+                        authToken: token || wabotConfig.authToken,
+                        message: wabotConfig.aiEnabled
+                          ? '[TEST AI] Pesan ini akan digenerate oleh AI saat runtime.'
+                          : (wabotConfig.messageTemplate || 'Tes Wabot Berhasil')
+                      })
+                    });
+                    const data = await res.json();
+                    if (data.success) alert('Sukses!'); else alert('Gagal: ' + data.error);
+                  } catch (e: any) { alert('Err: ' + e.message); }
+                  if (btn) { btn.innerText = 'Test Kirim Pesan'; btn.disabled = false; }
+                }}
+                id="btn-test-wabot"
+                className="w-full py-2 bg-slate-800 text-white rounded-lg font-bold text-sm hover:bg-slate-900 transition"
+              >
+                Test Kirim Pesan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -940,7 +1371,7 @@ function AudioSection({ config, setConfig, onPickAudio, mosqueKey }: any) {
   );
 }
 
-function MediaConfigSection({ config, setConfig, onPickSlide, onPickAudio, mosqueKey }: any) {
+function MediaConfigSection({ config, setConfig, onPickSlide, onPickAudio, onOpenPicker, mosqueKey }: any) {
   const [subTab, setSubTab] = useState<'slideshow' | 'audio' | 'ramadhan' | 'simulation'>('slideshow');
   const [simPrayer, setSimPrayer] = useState('Subuh');
   const [simMode, setSimMode] = useState<'ADZAN' | 'IQAMAH' | 'SHOLAT' | 'NORMAL'>('ADZAN');
@@ -986,12 +1417,48 @@ function MediaConfigSection({ config, setConfig, onPickSlide, onPickAudio, mosqu
           )}
 
           {subTab === 'audio' && (
-            <AudioSection
-              config={config}
-              setConfig={setConfig}
-              onPickAudio={onPickAudio}
-              mosqueKey={mosqueKey}
-            />
+            <div className="space-y-8">
+              <SectionCard title="Audio Global (Fallback)">
+                <div className="flex gap-4 items-end">
+                  <div className="flex-1">
+                    <InputGroup
+                      label="URL Audio Global"
+                      value={config.audio.globalUrl || ''}
+                      onChange={(v: string) => setConfig({ ...config, audio: { ...config.audio, globalUrl: v } })}
+                      placeholder="http://..."
+                    />
+                  </div>
+                  <button
+                    onClick={() => {
+                      onOpenPicker('audio', { section: 'global-audio' });
+                    }}
+                    className="p-3 border border-slate-200 rounded-lg hover:bg-slate-50"
+                  >
+                    <Library size={20} />
+                  </button>
+                </div>
+                {config.audio.globalUrl && (
+                  <audio controls className="w-full mt-4 h-10 rounded-lg">
+                    <source src={resolveUrl(config.audio.globalUrl, mosqueKey)} type="audio/mpeg" />
+                  </audio>
+                )}
+              </SectionCard>
+
+              <SectionCard title="Atur Playlist">
+                <PlaylistManager
+                  config={config}
+                  setConfig={setConfig}
+                  mosqueKey={mosqueKey}
+                  onPickTrack={(playlistId) => {
+                    onOpenPicker('audio', { section: 'playlist-track', playlistId });
+                  }}
+                />
+              </SectionCard>
+
+              <SectionCard title="Jadwal Putar">
+                <ScheduleManager config={config} setConfig={setConfig} />
+              </SectionCard>
+            </div>
           )}
 
           {subTab === 'ramadhan' && (
@@ -1940,7 +2407,7 @@ function resolveUrl(url: string | undefined, mosqueKey: string) {
   return url;
 }
 
-function InputGroup({ label, value, onChange, type = 'text', step }: any) {
+function InputGroup({ label, value, onChange, type = 'text', step, placeholder }: any) {
   return (
     <div className="w-full">
       <label className="block text-sm font-semibold text-slate-600 mb-1.5">{label}</label>
@@ -1949,6 +2416,7 @@ function InputGroup({ label, value, onChange, type = 'text', step }: any) {
           className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-slate-800 text-sm shadow-sm min-h-[100px]"
           value={value ?? ""}
           onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
         />
       ) : (
         <input
@@ -1957,6 +2425,7 @@ function InputGroup({ label, value, onChange, type = 'text', step }: any) {
           className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-slate-800 text-sm shadow-sm"
           value={value ?? ""}
           onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
         />
       )}
     </div>

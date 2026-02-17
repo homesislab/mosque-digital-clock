@@ -35,6 +35,12 @@ export const DEFAULT_CONFIG: MosqueConfig = {
         },
         displayDuration: 10, // Default 10 minutes wait
     },
+    adzan: {
+        duration: 4, // Default 4 minutes for Adzan
+    },
+    sholat: {
+        duration: 10, // Default 10 minutes for Sholat
+    },
     sliderImages: [
         'https://images.unsplash.com/photo-1542204625-ca960ca44635?q=80&w=2670', // Mosque interior
         'https://images.unsplash.com/photo-1596492789643-2cb06f50c766?q=80&w=2669', // Quran
@@ -46,9 +52,9 @@ export const DEFAULT_CONFIG: MosqueConfig = {
     ],
     audio: {
         enabled: true,
-        // Example URL: Murottal 30 Juz
-        url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-        playBeforeMinutes: 10,
+        playlists: [],
+        schedules: [],
+        globalUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
     },
     officers: [
         { role: "Khatib", name: "Ust. Fulan" },
@@ -65,7 +71,13 @@ export const DEFAULT_CONFIG: MosqueConfig = {
             { name: 'Pembangunan', balance: 2000000, income: 500000, expense: 300000 },
         ]
     },
-    gallery: []
+    gallery: [],
+    wabot: {
+        enabled: false,
+        apiUrl: 'http://localhost:8000/api/send-message',
+        targetNumber: 'status@broadcast',
+        messageTemplate: 'Waktu sholat {sholat} telah tiba. Segera tunaikan sholat.',
+    }
 };
 
 export function getApiBaseUrl(): string {
@@ -107,8 +119,17 @@ export async function fetchConfig(): Promise<MosqueConfig> {
         });
 
         if (res.status === 401 || res.status === 403) {
-            console.error('Device not authorized or key invalid');
-            return null as any; // Return null to trigger logout
+            try {
+                const errData = await res.json();
+                if (errData.message === 'Device blocked' || errData.message === 'Device ID required' || errData.message === 'Unauthorized') {
+                    console.error('Explicit logout signal:', errData.message);
+                    return null as any; // Only logout if explicit
+                }
+            } catch (e) {
+                // If response is not JSON (e.g. HTML 403), treat as network/server error
+                console.warn('Non-JSON 403 response, treating as temporary failure');
+                return 'OFFLINE' as any;
+            }
         }
 
         if (!res.ok) throw new Error('Failed to fetch config');

@@ -1,21 +1,41 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Play, Pause, Square, Volume2 } from 'lucide-react';
+import { Play, Pause, Square, Volume2, SkipForward, SkipBack } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Playlist } from '@mosque-digital-clock/shared-types';
+import { resolveUrl } from '../lib/constants';
 
 interface AudioPlayerProps {
     url?: string;
+    playlist?: Playlist;
     isPlaying: boolean;
     onStop?: () => void;
 }
 
-export const AudioPlayer = ({ url, isPlaying, onStop }: AudioPlayerProps) => {
+export const AudioPlayer = ({ url, playlist, isPlaying, onStop }: AudioPlayerProps) => {
     const audioRef = useRef<HTMLAudioElement>(null);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
     const [isPaused, setIsPaused] = useState(false);
     const [loadError, setLoadError] = useState<string | null>(null);
+
+    // Playlist State
+    const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
+
+    // Determine effective source
+    const effectiveUrl = playlist
+        ? resolveUrl(playlist.tracks[currentTrackIndex]?.url)
+        : url;
+
+    const currentTitle = playlist
+        ? `${playlist.name}: ${playlist.tracks[currentTrackIndex]?.title}`
+        : 'Audio Pengingat / Murrotal Aktif';
+
+    // Reset playlist index when playlist changes (id comparison)
+    useEffect(() => {
+        setCurrentTrackIndex(0);
+    }, [playlist?.id]);
 
     // Sync isPaused with prop isPlaying
     useEffect(() => {
@@ -24,23 +44,46 @@ export const AudioPlayer = ({ url, isPlaying, onStop }: AudioPlayerProps) => {
 
     useEffect(() => {
         setLoadError(null);
-    }, [url, isPlaying]);
+    }, [effectiveUrl, isPlaying]);
 
     useEffect(() => {
-        if (!audioRef.current || !url) return;
+        if (!audioRef.current || !effectiveUrl) return;
 
         if (isPlaying && !isPaused) {
             const playPromise = audioRef.current.play();
             if (playPromise !== undefined) {
-                playPromise.catch(error => console.error("Playback failed:", error));
+                playPromise.catch(error => {
+                    console.error("Playback failed:", error);
+                    // Auto-advance on error? Maybe not safest, but useful for playlists
+                });
             }
         } else {
             audioRef.current.pause();
             if (!isPlaying) {
+                // If stopped completely
+                if (playlist) setCurrentTrackIndex(0); // Reset playlist
                 audioRef.current.currentTime = 0;
             }
         }
-    }, [isPlaying, isPaused, url]);
+    }, [isPlaying, isPaused, effectiveUrl, playlist]);
+
+    // Handlers
+    const handleNext = () => {
+        if (!playlist) return;
+        if (currentTrackIndex < playlist.tracks.length - 1) {
+            setCurrentTrackIndex(prev => prev + 1);
+        } else {
+            // End of playlist
+            if (onStop) onStop();
+        }
+    };
+
+    const handlePrev = () => {
+        if (!playlist) return;
+        if (currentTrackIndex > 0) {
+            setCurrentTrackIndex(prev => prev - 1);
+        }
+    };
 
     useEffect(() => {
         const audio = audioRef.current;
@@ -48,8 +91,13 @@ export const AudioPlayer = ({ url, isPlaying, onStop }: AudioPlayerProps) => {
 
         const handleTimeUpdate = () => setCurrentTime(audio.currentTime);
         const handleDurationChange = () => setDuration(audio.duration);
+
         const handleEnded = () => {
-            if (onStop) onStop();
+            if (playlist) {
+                handleNext();
+            } else {
+                if (onStop) onStop();
+            }
         };
 
         const handleError = (e: any) => {
@@ -62,11 +110,7 @@ export const AudioPlayer = ({ url, isPlaying, onStop }: AudioPlayerProps) => {
                     case 3: msg = "Decode Error"; break;
                     case 4: msg = "Source Not Supported"; break;
                 }
-                setLoadError(`[${err.code}] ${msg}: ${err.message || 'Check URL/CORS'}`);
-                console.error(`Audio Load Error [${err.code}]: ${msg}`, err.message);
-            } else {
-                setLoadError("Audio Load Error (no error object)");
-                console.error("Audio Load Error (no error object)", e);
+                setLoadError(`[${err.code}] ${msg}`);
             }
         };
 
@@ -81,27 +125,34 @@ export const AudioPlayer = ({ url, isPlaying, onStop }: AudioPlayerProps) => {
             audio.removeEventListener('ended', handleEnded);
             audio.removeEventListener('error', handleError);
         };
-    }, [onStop, url]); // Re-bind on URL change to catch initial load errors
+    }, [onStop, effectiveUrl, playlist, currentTrackIndex]);
 
     // Keyboard Shortcuts
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
+            if (!isPlaying) return;
+
             if (e.code === 'Space') {
                 e.preventDefault();
                 setIsPaused(!isPaused);
             } else if (e.code === 'Escape') {
                 if (onStop) onStop();
+            } else if (e.code === 'ArrowRight' && playlist) {
+                handleNext();
+            } else if (e.code === 'ArrowLeft' && playlist) {
+                handlePrev();
             }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isPaused, onStop]);
+    }, [isPaused, onStop, isPlaying, playlist, currentTrackIndex]);
 
-    if (!url) return null;
-    if (!isPlaying) return (
-        <audio ref={audioRef} src={url} preload="auto" />
-    );
+    if (!effectiveUrl) return null;
 
+    // Hidden Audio Element for "Headless" playback if UI is hidden? 
+    // But we always show UI when playing.
+
+    // Format helper
     const formatTime = (time: number) => {
         const minutes = Math.floor(time / 60);
         const seconds = Math.floor(time % 60);
@@ -110,7 +161,7 @@ export const AudioPlayer = ({ url, isPlaying, onStop }: AudioPlayerProps) => {
 
     return (
         <div className="fixed inset-x-0 bottom-0 z-[100] px-8 pb-8 pointer-events-none">
-            <audio ref={audioRef} src={url} />
+            <audio ref={audioRef} src={effectiveUrl} />
 
             <AnimatePresence>
                 {isPlaying && (
@@ -126,8 +177,8 @@ export const AudioPlayer = ({ url, isPlaying, onStop }: AudioPlayerProps) => {
 
                         <div className="flex-1 space-y-2">
                             <div className="flex justify-between items-end">
-                                <span className={`${loadError ? 'text-red-400 font-bold' : 'text-white/60'} text-xs font-medium uppercase tracking-wider`}>
-                                    {loadError ? `Gagal Memuat Audio: ${loadError}` : 'Audio Pengingat / Murrotal Aktif'}
+                                <span className={`${loadError ? 'text-red-400 font-bold' : 'text-white/60'} text-xs font-medium uppercase tracking-wider truncate max-w-[200px] sm:max-w-md`}>
+                                    {loadError ? `Gagal: ${loadError}` : currentTitle}
                                 </span>
                                 {!loadError && <span className="text-emerald-400 font-mono text-sm">{formatTime(currentTime)} / {formatTime(duration)}</span>}
                             </div>
@@ -147,6 +198,16 @@ export const AudioPlayer = ({ url, isPlaying, onStop }: AudioPlayerProps) => {
                         </div>
 
                         <div className="flex items-center gap-3 border-l border-white/10 pl-6">
+                            {playlist && (
+                                <button
+                                    onClick={handlePrev}
+                                    className="p-3 bg-white/5 hover:bg-white/10 rounded-xl text-white transition-colors disabled:opacity-30"
+                                    disabled={currentTrackIndex === 0}
+                                >
+                                    <SkipBack size={20} fill="currentColor" />
+                                </button>
+                            )}
+
                             <button
                                 onClick={() => setIsPaused(!isPaused)}
                                 className="p-3 bg-white/5 hover:bg-white/10 rounded-xl text-white transition-colors"
@@ -154,9 +215,20 @@ export const AudioPlayer = ({ url, isPlaying, onStop }: AudioPlayerProps) => {
                             >
                                 {isPaused ? <Play size={24} fill="currentColor" /> : <Pause size={24} fill="currentColor" />}
                             </button>
+
+                            {playlist && (
+                                <button
+                                    onClick={handleNext}
+                                    className="p-3 bg-white/5 hover:bg-white/10 rounded-xl text-white transition-colors disabled:opacity-30"
+                                    disabled={currentTrackIndex >= playlist.tracks.length - 1}
+                                >
+                                    <SkipForward size={20} fill="currentColor" />
+                                </button>
+                            )}
+
                             <button
                                 onClick={() => onStop?.()}
-                                className="p-3 bg-red-500/20 hover:bg-red-500/30 rounded-xl text-red-500 transition-colors border border-red-500/30"
+                                className="p-3 bg-red-500/20 hover:bg-red-500/30 rounded-xl text-red-500 transition-colors border border-red-500/30 ml-2"
                                 title="Esc"
                             >
                                 <Square size={24} fill="currentColor" />

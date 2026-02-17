@@ -15,13 +15,15 @@ import { AudioPlayer } from './components/AudioPlayer';
 import { getPasaran } from './lib/javanese-date';
 import { SetupOverlay } from './components/SetupOverlay';
 import { ImsakOverlay } from './components/ImsakOverlay';
+import { AdzanOverlay } from './components/AdzanOverlay';
+import { sendWabotNotification } from './lib/wabot';
 import { CheckCircle2 } from 'lucide-react';
 
 export default function Home() {
   const [mosqueKey, setMosqueKey] = useState<string | null>(null);
   const [config, setConfig] = useState<MosqueConfig>(DEFAULT_CONFIG);
   const [appState, setAppState] = useState<AppState>('NORMAL');
-  const [nextEvent, setNextEvent] = useState({ name: '', seconds: 0, activeAudioUrl: '', shouldPlayAudio: false });
+  const [nextEvent, setNextEvent] = useState({ name: '', seconds: 0, activeAudioUrl: '', activePlaylistId: '', shouldPlayAudio: false });
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isManualStopped, setIsManualStopped] = useState(false);
 
@@ -84,11 +86,12 @@ export default function Home() {
         name: result.nextPrayerName,
         seconds: result.secondsRemaining,
         activeAudioUrl: result.activeAudioUrl,
+        activePlaylistId: result.activePlaylistId || '',
         shouldPlayAudio: result.shouldPlayAudio
       });
 
-      // Reset manual stop if audio URL changes (new event)
-      if (result.activeAudioUrl !== nextEvent.activeAudioUrl) {
+      // Reset manual stop if audio URL/Playlist changes (new event)
+      if (result.activeAudioUrl !== nextEvent.activeAudioUrl || result.activePlaylistId !== nextEvent.activePlaylistId) {
         setIsManualStopped(false);
       }
     };
@@ -96,7 +99,29 @@ export default function Home() {
     tick();
     const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
-  }, [config, mosqueKey]);
+  }, [config, mosqueKey, nextEvent.activeAudioUrl, nextEvent.activePlaylistId]);
+
+  // Wabot Notification Trigger
+  const lastNotifiedPrayer = useRef<string | null>(null);
+  useEffect(() => {
+    // Trigger on ADZAN or IMSAK
+    if ((appState === 'ADZAN' || appState === 'IMSAK') && nextEvent.name && nextEvent.name !== lastNotifiedPrayer.current) {
+
+      // Prevent double trigger (and separate Adzan vs Imsak if names are same)
+      // Note: nextEvent.name for IMSAK is usually "Subuh" (based on logic.ts)
+      // So we might want to differentiate the "event" name for the ref
+      const eventKey = `${appState}-${nextEvent.name}`;
+
+      if (lastNotifiedPrayer.current !== eventKey) {
+        lastNotifiedPrayer.current = eventKey;
+
+        // Determine notification label
+        const notificationName = appState === 'IMSAK' ? 'Imsak' : nextEvent.name;
+
+        sendWabotNotification(config, notificationName, new Date());
+      }
+    }
+  }, [appState, nextEvent.name, config]);
 
   if (!mounted) return <div className="bg-slate-900 w-screen h-screen"></div>;
 
@@ -143,6 +168,10 @@ export default function Home() {
         isVisible={appState === 'IQAMAH'}
         prayerName={nextEvent.name}
         secondsRemaining={nextEvent.seconds}
+      />
+      <AdzanOverlay
+        isVisible={appState === 'ADZAN'}
+        prayerName={nextEvent.name}
       />
       <ImsakOverlay
         isVisible={appState === 'IMSAK'}
@@ -271,6 +300,7 @@ export default function Home() {
 
       <AudioPlayer
         url={resolveUrl(nextEvent.activeAudioUrl)}
+        playlist={config.audio?.playlists?.find(p => p.id === nextEvent.activePlaylistId)}
         isPlaying={nextEvent.shouldPlayAudio && !isManualStopped}
         onStop={() => setIsManualStopped(true)}
       />
