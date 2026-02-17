@@ -1,3 +1,36 @@
+export interface AudioTrack {
+    id: string;
+    title: string;
+    url: string;
+    duration?: number; // seconds
+    fileName?: string;
+}
+
+export interface Playlist {
+    id: string;
+    name: string;
+    tracks: AudioTrack[];
+    shuffle: boolean;
+}
+
+export interface AudioSchedule {
+    id: string;
+    playlistId: string;
+    type: 'prayer_relative' | 'manual_time';
+
+    // For prayer_relative
+    prayer?: 'subuh' | 'dzuhur' | 'ashar' | 'maghrib' | 'isya' | 'jumat';
+    offsetMinutes?: number; // negative = before, positive = after
+    trigger: 'adzan' | 'iqamah'; // Anchor point
+    playMode?: 'before' | 'at' | 'after'; // Compatibility/Refinement
+
+    // For manual_time
+    time?: string; // "HH:mm"
+    days?: number[]; // 0-6 (Sun-Sat)
+
+    enabled: boolean;
+}
+
 export interface MosqueConfig {
     mosqueInfo: {
         name: string;
@@ -34,22 +67,29 @@ export interface MosqueConfig {
         };
         displayDuration: number; // Duration to show countdown (e.g., 10 minutes)
         audioEnabled?: boolean;
-        audioUrl?: string;
+        audioUrl?: string; // Legacy/Simple
+    };
+    adzan: {
+        duration: number; // Duration in minutes (default 3-5)
+        audioEnabled?: boolean;
+        audioUrl?: string; // Optional specific Adzan audio
+    };
+    sholat: {
+        duration: number; // Duration in minutes to show Sholat overlay
     };
     sliderImages: string[]; // List of image URLs
     runningText: string[]; // List of announcements
+
+    // New Audio Architecture
     audio: {
-        enabled: boolean;
-        url: string; // Default Stream/MP3 URL
-        playBeforeMinutes: number; // Default Play X minutes before prayer
-        customSchedule?: {
-            [key in 'subuh' | 'dzuhur' | 'ashar' | 'maghrib' | 'isya' | 'jumat']: {
-                url: string;
-                playMode: 'before' | 'at' | 'after';
-                offsetMinutes: number;
-                enabled: boolean;
-            }
-        };
+        enabled: boolean; // Master switch
+
+        // Storage
+        playlists: Playlist[];
+        schedules: AudioSchedule[];
+
+        // Legacy / Simple Fallbacks (Optional, for backward compat or global override)
+        globalUrl?: string;
     };
     officers: {
         role: string;
@@ -119,5 +159,22 @@ export interface MosqueConfig {
         prayerTimesTextColor?: string;
         prayerTimesBgColor?: string;
         prayerTimesActiveColor?: string;
+    };
+    wabot?: {
+        enabled: boolean;
+        apiUrl: string;
+        authToken?: string;
+        targetNumber: string; // Group or specific number
+        messageTemplate?: string;
+        imsakMessageTemplate?: string;
+        // Auth
+        username?: string;
+        password?: string;
+        sessionId?: string; // Selected session ID
+        // AI
+        aiEnabled?: boolean;
+        aiPrompt?: string;
+        imsakAiEnabled?: boolean;
+        imsakAiPrompt?: string;
     };
 }

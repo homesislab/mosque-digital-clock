@@ -47,6 +47,12 @@ const defaultConfig: MosqueConfig = {
         },
         displayDuration: 10,
     },
+    adzan: {
+        duration: 4,
+    },
+    sholat: {
+        duration: 10,
+    },
     sliderImages: [
         'https://images.unsplash.com/photo-1542204625-ca960ca44635?q=80&w=2670',
         'https://images.unsplash.com/photo-1596492789643-2cb06f50c766?q=80&w=2669',
@@ -58,8 +64,9 @@ const defaultConfig: MosqueConfig = {
     ],
     audio: {
         enabled: true,
-        url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-        playBeforeMinutes: 10,
+        playlists: [],
+        schedules: [],
+        globalUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
     },
     officers: [
         { role: "Khatib", name: "Ust. Fulan" },
@@ -135,17 +142,26 @@ export async function GET(request: Request) {
             return NextResponse.json({ success: false, message: 'Device ID required' }, { status: 403, headers: corsHeaders });
         }
         // Verify device status
-        const [deviceRows]: any = await pool.query(
-            'SELECT status FROM devices WHERE device_id = ? AND mosque_key = ?',
-            [deviceId, key]
-        );
+        try {
+            const [deviceRows]: any = await pool.query(
+                'SELECT status FROM devices WHERE device_id = ? AND mosque_key = ?',
+                [deviceId, key]
+            );
 
-        // CHICKEN-AND-EGG FIX: 
-        // If device is not found, allow the first fetch so it can register itself.
-        // Only block if explicitly marked as 'blocked'.
-        if (deviceRows.length > 0 && deviceRows[0].status === 'blocked') {
-            return NextResponse.json({ success: false, message: 'Device blocked' }, { status: 403, headers: corsHeaders });
+            // CHICKEN-AND-EGG FIX: 
+            // If device is not found, allow the first fetch so it can register itself.
+            // Only block if explicitly marked as 'blocked'.
+            if (deviceRows.length > 0 && deviceRows[0].status === 'blocked') {
+                return NextResponse.json({ success: false, message: 'Device blocked' }, { status: 403, headers: corsHeaders });
+            }
+        } catch (dbError) {
+            console.error('Database connection error in device check:', dbError);
+            // On DB error, we should probably allow access or fail gracefully (return 503)
+            // Returning 503 allows client to retry
+            return NextResponse.json({ success: false, message: 'Database Unavailable' }, { status: 503, headers: corsHeaders });
         }
+
+
     } else {
         const access = await validateAccess(request, key);
         if (!access.allowed) {
