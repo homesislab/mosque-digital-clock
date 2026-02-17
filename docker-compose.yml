@@ -12,6 +12,7 @@ services:
       - ADMIN_PASSWORD=admin123
       - NEXTAUTH_URL=https://mosque.homesislab.my.id
       - NEXT_PUBLIC_APP_URL=https://mosque.homesislab.my.id
+      - TZ=Asia/Jakarta
     volumes:
       - /home/gie/workspace/mosque-digital-clock/apps/web-admin/public/uploads:/app/apps/web-admin/public/uploads
     networks:
@@ -27,6 +28,7 @@ services:
     restart: always
     environment:
       - NEXT_PUBLIC_API_URL=https://mosque.homesislab.my.id
+      - TZ=Asia/Jakarta
     networks:
       - shared_apps
   # prometheus:

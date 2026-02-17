@@ -42,6 +42,15 @@ export interface MosqueConfig {
         showSeconds: boolean;
         showHijriDate: boolean;
     };
+    // Modern Theme Configuration
+    theme?: {
+        mode: 'light' | 'dark' | 'custom';
+        backgroundType: 'solid' | 'image' | 'video';
+        backgroundColor?: string;
+        backgroundImageUrl?: string;
+        primaryColor?: string;
+        accentColor?: string;
+    };
     prayerTimes: {
         calculationMethod: string;
         coordinates: {
