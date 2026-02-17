@@ -135,7 +135,8 @@ export interface MosqueConfig {
     simulation?: {
         isSimulating: boolean;
         prayerName: string; // 'Subuh', 'Dzuhur', etc.
-        state: 'ADZAN' | 'IQAMAH' | 'SHOLAT' | 'IMSAK' | 'NORMAL';
+        state: 'ADZAN' | 'IQAMAH' | 'SHOLAT' | 'IMSAK' | 'NORMAL' | 'PLAYLIST';
+        activePlaylistId?: string; // For PLAYLIST simulation
         startTime: number; // Timestamp of simulation start
     };
     advancedDisplay?: {
@@ -178,3 +179,13 @@ export interface MosqueConfig {
         imsakAiPrompt?: string;
     };
 }
+
+export interface LogEntry {
+    id: string;
+    timestamp: string; // ISO String
+    level: 'info' | 'warn' | 'error' | 'success';
+    source: 'client' | 'admin' | 'system';
+    message: string;
+    metadata?: Record<string, any>;
+}
+

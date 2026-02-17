@@ -11,9 +11,10 @@ interface AudioPlayerProps {
     playlist?: Playlist;
     isPlaying: boolean;
     onStop?: () => void;
+    onBlocked?: (blocked: boolean) => void;
 }
 
-export const AudioPlayer = ({ url, playlist, isPlaying, onStop }: AudioPlayerProps) => {
+export const AudioPlayer = ({ url, playlist, isPlaying, onStop, onBlocked }: AudioPlayerProps) => {
     const audioRef = useRef<HTMLAudioElement>(null);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
@@ -52,9 +53,15 @@ export const AudioPlayer = ({ url, playlist, isPlaying, onStop }: AudioPlayerPro
         if (isPlaying && !isPaused) {
             const playPromise = audioRef.current.play();
             if (playPromise !== undefined) {
-                playPromise.catch(error => {
+                playPromise.then(() => {
+                    onBlocked?.(false);
+                }).catch(error => {
                     console.error("Playback failed:", error);
-                    // Auto-advance on error? Maybe not safest, but useful for playlists
+                    if (error.name === 'NotAllowedError') {
+                        onBlocked?.(true);
+                    } else {
+                        setLoadError(error.message);
+                    }
                 });
             }
         } else {
@@ -154,84 +161,83 @@ export const AudioPlayer = ({ url, playlist, isPlaying, onStop }: AudioPlayerPro
 
     // Format helper
     const formatTime = (time: number) => {
-        const minutes = Math.floor(time / 60);
-        const seconds = Math.floor(time % 60);
-        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        const mins = Math.floor(time / 60);
+        const secs = Math.floor(time % 60);
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
     return (
-        <div className="fixed inset-x-0 bottom-0 z-[100] px-8 pb-8 pointer-events-none">
+        <div className="fixed inset-x-0 bottom-12 z-[100] px-10 pointer-events-none">
             <audio ref={audioRef} src={effectiveUrl} />
 
             <AnimatePresence>
                 {isPlaying && (
                     <motion.div
-                        initial={{ y: 100, opacity: 0 }}
+                        initial={{ y: 20, opacity: 0 }}
                         animate={{ y: 0, opacity: 1 }}
-                        exit={{ y: 100, opacity: 0 }}
-                        className="max-w-4xl mx-auto bg-slate-900/90 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-2xl pointer-events-auto flex items-center gap-6"
+                        exit={{ y: 20, opacity: 0 }}
+                        className="max-w-2xl mx-auto bg-slate-900/40 backdrop-blur-2xl border border-white/10 rounded-full h-14 px-5 shadow-[0_20px_50px_rgba(0,0,0,0.3)] pointer-events-auto flex items-center gap-4 relative overflow-hidden"
                     >
-                        <div className="bg-emerald-500/20 p-3 rounded-full text-emerald-400 border border-emerald-500/30">
-                            <Volume2 size={24} />
+                        {/* Subtle Top Progress Bar */}
+                        {!loadError && (
+                            <div className="absolute top-0 left-0 right-0 h-[2px] bg-white/5">
+                                <motion.div
+                                    className="h-full bg-emerald-400"
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
+                                    transition={{ ease: "linear", duration: 0.1 }}
+                                />
+                            </div>
+                        )}
+
+                        {/* 1. Play/Pause Toggle */}
+                        <button
+                            onClick={() => setIsPaused(!isPaused)}
+                            className="flex-shrink-0 text-white/80 hover:text-white transition-colors"
+                        >
+                            {isPaused ? <Play size={20} fill="currentColor" /> : <Pause size={20} fill="currentColor" />}
+                        </button>
+
+                        {/* 2. Track Title */}
+                        <div className="flex-1 min-w-0">
+                            <h3 className={`text-xs font-semibold truncate tracking-wide ${loadError ? 'text-red-400' : 'text-white/80'}`}>
+                                {loadError ? `Gagal: ${loadError}` : currentTitle}
+                            </h3>
                         </div>
 
-                        <div className="flex-1 space-y-2">
-                            <div className="flex justify-between items-end">
-                                <span className={`${loadError ? 'text-red-400 font-bold' : 'text-white/60'} text-xs font-medium uppercase tracking-wider truncate max-w-[200px] sm:max-w-md`}>
-                                    {loadError ? `Gagal: ${loadError}` : currentTitle}
-                                </span>
-                                {!loadError && <span className="text-emerald-400 font-mono text-sm">{formatTime(currentTime)} / {formatTime(duration)}</span>}
-                            </div>
+                        {/* 3. Time Display */}
+                        {!loadError && (
+                            <span className="text-[10px] font-mono text-white/30 tabular-nums">
+                                {formatTime(currentTime)}
+                            </span>
+                        )}
 
-                            <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-                                {loadError ? (
-                                    <div className="h-full bg-red-500/50 w-full animate-pulse" />
-                                ) : (
-                                    <motion.div
-                                        className="h-full bg-emerald-500"
-                                        initial={{ width: 0 }}
-                                        animate={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
-                                        transition={{ ease: "linear" }}
-                                    />
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-3 border-l border-white/10 pl-6">
+                        {/* 4. Controls */}
+                        <div className="flex items-center gap-1 border-l border-white/5 pl-4">
                             {playlist && (
-                                <button
-                                    onClick={handlePrev}
-                                    className="p-3 bg-white/5 hover:bg-white/10 rounded-xl text-white transition-colors disabled:opacity-30"
-                                    disabled={currentTrackIndex === 0}
-                                >
-                                    <SkipBack size={20} fill="currentColor" />
-                                </button>
-                            )}
-
-                            <button
-                                onClick={() => setIsPaused(!isPaused)}
-                                className="p-3 bg-white/5 hover:bg-white/10 rounded-xl text-white transition-colors"
-                                title="Space"
-                            >
-                                {isPaused ? <Play size={24} fill="currentColor" /> : <Pause size={24} fill="currentColor" />}
-                            </button>
-
-                            {playlist && (
-                                <button
-                                    onClick={handleNext}
-                                    className="p-3 bg-white/5 hover:bg-white/10 rounded-xl text-white transition-colors disabled:opacity-30"
-                                    disabled={currentTrackIndex >= playlist.tracks.length - 1}
-                                >
-                                    <SkipForward size={20} fill="currentColor" />
-                                </button>
+                                <>
+                                    <button
+                                        onClick={handlePrev}
+                                        disabled={currentTrackIndex === 0}
+                                        className="p-1.5 text-white/40 hover:text-white disabled:opacity-10 transition-colors"
+                                    >
+                                        <SkipBack size={16} fill="currentColor" />
+                                    </button>
+                                    <button
+                                        onClick={handleNext}
+                                        disabled={currentTrackIndex >= playlist.tracks.length - 1}
+                                        className="p-1.5 text-white/40 hover:text-white disabled:opacity-10 transition-colors"
+                                    >
+                                        <SkipForward size={16} fill="currentColor" />
+                                    </button>
+                                </>
                             )}
 
                             <button
                                 onClick={() => onStop?.()}
-                                className="p-3 bg-red-500/20 hover:bg-red-500/30 rounded-xl text-red-500 transition-colors border border-red-500/30 ml-2"
-                                title="Esc"
+                                className="p-1.5 text-red-400/60 hover:text-red-400 transition-colors ml-1"
                             >
-                                <Square size={24} fill="currentColor" />
+                                <Square size={16} fill="currentColor" stroke="none" />
                             </button>
                         </div>
                     </motion.div>

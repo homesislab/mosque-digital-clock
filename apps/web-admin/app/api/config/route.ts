@@ -4,6 +4,7 @@ import { MosqueConfig } from '@mosque-digital-clock/shared-types';
 import { cookies } from 'next/headers';
 import { findUserById } from '../../../lib/user-store';
 import pool from '../../../lib/db';
+import { logger } from '../../lib/logger-server';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -131,6 +132,9 @@ async function saveConfig(key: string, config: MosqueConfig) {
     }
 }
 
+const DEVICE_LOG_THROTTLE = 30 * 60 * 1000; // 30 minutes
+const lastDeviceLog = new Map<string, number>();
+
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const key = searchParams.get('key') || 'default';
@@ -141,6 +145,15 @@ export async function GET(request: Request) {
         if (!deviceId) {
             return NextResponse.json({ success: false, message: 'Device ID required' }, { status: 403, headers: corsHeaders });
         }
+
+        // Log client connection (throttled)
+        const now = Date.now();
+        const lastLog = lastDeviceLog.get(deviceId) || 0;
+        if (now - lastLog > DEVICE_LOG_THROTTLE) {
+            lastDeviceLog.set(deviceId, now);
+            logger.info(`Client Connected: ${deviceId}`, { key, deviceId });
+        }
+
         // Verify device status
         try {
             const [deviceRows]: any = await pool.query(
@@ -188,6 +201,8 @@ export async function POST(request: Request) {
     const currentConfig = await getConfig(key);
     const newConfig = { ...currentConfig, ...body };
     await saveConfig(key, newConfig);
+
+    logger.success(`Configuration updated for key: ${key}`, { key, updatedBy: access.userId });
 
     return NextResponse.json(newConfig, {
         headers: corsHeaders,
