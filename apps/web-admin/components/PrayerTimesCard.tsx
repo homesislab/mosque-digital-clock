@@ -4,35 +4,42 @@ import { useState, useEffect } from 'react';
 import { MosqueConfig } from '@mosque-digital-clock/shared-types';
 import { Clock, MapPin, Loader2, ChevronRight, Calendar } from 'lucide-react';
 
-export function PrayerTimesCard({ config }: { config: MosqueConfig }) {
-    const [prayers, setPrayers] = useState<Record<string, string> | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [nextPrayer, setNextPrayer] = useState<{ name: string, time: string, delta: string } | null>(null);
+import { getPrayerTimes, getNextPrayer, formatTime } from '@/lib/prayer-times';
+
+export function PrayerTimesCard({ config, mosqueKey }: { config: MosqueConfig, mosqueKey: string }) {
+    // We still keep local state for "Next Prayer" countdown timer
+    const [currentTime, setCurrentTime] = useState(new Date());
 
     useEffect(() => {
-        async function fetchStatus() {
-            try {
-                const res = await fetch('/api/prayer-times-status');
-                if (res.ok) {
-                    const data = await res.json();
-                    setPrayers(data.prayers);
-                    setNextPrayer(data.next);
-                }
-            } catch (e) {
-                console.error("Failed to fetch prayer status", e);
-            } finally {
-                setLoading(false);
-            }
-        }
-
-        fetchStatus();
-        const interval = setInterval(fetchStatus, 60000);
+        const interval = setInterval(() => setCurrentTime(new Date()), 1000);
         return () => clearInterval(interval);
-    }, [config]);
+    }, []);
 
-    if (loading) return <div className="h-full min-h-[300px] flex items-center justify-center bg-white rounded-3xl shadow-sm border border-slate-100"><Loader2 className="animate-spin text-emerald-500" /></div>;
+    if (!config) return null;
 
-    if (!prayers || !nextPrayer) return null;
+    // Apply server time offset
+    const correctedNow = config.display?.timeOffset
+        ? new Date(currentTime.getTime() + config.display.timeOffset * 1000)
+        : currentTime;
+
+    const calculations = getPrayerTimes(config, correctedNow);
+    if (!calculations) return null;
+
+    const next = getNextPrayer(calculations, correctedNow);
+    const isFriday = correctedNow.getDay() === 5;
+
+    const prayers = {
+        Imsak: formatTime(calculations.imsak),
+        Subuh: formatTime(calculations.subuh),
+        Syuruq: formatTime(calculations.syuruq),
+        [isFriday ? 'Jumat' : 'Dzuhur']: formatTime(calculations[isFriday ? 'jumat' : 'dzuhur']),
+        Ashar: formatTime(calculations.ashar),
+        Maghrib: formatTime(calculations.maghrib),
+        Isya: formatTime(calculations.isya),
+    };
+
+    const nextPrayer = next;
+
 
     // Helper to get prayer index for timeline visualization
     const prayerNames = ['Subuh', 'Dzuhur', 'Ashar', 'Maghrib', 'Isya'];

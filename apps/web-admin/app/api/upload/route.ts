@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import { writeFile } from 'fs/promises';
 import { join } from 'path';
 
+export const maxDuration = 60; // 1 minute
+
 export async function POST(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
@@ -13,48 +15,37 @@ export async function POST(request: Request) {
         }
 
         const data = await request.formData();
-        const file: File | null = data.get('file') as unknown as File;
+        const files: File[] = data.getAll('file') as unknown as File[];
 
-        if (!file) {
-            return NextResponse.json({ success: false, message: 'No file uploaded' }, { status: 400 });
+        if (!files || files.length === 0) {
+            return NextResponse.json({ success: false, message: 'No files uploaded' }, { status: 400 });
         }
 
-        const bytes = await file.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-
-        // Use original filename (sanitized)
-        const filename = file.name.replace(/\s+/g, '-');
-
-        // Isolation: public/uploads/{key}/{filename}
-        const cwd = process.cwd();
-        console.log('Upload Debug - CWD:', cwd);
-
-        // Fix for Docker monorepo structure:
-        // If running from /app, but files are in apps/web-admin, we might need to adjust
-        // But let's log first to see what's happening.
-
-        const uploadDir = join(cwd, 'public', 'uploads', key);
-        console.log('Upload Debug - Target Dir:', uploadDir);
-
-        // Ensure directory exists
+        const uploadedUrls = [];
         const fs = require('fs/promises');
-        try {
+
+        for (const file of files) {
+            const bytes = await file.arrayBuffer();
+            const buffer = Buffer.from(bytes);
+
+            // Use original filename (sanitized)
+            const filename = file.name.replace(/\s+/g, '-');
+
+            // Isolation: public/uploads/{key}/{filename}
+            const cwd = process.cwd();
+            const uploadDir = join(cwd, 'public', 'uploads', key);
+
+            // Ensure directory exists
             await fs.mkdir(uploadDir, { recursive: true });
-        } catch (mkdirError) {
-            console.error('Upload Debug - Mkdir Error:', mkdirError);
-            throw mkdirError;
+
+            const path = join(uploadDir, filename);
+            await writeFile(path, buffer);
+
+            const url = `/uploads/${key}/${filename}`;
+            uploadedUrls.push(url);
         }
 
-        const path = join(uploadDir, filename);
-        console.log('Upload Debug - Writing to:', path);
-
-        await writeFile(path, buffer);
-        console.log('Upload Debug - Write Success');
-
-        // Construct public URL
-        const url = `/uploads/${key}/${filename}`;
-
-        return NextResponse.json({ success: true, url });
+        return NextResponse.json({ success: true, urls: uploadedUrls });
     } catch (error) {
         console.error('Upload API error:', error);
         return NextResponse.json({

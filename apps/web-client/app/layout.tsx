@@ -16,6 +16,15 @@ export const metadata: Metadata = {
   title: "Mosque Digital Clock",
   description: "Smart Digital Clock for Mosques",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/icon.svg?v=3",
+    apple: "/icon.svg?v=3",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Mosque Clock",
+  },
 };
 
 export const viewport = {

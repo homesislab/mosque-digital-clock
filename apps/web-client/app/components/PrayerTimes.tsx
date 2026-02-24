@@ -57,18 +57,18 @@ export const PrayerTimes = ({ config, nextPrayer, secondsRemaining }: PrayerTime
                         key={prayer.name}
                         className={`
                             relative flex-1 flex flex-col items-center justify-center p-2 lg:p-0 transition-all duration-300
-                            ${!isActive && index < prayers.length - 1 ? 'lg:border-r-2 lg:border-amber-400/30' : ''}
+                            ${!isActive && index < prayers.length - 1 ? 'lg:border-r-2 lg:border-emerald-400/30' : ''}
                             ${isActive
-                                ? 'bg-orange-500 text-white shadow-lg lg:transform lg:scale-y-110 lg:origin-bottom lg:rounded-t-lg z-10 lg:-mt-1'
+                                ? 'bg-emerald-600 text-white shadow-lg lg:transform lg:scale-y-110 lg:origin-bottom lg:rounded-t-lg z-10 lg:-mt-1'
                                 : 'bg-transparent text-slate-800 hover:bg-slate-50'}
                         `}
                         style={itemStyle}
                     >
                         {/* Ornamental top line for non-active items */}
-                        {!isActive && <div className="hidden lg:block absolute top-3 w-1 h-4 bg-amber-400/20 rounded-full mb-1"></div>}
+                        {!isActive && <div className="hidden lg:block absolute top-3 w-1 h-4 bg-emerald-400/20 rounded-full mb-1"></div>}
 
                         <span
-                            className={`text-[10px] lg:text-sm uppercase tracking-widest font-bold mb-0 z-10 ${isActive ? 'text-orange-100' : 'text-slate-500'}`}
+                            className={`text-[10px] lg:text-sm uppercase tracking-widest font-bold mb-0 z-10 ${isActive ? 'text-emerald-100' : 'text-slate-500'}`}
                             style={{ color: isActive ? '#ffffff' : adv?.prayerTimesTextColor }}
                         >
                             {prayer.name}

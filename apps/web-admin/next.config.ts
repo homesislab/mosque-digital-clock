@@ -9,7 +9,12 @@ const withPWA = withPWAInit({
 
 const nextConfig: NextConfig = {
   transpilePackages: ['@mosque-digital-clock/shared-types'],
-  serverExternalPackages: ['prom-client', 'bintrees', 'adhan'],
+  serverExternalPackages: ['prom-client', 'bintrees', 'adhan', '@whiskeysockets/baileys', 'pino', 'jimp'],
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '50mb',
+    },
+  },
   async rewrites() {
     return [
       {

@@ -30,7 +30,7 @@ export const SholatOverlay = ({ isVisible }: SholatOverlayProps) => {
                             <h1 className="text-5xl lg:text-7xl font-bold text-white tracking-[0.5em] uppercase drop-shadow-lg">
                                 Sholat
                             </h1>
-                            <div className="h-1 w-32 bg-amber-500 mx-auto rounded-full"></div>
+                            <div className="h-1 w-32 bg-emerald-500 mx-auto rounded-full"></div>
                             <p className="text-xl lg:text-3xl text-slate-300 tracking-widest font-light">
                                 Sedang Berlangsung... Harap Tenang
                             </p>

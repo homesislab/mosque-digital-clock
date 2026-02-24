@@ -5,6 +5,7 @@ import { cookies } from 'next/headers';
 import { findUserById } from '../../../lib/user-store';
 import pool from '../../../lib/db';
 import { logger } from '../../lib/logger-server';
+import { waService } from '@/lib/wa-service';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -32,6 +33,7 @@ const defaultConfig: MosqueConfig = {
         adjustments: {
             subuh: 2,
             dzuhur: 2,
+            jumat: 2,
             ashar: 2,
             maghrib: 2,
             isya: 2,
@@ -42,6 +44,7 @@ const defaultConfig: MosqueConfig = {
         waitTime: {
             subuh: 10,
             dzuhur: 10,
+            jumat: 10,
             ashar: 10,
             maghrib: 10,
             isya: 10,
@@ -203,6 +206,17 @@ export async function POST(request: Request) {
     await saveConfig(key, newConfig);
 
     logger.success(`Configuration updated for key: ${key}`, { key, updatedBy: access.userId });
+
+    // Trigger WA init if enabled, or reset if disabled
+    const wasEnabled = currentConfig.wabot?.enabled;
+    const isEnabled = newConfig.wabot?.enabled;
+
+    if (isEnabled && !wasEnabled) {
+        waService.init(key).catch(err => console.error('[Config-API] WA Auto-init failed:', err));
+    } else if (!isEnabled && wasEnabled) {
+        console.log(`[Config-API] WA integration disabled for ${key}. Resetting session...`);
+        waService.resetSession(key).catch(err => console.error('[Config-API] WA session reset failed:', err));
+    }
 
     return NextResponse.json(newConfig, {
         headers: corsHeaders,

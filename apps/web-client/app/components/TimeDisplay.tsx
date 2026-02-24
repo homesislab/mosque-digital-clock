@@ -5,20 +5,24 @@ import { useState, useEffect } from 'react';
 interface TimeDisplayProps {
     className?: string;
     style?: React.CSSProperties;
+    time?: Date | null;
 }
 
-export const TimeDisplay = ({ className = '', style }: TimeDisplayProps) => {
-    const [time, setTime] = useState<Date | null>(null);
+export const TimeDisplay = ({ className = '', style, time: externalTime }: TimeDisplayProps) => {
+    const [internalTime, setInternalTime] = useState<Date | null>(null);
 
     useEffect(() => {
-        setTime(new Date());
+        if (externalTime) return;
+        setInternalTime(new Date());
         const interval = setInterval(() => {
-            setTime(new Date());
+            setInternalTime(new Date());
         }, 1000);
         return () => clearInterval(interval);
-    }, []);
+    }, [externalTime]);
 
-    if (!time) return null; // Hydration mismatch prevention
+    const displayTime = externalTime || internalTime;
+
+    if (!displayTime) return null; // Hydration mismatch prevention
 
     const formatTime = (date: Date) => {
         return date.toLocaleTimeString('id-ID', {
@@ -38,7 +42,7 @@ export const TimeDisplay = ({ className = '', style }: TimeDisplayProps) => {
         });
     };
 
-    const timeStr = formatTime(time);
+    const timeStr = formatTime(displayTime);
 
     return (
         <div className={className} style={style}>

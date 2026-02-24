@@ -1,0 +1,24 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Rounded Emerald Background -->
+  <rect width="512" height="512" rx="128" fill="#10B981"/>
+  
+  <!-- Subtle Gradient Overlay -->
+  <rect width="512" height="512" rx="128" fill="url(#paint0_linear)" fill-opacity="0.2"/>
+  
+  <!-- Modern Mosque Dome Silhouette (White) -->
+  <path d="M256 120C190 120 136 174 136 240V392H376V240C376 174 322 120 256 120Z" fill="white"/>
+  
+  <!-- Gold Crescent on top -->
+  <path d="M256 70C261.523 70 266 74.4772 266 80C266 85.5228 261.523 90 256 90C250.477 90 246 85.5228 246 80C246 74.4772 250.477 70 256 70Z" fill="#FBBF24"/>
+  <path d="M260 72C264 72 268 76 268 80C268 84 264 88 260 88C256.686 88 254 85.3137 254 82C254 78.6863 256.686 72 260 72Z" fill="#10B981"/>
+
+  <!-- Minimal Clock Hand (Emerald Primary) -->
+  <rect x="248" y="200" width="16" height="80" rx="8" fill="#10B981"/>
+  
+  <defs>
+    <linearGradient id="paint0_linear" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop stop-color="white"/>
+      <stop offset="1" stop-color="black"/>
+    </linearGradient>
+  </defs>
+</svg>

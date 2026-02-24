@@ -9,6 +9,7 @@ export const DEFAULT_CONFIG: MosqueConfig = {
         theme: 'dark',
         showSeconds: true,
         showHijriDate: true,
+        timeOffset: 0,
     },
     prayerTimes: {
         calculationMethod: 'Kemenag',
@@ -19,6 +20,7 @@ export const DEFAULT_CONFIG: MosqueConfig = {
         adjustments: {
             subuh: 2,
             dzuhur: 2,
+            jumat: 2,
             ashar: 2,
             maghrib: 2,
             isya: 2,
@@ -29,6 +31,7 @@ export const DEFAULT_CONFIG: MosqueConfig = {
         waitTime: {
             subuh: 10,
             dzuhur: 10,
+            jumat: 10,
             ashar: 10,
             maghrib: 10,
             isya: 10,
@@ -74,7 +77,6 @@ export const DEFAULT_CONFIG: MosqueConfig = {
     gallery: [],
     wabot: {
         enabled: false,
-        apiUrl: 'http://localhost:8000/api/send-message',
         targetNumber: 'status@broadcast',
         messageTemplate: 'Waktu sholat {sholat} telah tiba. Segera tunaikan sholat.',
     }

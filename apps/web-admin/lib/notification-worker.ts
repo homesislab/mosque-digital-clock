@@ -21,9 +21,7 @@ export async function checkAndSendNotifications() {
 
         if (!rows || rows.length === 0) return;
 
-        const now = new Date();
-        const currentHour = now.getHours();
-        const currentMinute = now.getMinutes();
+        let now = new Date();
 
         for (const row of rows) {
             const key = row.mosque_key;
@@ -36,26 +34,36 @@ export async function checkAndSendNotifications() {
                 continue;
             }
 
+            // Apply global time offset per mosque
+            let correctedNow = now;
+            if (config.display?.timeOffset) {
+                correctedNow = new Date(now.getTime() + config.display.timeOffset * 1000);
+            }
+
+            const currentHour = correctedNow.getHours();
+            const currentMinute = correctedNow.getMinutes();
+
             if (!config.wabot?.enabled) continue;
 
-            const prayers = getPrayerTimes(config);
+            const prayers = getPrayerTimes(config, correctedNow);
             if (!prayers) continue;
 
             // Check each prayer time
-            Object.entries(prayers).forEach(async ([name, time]) => {
+            for (const [name, time] of Object.entries(prayers)) {
                 // We only care about Imsak, Subuh, Dzuhur, Ashar, Maghrib, Isya
                 // Normalized names for display/sending
                 const displayNames: Record<string, string> = {
                     imsak: 'Imsak',
                     subuh: 'Subuh',
                     dzuhur: 'Dzuhur',
+                    jumat: 'Jumat',
                     ashar: 'Ashar',
                     maghrib: 'Maghrib',
                     isya: 'Isya'
                 };
 
                 const displayName = displayNames[name];
-                if (!displayName) return; // Skip Syuruq or others if not needed
+                if (!displayName) continue; // Skip Syuruq or others if not needed
 
                 if (time instanceof Date) {
                     // Check if TIME MATCHES CURRENT MINUTE
@@ -66,7 +74,7 @@ export async function checkAndSendNotifications() {
 
                         if (sentNotifications.has(lockKey)) {
                             // Already sent
-                            return;
+                            continue;
                         }
 
                         console.log(`[Worker] Triggering ${displayName} for ${key} at ${formatTime(time)}`);
@@ -75,14 +83,10 @@ export async function checkAndSendNotifications() {
                         sentNotifications.add(lockKey);
 
                         // Trigger Sending Logic
-                        // We can reuse the internal API logic or call a service function directly.
-                        // For simplicity and consistency with logging/headers, let's call the internal API via fetch
-                        // essentially simulating a client request but from localhost
-
-                        await triggerWabot(config, displayName, time);
+                        await triggerWabot(key, config, displayName, time);
                     }
                 }
-            });
+            }
         }
 
     } catch (error) {
@@ -90,70 +94,39 @@ export async function checkAndSendNotifications() {
     }
 }
 
-async function triggerWabot(config: MosqueConfig, prayerName: string, prayerTime: Date) {
-    // We need to implement the actual sending logic here OR call the existing API.
-    // Calling the existing API might be tricky if it expects specific headers or auth that we don't have easily here.
-    // BETTER APPROACH: Duplicate the sending logic here or move it to a shared service file.
-    // Let's implement a simplified sending function here to avoid circular dependency loop with API routes if possible.
-
-    // BUT wait, the previous `sendWabotNotification` was in `web-client`. We don't have it in `web-admin` yet.
-    // We need to implement `sendWabotNotification` for server-side use.
-
+async function triggerWabot(mosqueKey: string, config: MosqueConfig, prayerName: string, prayerTime: Date) {
     try {
-        if (!config.wabot?.authToken) {
-            // Auth check (using authToken as standard now)
-        }
-
         const timeStr = formatTime(prayerTime);
-        let template = config.wabot?.messageTemplate || "Waktu sholat {sholat} telah tiba.";
+        const isImsak = prayerName.toLowerCase() === 'imsak';
 
-        if (prayerName === 'Imsak') {
-            template = config.wabot?.imsakMessageTemplate ||
-                (config.wabot?.messageTemplate ? config.wabot.messageTemplate.replace(/sholat /gi, '') : "Waktu {sholat} telah tiba.");
+        // Choose Template
+        let template = config.wabot?.messageTemplate || "Waktu sholat {sholat} telah tiba.";
+        if (isImsak && config.wabot?.imsakMessageTemplate) {
+            template = config.wabot.imsakMessageTemplate;
         }
 
-        let message = template
+        // Simple template replacement
+        const message = template
             .replace(/{sholat}/gi, prayerName)
             .replace(/{jam}/gi, timeStr)
             .replace(/\[HH:MM\]/gi, timeStr);
 
-        // AI Generation (Server-side)
-        // Implemented if needed, for now let's stick to basic template to ensure stability first
-        // or copy the AI logic if critical.
+        let finalMessage = message;
 
-        // Send to Wabot
-        const baseUrl = config.wabot?.apiUrl?.replace(/\/$/, '').replace(/\/api\/messages\/send$/, '').replace(/\/send$/, '');
-        const sendUrl = `${baseUrl}/api/messages/send`;
+        // WhatsApp Sending (Local Service)
+        const { waService } = await import('./wa-service');
+        const targetJid = config.wabot?.targetNumber;
 
-        const payload = {
-            sessionId: config.wabot?.sessionId,
-            to: config.wabot?.targetNumber,
-            type: 'TEXT',
-            content: message
-        };
-
-        // NOTE: We are NOT using the AI generation here yet to keep it simple and robust for the worker.
-        // If AI is needed, we should abstract that logic into a service.
-
-        console.log(`[Worker] Sending to ${sendUrl}`, payload);
-
-        const res = await fetch(sendUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${config.wabot?.authToken}`
-            },
-            body: JSON.stringify(payload)
-        });
-
-        if (res.ok) {
-            logger.success(`[Worker] Sent notification for ${prayerName}`, { key: 'SYSTEM', prayerName });
-        } else {
-            const err = await res.text();
-            logger.error(`[Worker] Failed to send ${prayerName}`, { error: err });
+        if (targetJid) {
+            try {
+                console.log(`[Worker] Sending notification for ${prayerName} to ${targetJid}...`);
+                await waService.sendMessage(mosqueKey, targetJid, finalMessage);
+            } catch (error: any) {
+                console.error(`[Worker] Failed to send message via local WA:`, error.message);
+            }
         }
 
     } catch (e: any) {
-        logger.error(`[Worker] Error sending message`, { error: e.message });
+        logger.error(`[Worker] Error sending message`, { error: e.message, key: mosqueKey });
     }
 }

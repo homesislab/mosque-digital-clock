@@ -86,8 +86,8 @@ export default function ScheduleManager({ config, setConfig }: ScheduleManagerPr
                                 key={schedule.id}
                                 onClick={() => setActiveScheduleId(schedule.id)}
                                 className={`w-full text-left px-4 py-3 rounded-lg flex items-center justify-between group transition-all ${activeScheduleId === schedule.id
-                                        ? 'bg-emerald-50 text-emerald-700 shadow-sm border border-emerald-100'
-                                        : 'hover:bg-slate-50 text-slate-600 border border-transparent'
+                                    ? 'bg-emerald-50 text-emerald-700 shadow-sm border border-emerald-100'
+                                    : 'hover:bg-slate-50 text-slate-600 border border-transparent'
                                     }`}
                             >
                                 <div className="min-w-0">
@@ -159,26 +159,81 @@ export default function ScheduleManager({ config, setConfig }: ScheduleManagerPr
                             <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Tipe Jadwal</label>
                             <div className="grid grid-cols-2 gap-3">
                                 <button
+                                    type="button"
                                     onClick={() => handleUpdateSchedule(activeSchedule.id, { type: 'prayer_relative' })}
-                                    className={`p-3 rounded-xl border text-sm font-bold flex items-center justify-center gap-2 transition ${activeSchedule.type === 'prayer_relative'
-                                            ? 'bg-emerald-50 border-emerald-200 text-emerald-700 ring-2 ring-emerald-500 ring-offset-2'
-                                            : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                                    className={`p-3 rounded-xl border text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer relative z-10 ${activeSchedule.type === 'prayer_relative'
+                                        ? 'bg-emerald-50 border-emerald-200 text-emerald-700 ring-2 ring-emerald-500 ring-offset-2'
+                                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300'
                                         }`}
                                 >
                                     <Clock size={18} /> Mengikuti Waktu Sholat
                                 </button>
                                 <button
-                                    onClick={() => handleUpdateSchedule(activeSchedule.id, { type: 'manual_time' })}
-                                    className={`p-3 rounded-xl border text-sm font-bold flex items-center justify-center gap-2 transition opacity-50 cursor-not-allowed ${activeSchedule.type === 'manual_time'
-                                            ? 'bg-emerald-50 border-emerald-200 text-emerald-700 ring-2 ring-emerald-500 ring-offset-2'
-                                            : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                                    type="button"
+                                    onClick={() => handleUpdateSchedule(activeSchedule.id, { type: 'manual_time', time: activeSchedule.time || '12:00', durationMinutes: activeSchedule.durationMinutes || 15 })}
+                                    className={`p-3 rounded-xl border text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer relative z-10 ${activeSchedule.type === 'manual_time'
+                                        ? 'bg-emerald-50 border-emerald-200 text-emerald-700 ring-2 ring-emerald-500 ring-offset-2'
+                                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300'
                                         }`}
-                                    disabled title="Coming Soon"
                                 >
                                     <Clock size={18} /> Waktu Manual (Jam:Menit)
                                 </button>
                             </div>
                         </div>
+
+                        {activeSchedule.type === 'manual_time' && (
+                            <div className="space-y-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Waktu Play (HH:mm)</label>
+                                        <input
+                                            type="time"
+                                            value={activeSchedule.time || '12:00'}
+                                            onChange={(e) => handleUpdateSchedule(activeSchedule.id, { time: e.target.value })}
+                                            className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm font-bold"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Durasi (Menit)</label>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            max="1440"
+                                            value={activeSchedule.durationMinutes || 15}
+                                            onChange={(e) => handleUpdateSchedule(activeSchedule.id, { durationMinutes: parseInt(e.target.value) })}
+                                            className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm font-bold"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Hari Aktif (Kosongi untuk setiap hari)</label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'].map((day, idx) => {
+                                            const isSelected = activeSchedule.days?.includes(idx);
+                                            return (
+                                                <button
+                                                    key={idx}
+                                                    onClick={() => {
+                                                        const currentDays = activeSchedule.days || [];
+                                                        const newDays = isSelected
+                                                            ? currentDays.filter(d => d !== idx)
+                                                            : [...currentDays, idx];
+                                                        handleUpdateSchedule(activeSchedule.id, { days: newDays.sort() });
+                                                    }}
+                                                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition ${isSelected
+                                                        ? 'bg-emerald-600 border-emerald-600 text-white'
+                                                        : 'bg-white border-slate-200 text-slate-400 hover:border-emerald-200'
+                                                        }`}
+                                                >
+                                                    {day}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {activeSchedule.type === 'prayer_relative' && (
                             <div className="space-y-4 p-4 bg-slate-50 rounded-xl border border-slate-100">

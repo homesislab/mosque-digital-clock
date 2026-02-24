@@ -12,9 +12,11 @@ interface AudioPlayerProps {
     isPlaying: boolean;
     onStop?: () => void;
     onBlocked?: (blocked: boolean) => void;
+    playbackState?: 'playing' | 'paused' | 'stopped';
+    onCommand?: (command: string) => void;
 }
 
-export const AudioPlayer = ({ url, playlist, isPlaying, onStop, onBlocked }: AudioPlayerProps) => {
+export const AudioPlayer = ({ url, playlist, isPlaying, onStop, onBlocked, playbackState, onCommand }: AudioPlayerProps) => {
     const audioRef = useRef<HTMLAudioElement>(null);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
@@ -23,6 +25,17 @@ export const AudioPlayer = ({ url, playlist, isPlaying, onStop, onBlocked }: Aud
 
     // Playlist State
     const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
+
+    // Remote Control Effect
+    useEffect(() => {
+        if (playbackState === 'paused') {
+            setIsPaused(true);
+        } else if (playbackState === 'playing') {
+            setIsPaused(false);
+        } else if (playbackState === 'stopped') {
+            onStop?.();
+        }
+    }, [playbackState, onStop]);
 
     // Determine effective source
     const effectiveUrl = playlist
@@ -134,6 +147,47 @@ export const AudioPlayer = ({ url, playlist, isPlaying, onStop, onBlocked }: Aud
         };
     }, [onStop, effectiveUrl, playlist, currentTrackIndex]);
 
+    // Status Reporting Heartbeat
+    useEffect(() => {
+        if (!isPlaying) return;
+
+        const reportStatus = async () => {
+            const key = new URLSearchParams(window.location.search).get('key') || 'default';
+            try {
+                const res = await fetch(`/api/audio/active-status?key=${key}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        isPlaying: true,
+                        title: currentTitle,
+                        currentTime: currentTime,
+                        duration: duration,
+                        playlistId: playlist?.id,
+                    }),
+                });
+                const data = await res.json();
+                if (data.command) {
+                    onCommand?.(data.command);
+                }
+            } catch (e) {
+                console.error('Failed to report audio status', e);
+            }
+        };
+
+        reportStatus();
+        const interval = setInterval(reportStatus, 5000);
+        return () => {
+            clearInterval(interval);
+            // Try to report stopped status on unmount or when playing stops
+            const key = new URLSearchParams(window.location.search).get('key') || 'default';
+            fetch(`/api/audio/active-status?key=${key}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ isPlaying: false, currentTime: 0, duration: 0 }),
+            }).catch(() => { });
+        };
+    }, [isPlaying, currentTitle, currentTime, duration, playlist?.id]);
+
     // Keyboard Shortcuts
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -155,9 +209,6 @@ export const AudioPlayer = ({ url, playlist, isPlaying, onStop, onBlocked }: Aud
     }, [isPaused, onStop, isPlaying, playlist, currentTrackIndex]);
 
     if (!effectiveUrl) return null;
-
-    // Hidden Audio Element for "Headless" playback if UI is hidden? 
-    // But we always show UI when playing.
 
     // Format helper
     const formatTime = (time: number) => {

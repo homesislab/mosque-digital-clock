@@ -11,7 +11,10 @@ export async function POST(request: Request) {
 
         // Call Wabot Login
         // Assuming Wabot API is at /api/auth/login relative to apiUrl
-        const wabotUrl = `${apiUrl.replace(/\/$/, '')}/api/auth/login`;
+        const baseUrl = apiUrl.replace(/\/$/, '').replace(/\/api\/auth\/login$/, '').replace(/\/auth\/login$/, '').replace(/\/api$/, '');
+        const wabotUrl = `${baseUrl}/api/auth/login`;
+
+        console.log(`[WabotLogin] Calling: ${wabotUrl}`);
 
         const res = await fetch(wabotUrl, {
             method: 'POST',
@@ -20,8 +23,14 @@ export async function POST(request: Request) {
         });
 
         if (!res.ok) {
-            const err = await res.json();
-            return NextResponse.json({ error: err.error || 'Login failed' }, { status: res.status });
+            const errBody = await res.text();
+            console.error(`[WabotLogin] Failed with status ${res.status}: ${errBody}`);
+            try {
+                const err = JSON.parse(errBody);
+                return NextResponse.json({ error: err.error || 'Login failed', details: errBody }, { status: res.status });
+            } catch (e) {
+                return NextResponse.json({ error: 'Login failed', details: errBody }, { status: res.status });
+            }
         }
 
         const data = await res.json();

@@ -3,14 +3,14 @@
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { MosqueConfig } from '@mosque-digital-clock/shared-types';
+import { MosqueConfig, AudioActiveStatus } from '@mosque-digital-clock/shared-types';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Save, RefreshCw, LogOut, LayoutDashboard, MapPin,
   Clock, Image as ImageIcon, MessageSquare, Users,
   Wallet, Settings, Settings2, ChevronRight, UploadCloud,
-  Music, Library, Plus, Moon, Menu, X, Play, PlayCircle, XCircle, AlarmCheck, Sliders, Smartphone, Activity,
-  LogIn, Send, LayoutGrid, List
+  Music, Library, Plus, Moon, Menu, X, Play, Pause, Square, PlayCircle, XCircle, AlarmCheck, Sliders, Smartphone, Activity,
+  LogIn, Send, LayoutGrid, List, Power, Monitor
 } from 'lucide-react';
 import { useLogger } from './hooks/useLogger';
 import { PrayerTimesCard } from '@/components/PrayerTimesCard';
@@ -38,6 +38,8 @@ type Tab = 'dashboard' | 'identity' | 'prayer' | 'wabot' | 'media' | 'gallery' |
 
 export default function AdminDashboard() {
   const [mosqueKey, setMosqueKey] = useState<string>('');
+  const [audioStatus, setAudioStatus] = useState<AudioActiveStatus | null>(null);
+
   const [config, setConfig] = useState<MosqueConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -67,6 +69,25 @@ export default function AdminDashboard() {
     if (mosqueKey) {
       fetchConfig();
     }
+  }, [mosqueKey]);
+
+  // Audio Status Polling
+  useEffect(() => {
+    if (!mosqueKey) return;
+
+    const pollAudioStatus = async () => {
+      try {
+        const res = await fetch(`/api/audio/active-status?key=${mosqueKey}`);
+        const data = await res.json();
+        setAudioStatus(data.isPlaying ? data : null);
+      } catch (err) {
+        console.error('Failed to poll audio status', err);
+      }
+    };
+
+    pollAudioStatus();
+    const interval = setInterval(pollAudioStatus, 5000);
+    return () => clearInterval(interval);
   }, [mosqueKey]);
 
   const fetchConfig = async () => {
@@ -191,8 +212,8 @@ export default function AdminDashboard() {
       `}>
         <div className="p-6 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-emerald-200 shadow-md">
-              <Moon size={20} className="text-white" />
+            <div className="w-8 h-8 flex items-center justify-center">
+              <img src="/logo.svg?v=3" alt="Logo" className="w-8 h-8 rounded-lg shadow-sm" />
             </div>
             <div>
               <h1 className="font-bold text-slate-800 text-lg leading-tight">Smart Mosque</h1>
@@ -310,12 +331,13 @@ export default function AdminDashboard() {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   {/* Left Column: Prayer Times (Tall) */}
                   <div className="lg:col-span-1 h-full">
-                    {config && <PrayerTimesCard config={config} />}
+                    {config && <PrayerTimesCard config={config} mosqueKey={mosqueKey} />}
                   </div>
 
                   {/* Right Column: Stats Grid */}
-                  <div className="lg:col-span-2">
-                    <DashboardOverview config={config} setActiveTab={setActiveTab} updateConfig={updateConfig} />
+                  <div className="lg:col-span-2 space-y-6">
+                    {audioStatus && <LiveAudioWidget status={audioStatus} updateConfig={updateConfig} config={config} />}
+                    <DashboardOverview config={config} setActiveTab={setActiveTab} updateConfig={updateConfig} onSave={handleSave} status={audioStatus} />
                   </div>
                 </div>
               )}
@@ -336,6 +358,7 @@ export default function AdminDashboard() {
                 <PrayerSection
                   config={config}
                   setConfig={setConfig}
+                  onSave={handleSave}
                   onOpenPicker={(type: any, target: any) => {
                     setPickerType(type);
                     setPickerTarget(target);
@@ -345,8 +368,8 @@ export default function AdminDashboard() {
               )}
               {activeTab === 'wabot' && (
                 <div className="space-y-6">
-                  <SectionCard title="Integrasi WhatsApp (Wabot Sisia)">
-                    <WabotConfigSection config={config} setConfig={setConfig} />
+                  <SectionCard title="Integrasi WhatsApp">
+                    <WabotConfigSection config={config} setConfig={setConfig} mosqueKey={mosqueKey} />
                   </SectionCard>
                 </div>
               )}
@@ -356,6 +379,7 @@ export default function AdminDashboard() {
                   setConfig={setConfig}
                   mosqueKey={mosqueKey}
                   onSave={handleSave}
+                  audioStatus={audioStatus}
                   onOpenPicker={(type: any, target: any) => {
                     setPickerType(type);
                     setPickerTarget(target);
@@ -472,13 +496,105 @@ const tabLabels: Record<Tab, string> = {
   dashboard: 'Dashboard Overview',
   identity: 'Identitas & Lokasi Masjid',
   prayer: 'Konfigurasi Jadwal Sholat',
-  wabot: 'Integrasi WhatsApp (Wabot Sisia)',
+  wabot: 'Integrasi WhatsApp',
   media: 'Media & Fitur Unggulan',
   gallery: 'Galeri Media',
   content: 'Konten Informasi',
   devices: 'Manajemen Perangkat TV',
   advance: 'Advanced Configuration (Tampilan)',
 };
+
+function LiveAudioWidget({ status, updateConfig, config }: { status: AudioActiveStatus, updateConfig: any, config: MosqueConfig }) {
+  const [isStopping, setIsStopping] = useState(false);
+  const [isPausing, setIsPausing] = useState(false);
+
+  const formatTime = (time: number) => {
+    const mins = Math.floor(time / 60);
+    const secs = Math.floor(time % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const currentProgress = status.duration > 0 ? (status.currentTime / status.duration) * 100 : 0;
+
+  const handleControl = async (targetState: 'playing' | 'paused' | 'stopped') => {
+    if (targetState === 'stopped') setIsStopping(true);
+    if (targetState === 'paused' || targetState === 'playing') setIsPausing(true);
+
+    try {
+      await updateConfig({
+        ...config,
+        audio: {
+          ...config.audio,
+          playbackState: targetState
+        }
+      });
+    } catch (err) {
+      console.error('Failed to update playback state', err);
+    } finally {
+      setIsStopping(false);
+      setIsPausing(false);
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-slate-900 rounded-3xl p-6 text-white border border-slate-800 shadow-xl shadow-emerald-900/10 relative overflow-hidden"
+    >
+      <div className="absolute top-0 right-0 p-6 opacity-10">
+        <Music className="w-24 h-24 transform rotate-12" />
+      </div>
+
+      <div className="relative z-10">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+            <Activity size={20} className="animate-pulse" />
+          </div>
+          <div>
+            <h3 className="font-bold text-white tracking-tight">Sedang Memutar</h3>
+            <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">Live Client Playback</p>
+          </div>
+        </div>
+
+        <div className="mb-6">
+          <h4 className="text-lg font-bold text-slate-100 mb-1 truncate pr-12">{status.title || 'Unknown Track'}</h4>
+          <div className="flex items-center justify-between text-xs font-mono text-slate-400 mt-2">
+            <span>{formatTime(status.currentTime)}</span>
+            <span>{formatTime(status.duration)}</span>
+          </div>
+          <div className="h-1.5 w-full bg-slate-800 rounded-full mt-2 overflow-hidden">
+            <motion.div
+              className="h-full bg-emerald-500"
+              initial={{ width: 0 }}
+              animate={{ width: `${currentProgress}%` }}
+              transition={{ ease: "linear" }}
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => handleControl(status.isPlaying ? 'paused' : 'playing')}
+            disabled={isPausing}
+            className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
+          >
+            {status.isPlaying ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}
+            {status.isPlaying ? 'Pause' : 'Resume'}
+          </button>
+          <button
+            onClick={() => handleControl('stopped')}
+            disabled={isStopping}
+            className="flex items-center gap-2 px-4 py-2 bg-rose-500/80 hover:bg-rose-600 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
+          >
+            <Square size={16} fill="currentColor" stroke="none" />
+            Stop
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
 
 function SidebarItem({ icon: Icon, label, active, onClick }: { icon: any, label: string, active: boolean, onClick: () => void }) {
   return (
@@ -507,7 +623,62 @@ function SectionCard({ title, children, className = '' }: { title: string, child
 }
 
 
-function DashboardOverview({ config, setActiveTab, updateConfig }: { config: MosqueConfig, setActiveTab: (tab: Tab) => void, updateConfig: any }) {
+function PlaybackRemoteControl({ config, setConfig, onSave, status, className = "" }: { config: MosqueConfig, setConfig: any, onSave: any, status?: AudioActiveStatus | null, className?: string }) {
+  if (!config?.audio) return null;
+
+  const handleStateChange = (state: 'playing' | 'paused' | 'stopped') => {
+    const newConfig = { ...config, audio: { ...config.audio, playbackState: state } };
+    setConfig(newConfig);
+    onSave(newConfig);
+  };
+
+  // Logic for highlights: prioritize real-time status if available
+  const isPlaying = status ? status.isPlaying : config.audio.playbackState === 'playing';
+  const isPaused = status ? (!status.isPlaying && status.currentTime > 0) : config.audio.playbackState === 'paused';
+  const isStopped = status ? (!status.isPlaying && status.currentTime === 0) : config.audio.playbackState === 'stopped';
+
+  return (
+    <div className={`space-y-4 ${className}`}>
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+          <Activity size={12} className={status?.isPlaying ? 'text-emerald-500' : 'text-slate-300'} />
+          Remote Control Playback (Client)
+        </p>
+        {status && (
+          <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${status.isPlaying ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
+            {status.isPlaying ? 'LIVE' : 'IDLE'}
+          </span>
+        )}
+      </div>
+      <div className="flex gap-2">
+        <button
+          onClick={() => handleStateChange('playing')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border-none transition-all font-bold text-sm ${isPlaying ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
+        >
+          <Play size={16} fill={isPlaying ? "currentColor" : "none"} />
+          PLAY
+        </button>
+        <button
+          onClick={() => handleStateChange('paused')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border-none transition-all font-bold text-sm ${isPaused ? 'bg-amber-500 text-white shadow-lg shadow-amber-200' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
+        >
+          <Pause size={16} fill={isPaused ? "currentColor" : "none"} />
+          PAUSE
+        </button>
+        <button
+          onClick={() => handleStateChange('stopped')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border-none transition-all font-bold text-sm ${isStopped ? 'bg-slate-800 text-white shadow-lg shadow-slate-200' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
+        >
+          <Square size={16} fill={isStopped ? "currentColor" : "none"} />
+          STOP
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
+function DashboardOverview({ config, setActiveTab, updateConfig, onSave, status }: { config: MosqueConfig, setActiveTab: (tab: Tab) => void, updateConfig: any, onSave: any, status?: AudioActiveStatus | null }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       {/* Mosque Info Card - Redesigned */}
@@ -612,6 +783,11 @@ function DashboardOverview({ config, setActiveTab, updateConfig }: { config: Mos
           <div className="absolute bottom-0 right-0 p-4 opacity-10">
             <ImageIcon size={64} />
           </div>
+        </div>
+
+        {/* Playback Control on Dashboard */}
+        <div className="md:col-span-2 bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
+          <PlaybackRemoteControl config={config} setConfig={updateConfig} onSave={onSave} status={status} />
         </div>
       </div>
     </div>
@@ -720,7 +896,7 @@ function IdentitySection({ config, setConfig, updateConfig, onPickLogo, mosqueKe
 }
 
 
-function PrayerSection({ config, setConfig, onOpenPicker }: any) {
+function PrayerSection({ config, setConfig, onOpenPicker, onSave }: any) {
   return (
     <div className="space-y-6">
       <SectionCard title="Metode & Hisab">
@@ -730,14 +906,45 @@ function PrayerSection({ config, setConfig, onOpenPicker }: any) {
       </SectionCard>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <SectionCard title="Koreksi Waktu (Menit)">
-          <div className="grid grid-cols-2 gap-4">
-            {Object.entries(config.prayerTimes.adjustments).map(([k, v]) => (
-              <InputGroup key={k} label={`Koreksi ${k}`} value={v} type="number" onChange={(val: string) => {
-                const n = { ...config.prayerTimes.adjustments, [k]: parseInt(val) };
-                setConfig({ ...config, prayerTimes: { ...config.prayerTimes, adjustments: n } });
-              }} />
-            ))}
+        <SectionCard title="Koreksi Jam Global (Detik)">
+          <div className="space-y-4">
+            <InputGroup
+              label="Koreksi Detik (+/-)"
+              value={config.display?.timeOffset || 0}
+              type="number"
+              onChange={(v: string) => {
+                setConfig({
+                  ...config,
+                  display: { ...config.display, timeOffset: parseInt(v) }
+                });
+              }}
+              placeholder="Contoh: 5 atau -5"
+            />
+            <p className="text-[10px] text-slate-500 italic">
+              Gunakan ini untuk menyesuaikan jam master jika waktu server tidak tepat.
+            </p>
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Koreksi Waktu Sholat (Menit)">
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              {Object.entries(config.prayerTimes.adjustments).map(([k, v]) => (
+                <InputGroup key={k} label={`Koreksi ${k}`} value={v} type="number" onChange={(val: string) => {
+                  const n = { ...config.prayerTimes.adjustments, [k]: parseInt(val) };
+                  setConfig({ ...config, prayerTimes: { ...config.prayerTimes, adjustments: n } });
+                }} />
+              ))}
+            </div>
+            <div className="pt-4 border-t border-slate-100 flex justify-end">
+              <button
+                onClick={() => onSave()}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-all text-sm font-semibold shadow-sm"
+              >
+                <Save size={16} />
+                Simpan Perubahan
+              </button>
+            </div>
           </div>
         </SectionCard>
 
@@ -878,88 +1085,47 @@ function PrayerSection({ config, setConfig, onOpenPicker }: any) {
   );
 }
 
-function WabotConfigSection({ config, setConfig }: { config: MosqueConfig, setConfig: any }) {
+function WabotConfigSection({ config, setConfig, mosqueKey }: { config: MosqueConfig, setConfig: any, mosqueKey: string }) {
+  const [waStatus, setWaStatus] = useState({ status: 'DISCONNECTED', qr: null as string | null, groups: [] as { id: string, name: string }[] });
+  const [showGroups, setShowGroups] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [sessions, setSessions] = useState<any[]>([]);
-  const [groups, setGroups] = useState<any[]>([]);
-  const [token, setToken] = useState<string | null>(config.wabot?.authToken || null);
-  const [view, setView] = useState<'config' | 'login'>('config');
-  const [activeWabotTab, setActiveWabotTab] = useState<'sholat' | 'imsak'>('sholat');
-  const [testSessionId, setTestSessionId] = useState<string>(config.wabot?.sessionId || '');
   const [testTargetNumber, setTestTargetNumber] = useState<string>(config.wabot?.targetNumber || '');
 
-  const wabotConfig = config.wabot || { enabled: false, apiUrl: '', targetNumber: '' };
+  const wabotConfig = config.wabot || { enabled: false, targetNumber: '' };
 
-  const handleLogin = async () => {
-    if (!wabotConfig.username || !wabotConfig.password || !wabotConfig.apiUrl) {
-      alert('Mohon isi API URL, Username, dan Password');
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await fetch('/api/wabot/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          apiUrl: wabotConfig.apiUrl,
-          username: wabotConfig.username,
-          password: wabotConfig.password
-        })
-      });
-      const data = await res.json();
-
-      if (data.token) {
-        setToken(data.token);
-        setConfig({ ...config, wabot: { ...wabotConfig, authToken: data.token } });
-        // Fetch sessions
-        const resSess = await fetch(`/api/wabot/auth/sessions?apiUrl=${encodeURIComponent(wabotConfig.apiUrl)}&token=${data.token}`);
-        const dataSess = await resSess.json();
-        setSessions(dataSess);
-        setView('login');
-      } else {
-        alert('Login Gagal: ' + (data.error || 'Unknown error'));
+  useEffect(() => {
+    const fetchWaStatus = async () => {
+      try {
+        const res = await fetch(`/api/wa/status?key=${mosqueKey}`);
+        const data = await res.json();
+        setWaStatus(data);
+      } catch (e) {
+        console.error('Failed to fetch WA status', e);
       }
-    } catch (e: any) {
-      alert('Error: ' + e.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
-  const handleFetchGroups = async (sessionId: string) => {
-    const currentToken = token || config.wabot?.authToken;
-    if (!sessionId || !currentToken) {
-      if (!currentToken) alert("Token tidak ditemukan. Silakan login ulang.");
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/wabot/auth/groups?apiUrl=${encodeURIComponent(wabotConfig.apiUrl)}&token=${currentToken}&sessionId=${sessionId}`);
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setGroups(data);
-      } else {
-        console.error("Failed to fetch groups", data);
-        alert("Gagal mengambil grup: " + (data.error || 'Unknown error'));
-      }
-    } catch (e: any) {
-      console.error(e);
-      alert("Error fetching groups: " + e.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+    fetchWaStatus();
+    const interval = setInterval(fetchWaStatus, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div>
       <div className="flex items-center gap-3 mb-6 bg-green-50 p-3 rounded-lg border border-green-100">
-        <input type="checkbox" checked={wabotConfig.enabled} onChange={(e) =>
-          setConfig({ ...config, wabot: { ...wabotConfig, enabled: e.target.checked } })
-        } className="w-5 h-5 accent-emerald-600" />
+        <input type="checkbox" checked={wabotConfig.enabled} onChange={async (e) => {
+          const isChecked = e.target.checked;
+          setConfig({ ...config, wabot: { ...wabotConfig, enabled: isChecked } });
+          if (isChecked) {
+            try {
+              await fetch(`/api/wa/status?key=${mosqueKey}`, { method: 'POST' });
+            } catch (err) {
+              console.error('Failed to trigger WA service auto-start', err);
+            }
+          }
+        }} className="w-5 h-5 accent-emerald-600" />
         <div>
-          <span className="font-medium text-green-800">Aktifkan Notifikasi WhatsApp</span>
-          <p className="text-xs text-green-600">Kirim pesan otomatis ke grup/nomor saat waktu sholat tiba.</p>
+          <span className="font-medium text-green-800">Aktifkan Notifikasi WhatsApp (Lokal)</span>
+          <p className="text-xs text-green-600">Kirim pesan otomatis ke grup/nomor melalui library WhatsApp lokal.</p>
         </div>
       </div>
 
@@ -968,236 +1134,155 @@ function WabotConfigSection({ config, setConfig }: { config: MosqueConfig, setCo
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* LEFT COLUMN: CONFIGURATION */}
             <div className="lg:col-span-7 space-y-6">
-              <div className="bg-slate-50/50 p-5 rounded-2xl border border-slate-200/60 shadow-sm space-y-4">
-                <div className="flex justify-between items-end border-b border-slate-200 pb-2 mb-2">
-                  <h4 className="text-sm font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2">
-                    <Settings2 size={16} /> 1. Konfigurasi Koneksi
-                  </h4>
-                  <a href="https://wabot.homesislab.my.id/" target="_blank" rel="noopener noreferrer" className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 hover:underline uppercase tracking-tighter">
-                    Kelola Akun Sisia &rarr;
-                  </a>
-                </div>
-                <InputGroup
-                  label="Wabot API URL"
-                  value={wabotConfig.apiUrl}
-                  onChange={(v: string) => setConfig({ ...config, wabot: { ...wabotConfig, apiUrl: v } })}
-                  placeholder="https://api.wabotsisia.com"
-                />
-                <div className="grid grid-cols-2 gap-4">
-                  <InputGroup
-                    label="Username"
-                    value={wabotConfig.username || ''}
-                    onChange={(v: string) => setConfig({ ...config, wabot: { ...wabotConfig, username: v } })}
-                    placeholder="admin"
-                  />
-                  <div className="flex flex-col gap-1">
-                    <label className="text-sm font-semibold text-slate-600">Password</label>
-                    <input
-                      type="password"
-                      className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm transition-all"
-                      value={wabotConfig.password || ''}
-                      onChange={(e) => setConfig({ ...config, wabot: { ...wabotConfig, password: e.target.value } })}
-                    />
-                  </div>
-                </div>
-              </div>
-
               <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
                 <h4 className="text-sm font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2 border-b border-slate-200 pb-2">
-                  <MessageSquare size={16} /> 2. Pengaturan Pesan & AI
+                  <MessageSquare size={16} /> Pengaturan Pesan
                 </h4>
 
-                {/* Tab Navigation */}
-                <div className="flex gap-4 border-b border-slate-100">
-                  <button
-                    onClick={() => setActiveWabotTab('sholat')}
-                    className={`pb-2 text-sm font-bold transition-all border-b-2 ${activeWabotTab === 'sholat' ? 'border-emerald-500 text-emerald-700' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
-                  >
-                    Waktu Sholat
-                  </button>
-                  <button
-                    onClick={() => setActiveWabotTab('imsak')}
-                    className={`pb-2 text-sm font-bold transition-all border-b-2 ${activeWabotTab === 'imsak' ? 'border-emerald-500 text-emerald-700' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
-                  >
-                    Waktu Imsak
-                  </button>
-                </div>
-
-                {/* Content Sholat */}
-                {activeWabotTab === 'sholat' && (
-                  <div className="space-y-4 animate-in fade-in duration-300">
-                    <InputGroup
-                      label="Template Pesan"
-                      value={wabotConfig.messageTemplate || 'Waktu sholat {sholat} telah tiba.'}
-                      onChange={(v: string) => setConfig({ ...config, wabot: { ...wabotConfig, messageTemplate: v } })}
-                      type="textarea"
-                    />
-
-                    <div className="bg-purple-50/50 p-4 rounded-xl border border-purple-100">
-                      <label className="flex items-center gap-2 mb-2 cursor-pointer group">
-                        <input
-                          type="checkbox"
-                          checked={wabotConfig.aiEnabled || false}
-                          onChange={(e) => setConfig({ ...config, wabot: { ...wabotConfig, aiEnabled: e.target.checked } })}
-                          className="w-5 h-5 accent-purple-600 rounded"
-                        />
-                        <span className="font-bold text-purple-900 text-sm group-hover:text-purple-700 transition-colors">Gunakan AI (Auto-Generate)</span>
-                      </label>
-
-                      {wabotConfig.aiEnabled && (
-                        <div className="space-y-2 animate-in zoom-in-95">
-                          <textarea
-                            className="w-full p-3 border border-purple-200 rounded-lg text-sm h-32 focus:ring-2 focus:ring-purple-500 outline-none bg-white font-medium text-slate-700"
-                            value={wabotConfig.aiPrompt || 'buatkan pesan ajakan sholat {sholat} yang puitis dan mengingatkan pahala sholat berjamaah'}
-                            onChange={(e) => setConfig({ ...config, wabot: { ...wabotConfig, aiPrompt: e.target.value } })}
-                            placeholder="Instruksi untuk AI..."
-                          />
-                        </div>
-                      )}
-                      <p className="text-[10px] text-purple-600 mt-1 font-medium">✨ AI akan membuat konten unik setiap notifikasi terkirim.</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Content Imsak */}
-                {activeWabotTab === 'imsak' && (
-                  <div className="space-y-4 animate-in fade-in duration-300">
-                    <InputGroup
-                      label="Template Pesan Imsak"
-                      value={wabotConfig.imsakMessageTemplate || 'Waktu Imsak telah tiba, segera selesaikan sahur Anda.'}
-                      onChange={(v: string) => setConfig({ ...config, wabot: { ...wabotConfig, imsakMessageTemplate: v } })}
-                      type="textarea"
-                    />
-
-                    <div className="bg-purple-50/50 p-4 rounded-xl border border-purple-100">
-                      <label className="flex items-center gap-2 mb-2 cursor-pointer group">
-                        <input
-                          type="checkbox"
-                          checked={wabotConfig.imsakAiEnabled || false}
-                          onChange={(e) => setConfig({ ...config, wabot: { ...wabotConfig, imsakAiEnabled: e.target.checked } })}
-                          className="w-5 h-5 accent-purple-600 rounded"
-                        />
-                        <span className="font-bold text-purple-900 text-sm group-hover:text-purple-700 transition-colors">Gunakan AI untuk Imsak</span>
-                      </label>
-
-                      {wabotConfig.imsakAiEnabled && (
-                        <div className="space-y-2 animate-in zoom-in-95">
-                          <textarea
-                            className="w-full p-3 border border-purple-200 rounded-lg text-sm h-32 focus:ring-2 focus:ring-purple-500 outline-none bg-white font-medium text-slate-700"
-                            value={wabotConfig.imsakAiPrompt || 'Buatkan pesan pengingat waktu Imsak yang puitis, mengingatkan batas akhir sahur dan niat puasa.'}
-                            onChange={(e) => setConfig({ ...config, wabot: { ...wabotConfig, imsakAiPrompt: e.target.value } })}
-                            placeholder="Instruksi AI khusus Imsak..."
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                <div className="p-3 bg-amber-50 rounded-lg border border-amber-100">
-                  <p className="text-[10px] text-amber-800 leading-relaxed font-medium">
-                    <b>TIP:</b> Anda bisa menggunakan kode <b>{`{sholat}`}</b> untuk nama waktu dan <b>{`{jam}`}</b> untuk pukul otomatis di dalam template atau prompt.
-                  </p>
-                </div>
-              </div>
-
-              <div className="bg-slate-50/50 p-5 rounded-2xl border border-slate-200/60 shadow-sm space-y-4">
-                <h4 className="text-sm font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2 border-b border-slate-200 pb-2 mb-2">
-                  <Smartphone size={16} /> 3. Target Pengiriman Otomatis
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <InputGroup
-                    label="Session ID (Device)"
-                    value={wabotConfig.sessionId || ''}
-                    onChange={(v: string) => setConfig({ ...config, wabot: { ...wabotConfig, sessionId: v } })}
-                    placeholder="homesislab-1"
-                  />
+                <div className="flex flex-col gap-2">
                   <InputGroup
                     label="WhatsApp Target ID (Grup/Nomor)"
                     value={wabotConfig.targetNumber || ''}
                     onChange={(v: string) => setConfig({ ...config, wabot: { ...wabotConfig, targetNumber: v } })}
                     placeholder="628xxx atau ID Group"
                   />
+                  {waStatus.status === 'CONNECTED' && (
+                    <div className="space-y-2">
+                      <button
+                        onClick={() => setShowGroups(!showGroups)}
+                        className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded"
+                      >
+                        {showGroups ? 'Sembunyikan Daftar Grup' : 'Lihat Daftar Grup (ID Grup)'}
+                        <ChevronRight size={12} className={`transition-transform ${showGroups ? 'rotate-90' : ''}`} />
+                      </button>
+
+                      {showGroups && (
+                        <div className="bg-slate-50 border border-slate-200 rounded-lg p-2 max-h-40 overflow-y-auto space-y-1 animate-in fade-in slide-in-from-top-1">
+                          {waStatus.groups.length > 0 ? (
+                            waStatus.groups.map(g => (
+                              <div key={g.id} className="flex items-center justify-between gap-2 p-1.5 hover:bg-white rounded border border-transparent hover:border-slate-200 transition-all text-[10px]">
+                                <span className="font-bold text-slate-700 truncate">{g.name}</span>
+                                <button
+                                  onClick={() => {
+                                    setConfig({ ...config, wabot: { ...wabotConfig, targetNumber: g.id } });
+                                    navigator.clipboard.writeText(g.id);
+                                  }}
+                                  className="shrink-0 text-emerald-600 font-mono hover:underline"
+                                >
+                                  Salin ID
+                                </button>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-[10px] text-slate-400 text-center py-2 italic">Tidak ada grup ditemukan.</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <p className="text-[10px] text-slate-500 italic">
-                  * Ini adalah target tetap yang akan dikirimi notifikasi otomatis. Gunakan kolom "Aksi & Pengujian" di samping untuk mencari ID yang tepat.
-                </p>
+
+                <InputGroup
+                  label="Template Pesan"
+                  value={wabotConfig.messageTemplate || 'Waktu sholat {sholat} telah tiba.'}
+                  onChange={(v: string) => setConfig({ ...config, wabot: { ...wabotConfig, messageTemplate: v } })}
+                  type="textarea"
+                />
+
+                <div className="p-3 bg-amber-50 rounded-lg border border-amber-100">
+                  <p className="text-[10px] text-amber-800 leading-relaxed font-medium">
+                    <b>TIP:</b> Anda bisa menggunakan kode <b>{`{sholat}`}</b> untuk nama waktu dan <b>{`{jam}`}</b> untuk pukul otomatis di dalam template.
+                  </p>
+                </div>
               </div>
             </div>
 
-            {/* RIGHT COLUMN: ACTIONS & TESTING */}
+            {/* RIGHT COLUMN: CONNECTION STATUS / QR */}
             <div className="lg:col-span-5 space-y-6">
               <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-xl space-y-5 border border-slate-800">
                 <h4 className="text-xs font-bold uppercase tracking-widest text-emerald-400 flex items-center gap-2 border-b border-white/10 pb-3">
-                  <PlayCircle size={18} /> Aksi & Pengujian
+                  <PlayCircle size={18} /> Status Koneksi WhatsApp
                 </h4>
 
                 <div className="space-y-4">
-                  <button
-                    onClick={handleLogin}
-                    disabled={loading}
-                    className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-900 rounded-xl font-bold text-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20"
-                  >
-                    {loading ? <RefreshCw className="animate-spin" size={16} /> : <LogIn size={16} />}
-                    {loading ? 'Menghubungkan...' : 'Login & Refresh Session'}
-                  </button>
-
-                  <div className="space-y-4 p-4 bg-white/5 rounded-xl border border-white/10">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Cari Device (Session)</label>
-                      <select
-                        className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-emerald-500 outline-none cursor-pointer"
-                        value={testSessionId}
-                        onChange={async (e) => {
-                          const sid = e.target.value;
-                          setTestSessionId(sid);
-                          handleFetchGroups(sid);
-                        }}
-                      >
-                        <option value="">-- Pilih Session --</option>
-                        {sessions.map((s: any) => (
-                          <option key={s.id} value={s.id}>{s.name} ({s.status})</option>
-                        ))}
-                      </select>
+                  <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/10">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Status</span>
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold tracking-widest text-center ${waStatus.status === 'CONNECTED' ? 'bg-emerald-500/20 text-emerald-400' : waStatus.status === 'CONNECTING' ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400'}`}>
+                        {waStatus.status}
+                      </span>
                     </div>
 
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Cari Group Tujuan</label>
-                      <select
-                        className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-emerald-500 outline-none cursor-pointer disabled:opacity-30"
-                        value={testTargetNumber}
-                        disabled={groups.length === 0}
-                        onChange={(e) => {
-                          setTestTargetNumber(e.target.value);
+                    {waStatus.status === 'DISCONNECTED' && !loading && (
+                      <button
+                        onClick={async () => {
+                          setLoading(true);
+                          try {
+                            const res = await fetch(`/api/wa/status?key=${mosqueKey}`, { method: 'POST' });
+                            const data = await res.json();
+                            if (data.success) {
+                              setWaStatus({ ...waStatus, status: 'CONNECTING' });
+                            } else {
+                              alert('Gagal memulai service: ' + data.error);
+                            }
+                          } catch (e) { alert('Err: Failed to trigger WA'); }
+                          setLoading(false);
                         }}
+                        className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-2"
                       >
-                        <option value="">-- {groups.length === 0 ? 'Login untuk melihat grup' : 'Pilih Group'} --</option>
-                        {groups.map((g: any) => (
-                          <option key={g.id || g.jid} value={g.id || g.jid}>
-                            {g.subject || g.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                        <Power size={14} /> Hubungkan WhatsApp
+                      </button>
+                    )}
 
-                    <button
-                      onClick={() => {
-                        setConfig({
-                          ...config,
-                          wabot: {
-                            ...wabotConfig,
-                            sessionId: testSessionId,
-                            targetNumber: testTargetNumber
-                          }
-                        });
-                        alert('Konfigurasi diperbarui ke target terpilih. Jangan lupa simpan perubahan di bawah.');
-                      }}
-                      disabled={!testSessionId || !testTargetNumber}
-                      className="w-full py-2 border border-emerald-500/30 rounded-lg text-[10px] font-bold uppercase tracking-widest text-emerald-400 hover:bg-emerald-500/10 transition-colors disabled:opacity-20"
-                    >
-                      Gunakan untuk Konfigurasi Utama
-                    </button>
+                    {!loading && (waStatus.status === 'CONNECTING' || waStatus.status === 'CONNECTED' || waStatus.status === 'DISCONNECTED') && (
+                      <button
+                        onClick={async () => {
+                          if (!confirm('Apakah Anda yakin ingin mereset sesi WhatsApp? Anda perlu scan ulang kode QR.')) return;
+                          setLoading(true);
+                          try {
+                            const res = await fetch(`/api/wa/reset?key=${mosqueKey}`, { method: 'POST' });
+                            const data = await res.json();
+                            if (data.success) {
+                              setWaStatus({ ...waStatus, status: 'DISCONNECTED', qr: null });
+                              alert('Sesi WhatsApp berhasil direset.');
+                            } else {
+                              alert('Gagal mereset sesi: ' + data.error);
+                            }
+                          } catch (e) { alert('Err: Failed to reset WA'); }
+                          setLoading(false);
+                        }}
+                        className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
+                        title="Reset Koneksi (Hapus Sesi)"
+                      >
+                        <RefreshCw size={14} /> Reset
+                      </button>
+                    )}
+
+                    {loading && <div className="text-emerald-400 text-[10px] font-bold animate-pulse">Memuat...</div>}
                   </div>
+
+                  {waStatus.qr && waStatus.status !== 'CONNECTED' && (
+                    <div className="p-6 bg-white rounded-xl flex flex-col items-center gap-4 animate-in zoom-in-95 duration-300">
+                      <p className="text-slate-900 text-xs font-bold text-center">Scan QR Code ini dengan WhatsApp Anda</p>
+                      <div className="p-2 bg-white border-4 border-slate-100 rounded-2xl shadow-inner">
+                        <img
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(waStatus.qr)}`}
+                          alt="WA QR Code"
+                          className="w-48 h-48"
+                        />
+                      </div>
+                      <p className="text-slate-500 text-[10px] text-center italic font-medium px-4">
+                        Buka WhatsApp {'>'} Perangkat Tertaut {'>'} Tautkan Perangkat.
+                      </p>
+                    </div>
+                  )}
+
+                  {waStatus.status === 'CONNECTED' && (
+                    <div className="p-4 bg-emerald-500/10 rounded-xl border border-emerald-500/20 flex items-center gap-3">
+                      <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                      <p className="text-emerald-400 text-xs font-bold">Terhubung ke WhatsApp. Siap mengirim notifikasi.</p>
+                    </div>
+                  )}
 
                   <div className="space-y-4 pt-2">
                     <div className="space-y-2">
@@ -1219,22 +1304,22 @@ function WabotConfigSection({ config, setConfig }: { config: MosqueConfig, setCo
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
-                              apiUrl: wabotConfig.apiUrl,
-                              targetNumber: testTargetNumber,
-                              sessionId: testSessionId,
-                              authToken: token || wabotConfig.authToken,
-                              message: wabotConfig.aiEnabled
-                                ? '[TEST AI] Pesan ini akan digenerate oleh AI saat runtime.'
-                                : (wabotConfig.messageTemplate || 'Tes Wabot Berhasil')
+                              to: testTargetNumber || wabotConfig.targetNumber,
+                              message: "Uji coba pengiriman pesan dari Smart Mosque Admin (Lokal)."
                             })
                           });
                           const data = await res.json();
-                          if (data.success) alert('Sukses terkirim!'); else alert('Gagal: ' + data.error);
+                          if (data.success) {
+                            alert('Sukses terkirim!');
+                          } else {
+                            alert('Gagal: ' + data.message);
+                          }
                         } catch (e: any) { alert('Err: ' + e.message); }
                         if (btn) { btn.innerText = 'Kirim Pesan Uji Coba'; btn.disabled = false; }
                       }}
                       id="btn-test-wabot"
-                      className="w-full py-4 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-xl font-bold text-sm transition-all mt-4 flex items-center justify-center gap-2 group"
+                      disabled={waStatus.status !== 'CONNECTED'}
+                      className="w-full py-4 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-xl font-bold text-sm transition-all mt-4 flex items-center justify-center gap-2 group disabled:opacity-20"
                     >
                       <Send size={16} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
                       Kirim Pesan Uji Coba
@@ -1305,7 +1390,7 @@ function SlideshowSection({ config, setConfig, onPickSlide, mosqueKey }: any) {
 
 
 
-function MediaConfigSection({ config, setConfig, onOpenPicker, mosqueKey, onSave }: any) {
+function MediaConfigSection({ config, setConfig, onOpenPicker, mosqueKey, onSave, audioStatus }: any) {
   const [subTab, setSubTab] = useState<'slideshow' | 'audio' | 'ramadhan' | 'simulation'>('slideshow');
   const [simPrayer, setSimPrayer] = useState('Subuh');
   const [simMode, setSimMode] = useState<'ADZAN' | 'IQAMAH' | 'SHOLAT' | 'NORMAL' | 'IMSAK' | 'PLAYLIST'>('ADZAN');
@@ -1317,7 +1402,7 @@ function MediaConfigSection({ config, setConfig, onOpenPicker, mosqueKey, onSave
         {[
           { id: 'slideshow', label: 'Slide Show', icon: <ImageIcon size={16} /> },
           { id: 'audio', label: 'Audio MP3', icon: <Music size={16} /> },
-          { id: 'ramadhan', label: 'Fitur Ramadhan', icon: <Moon size={16} /> },
+          // Removed Ramadhan feature as requested
           { id: 'simulation', label: 'Simulasi Waktu', icon: <AlarmCheck size={16} /> },
         ].map((t) => (
           <button
@@ -1354,23 +1439,37 @@ function MediaConfigSection({ config, setConfig, onOpenPicker, mosqueKey, onSave
           {subTab === 'audio' && (
             <div className="space-y-8">
               <SectionCard title="Audio Global (Fallback)">
-                <div className="flex gap-4 items-end">
-                  <div className="flex-1">
-                    <InputGroup
-                      label="URL Audio Global"
-                      value={config.audio.globalUrl || ''}
-                      onChange={(v: string) => setConfig({ ...config, audio: { ...config.audio, globalUrl: v } })}
-                      placeholder="http://..."
-                    />
+                <div className="flex flex-col gap-6">
+                  <div className="flex gap-4 items-end">
+                    <div className="flex-1">
+                      <InputGroup
+                        label="URL Audio Global"
+                        value={config.audio.globalUrl || ''}
+                        onChange={(v: string) => setConfig({ ...config, audio: { ...config.audio, globalUrl: v } })}
+                        placeholder="http://..."
+                      />
+                    </div>
+                    <button
+                      onClick={() => {
+                        onOpenPicker('audio', { section: 'global-audio' });
+                      }}
+                      className="p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+                      title="Pilih dari Galeri"
+                    >
+                      <Library size={20} className="text-slate-600" />
+                    </button>
+                    <button
+                      onClick={() => onSave()}
+                      className="px-6 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-all font-bold shadow-sm"
+                    >
+                      SIMPAN
+                    </button>
                   </div>
-                  <button
-                    onClick={() => {
-                      onOpenPicker('audio', { section: 'global-audio' });
-                    }}
-                    className="p-3 border border-slate-200 rounded-lg hover:bg-slate-50"
-                  >
-                    <Library size={20} />
-                  </button>
+
+                  {/* Remote Controls */}
+                  <div className="pt-6 border-t border-slate-100">
+                    <PlaybackRemoteControl config={config} setConfig={setConfig} onSave={onSave} status={audioStatus} />
+                  </div>
                 </div>
                 {config.audio.globalUrl && (
                   <audio controls className="w-full mt-4 h-10 rounded-lg">
@@ -1396,94 +1495,6 @@ function MediaConfigSection({ config, setConfig, onOpenPicker, mosqueKey, onSave
             </div>
           )}
 
-          {subTab === 'ramadhan' && (
-            <div className="space-y-6">
-              <SectionCard title="Mode Khusus Ramadhan">
-                <div className="flex items-center gap-3 mb-6 bg-amber-50 p-4 rounded-xl border border-amber-100">
-                  <input
-                    type="checkbox"
-                    checked={!!config.ramadhan?.enabled}
-                    onChange={(e) => setConfig({
-                      ...config,
-                      ramadhan: { ...(config.ramadhan || { imsakOffset: 10 }), enabled: e.target.checked }
-                    })}
-                    className="w-5 h-5 accent-amber-600"
-                  />
-                  <div>
-                    <span className="font-bold text-amber-900 block">Aktifkan Mode Ramadhan</span>
-                    <span className="text-xs text-amber-700 italic">Menampilkan notifikasi Imsak dan fitur khusus Ramadhan lainnya.</span>
-                  </div>
-                </div>
-
-                {config.ramadhan?.enabled && (
-                  <div className="space-y-6 pt-2">
-                    <div className="bg-white p-6 rounded-2xl border-2 border-slate-100">
-                      <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                        <Clock size={18} className="text-amber-500" />
-                        Pengaturan Waktu Imsak
-                      </h4>
-                      <div className="max-w-xs">
-                        <InputGroup
-                          label="Imsak (Menit Sebelum Subuh)"
-                          value={config.ramadhan?.imsakOffset || 10}
-                          type="number"
-                          onChange={(v: string) => setConfig({
-                            ...config,
-                            ramadhan: { ...(config.ramadhan || { enabled: false, imsakOffset: 10 }), imsakOffset: parseInt(v) }
-                          })}
-                        />
-                      </div>
-                      <p className="text-xs text-slate-400 mt-3 italic">Standar Imsak di Indonesia umumnya adalah 10 menit sebelum waktu Subuh.</p>
-                    </div>
-
-                    <div className="bg-white p-6 rounded-2xl border-2 border-slate-100">
-                      <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                        <Music size={18} className="text-emerald-500" />
-                        Audio Khusus Imsak
-                      </h4>
-                      <div className="flex items-center gap-3 mb-6">
-                        <input
-                          type="checkbox"
-                          checked={!!config.ramadhan?.imsakAudioEnabled}
-                          onChange={(e) => setConfig({
-                            ...config,
-                            ramadhan: { ...(config.ramadhan || { enabled: false, imsakOffset: 10 }), imsakAudioEnabled: e.target.checked }
-                          })}
-                          className="w-5 h-5 accent-emerald-600"
-                        />
-                        <span className="font-medium text-slate-700 text-sm">Putar audio pengingat Imsak (Opsional)</span>
-                      </div>
-
-                      {config.ramadhan?.imsakAudioEnabled && (
-                        <div className="space-y-4 pt-2">
-                          <div className="flex items-end gap-3">
-                            <div className="flex-1">
-                              <InputGroup
-                                label="URL Audio Imsak"
-                                value={config.ramadhan?.imsakAudioUrl || ''}
-                                onChange={(v: string) => setConfig({
-                                  ...config,
-                                  ramadhan: { ...(config.ramadhan || { enabled: false, imsakOffset: 10 }), imsakAudioUrl: v }
-                                })}
-                                placeholder="http://..."
-                              />
-                            </div>
-                            <button
-                              onClick={() => onOpenPicker('audio', { section: 'ramadhan-audio' })}
-                              className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
-                            >
-                              <Library size={16} /> Pilih dari Galeri
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                      <p className="text-xs text-slate-400 mt-4 italic">Audio akan diputar otomatis mulai saat memasuki waktu Imsak sampai waktu Subuh tiba.</p>
-                    </div>
-                  </div>
-                )}
-              </SectionCard>
-            </div>
-          )}
           {subTab === 'simulation' && (
             <SectionCard title="Simulasi Waktu Sholat">
               <div className="space-y-6">
@@ -1541,7 +1552,6 @@ function MediaConfigSection({ config, setConfig, onOpenPicker, mosqueKey, onSave
                       {[
                         { id: 'ADZAN', label: 'Adzan / Masuk Waktu' },
                         { id: 'IQAMAH', label: 'Iqamah (Countdown)' },
-                        { id: 'IMSAK', label: 'Imsak (Ramadhan)' },
                         { id: 'SHOLAT', label: 'Sholat (Blank/Mode)' },
                         { id: 'PLAYLIST', label: 'Jadwal Audio (MP3)' },
                         { id: 'NORMAL', label: 'Normal (Reset)' },
@@ -1765,25 +1775,31 @@ function GallerySection({ config, setConfig, updateConfig, mosqueKey }: any) {
   const [uploading, setUploading] = useState(false);
 
   const handleUpload = async (e: any) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
     setUploading(true);
     try {
       const formData = new FormData();
-      formData.append('file', file);
+      for (let i = 0; i < files.length; i++) {
+        formData.append('file', files[i]);
+      }
+
       const res = await fetch(`/api/upload?key=${mosqueKey}`, { method: 'POST', body: formData });
       const data = await res.json();
-      if (data.success) {
-        const url = data.url;
+
+      if (data.success && data.urls) {
         setConfig({
           ...config,
-          gallery: [...gallery, url]
+          gallery: [...gallery, ...data.urls]
         });
       }
     } catch (e) {
       alert('Gagal mengunggah');
     } finally {
       setUploading(false);
+      // Reset input value to allow re-uploading the same file if needed
+      e.target.value = '';
     }
   };
 
@@ -1860,8 +1876,8 @@ function GallerySection({ config, setConfig, updateConfig, mosqueKey }: any) {
             ${uploading ? 'opacity-50 cursor-wait' : ''}
           `}>
             {uploading ? <RefreshCw size={32} className="animate-spin" /> : <UploadCloud size={32} className="group-hover:scale-110 transition-transform" />}
-            <span className="text-xs font-bold uppercase tracking-widest">{uploading ? 'Uploading...' : 'Upload File'}</span>
-            <input type="file" hidden accept="image/*,audio/mpeg" onChange={handleUpload} disabled={uploading} />
+            <span className="text-xs font-bold uppercase tracking-widest">{uploading ? 'Uploading...' : 'Upload Files'}</span>
+            <input type="file" hidden accept="image/*,audio/mpeg" onChange={handleUpload} disabled={uploading} multiple />
           </label>
         </div>
       </SectionCard>
@@ -2364,6 +2380,17 @@ function DevicesSection({ mosqueKey }: { mosqueKey: string }) {
     fetchDevices();
   };
 
+  const remoteLogout = async () => {
+    if (!confirm('Reset semua perangkat TV yang terhubung? Perangkat akan keluar dari sistem dan harus disetup ulang.')) return;
+    try {
+      await fetch(`/api/audio/remote-logout?key=${mosqueKey}`, { method: 'POST' });
+      alert('Perintah reset telah dikirim. Perangkat akan keluar dalam beberapa detik.');
+    } catch (e) {
+      alert('Gagal mengirim perintah reset.');
+    }
+  };
+
+
   return (
     <SectionCard title="Daftar Perangkat Terhubung (TV/Client)">
       <div className="space-y-4">
@@ -2383,22 +2410,33 @@ function DevicesSection({ mosqueKey }: { mosqueKey: string }) {
               <div key={d.device_id} className="flex items-center justify-between p-4 bg-white border rounded-xl hover:shadow-sm transition-shadow">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center text-slate-400">
-                    <LayoutDashboard size={24} />
+                    <Monitor size={24} />
                   </div>
                   <div>
                     <h4 className="font-bold text-slate-800">{d.device_name || 'Generic TV Box'}</h4>
-                    <p className="text-xs font-mono text-slate-400">{d.device_id}</p>
-                    <p className="text-[10px] text-emerald-500 font-bold mt-1">
-                      Terakhir Aktif: {new Date(d.last_seen).toLocaleString()}
+                    <p className="text-xs font-mono text-slate-400 truncate max-w-[200px]">{d.device_id}</p>
+                    <p className="text-[10px] text-emerald-500 font-bold mt-1 uppercase tracking-tighter">
+                      Online • Aktif: {new Date(d.last_seen).toLocaleString('id-ID')}
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => deleteDevice(d.device_id)}
-                  className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                >
-                  <LogOut size={18} className="rotate-180" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => remoteLogout()}
+                    className="flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-600 rounded-xl text-xs font-bold hover:bg-rose-600 hover:text-white transition-all border border-rose-100 shadow-sm active:scale-95"
+                    title="Reset Perangkat"
+                  >
+                    <RefreshCw size={14} className="animate-spin-slow" />
+                    Reset
+                  </button>
+                  <button
+                    onClick={() => deleteDevice(d.device_id)}
+                    className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors border border-transparent hover:border-red-100"
+                    title="Hapus dari Daftar"
+                  >
+                    <XCircle size={20} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>

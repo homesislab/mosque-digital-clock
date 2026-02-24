@@ -12,7 +12,10 @@ export async function GET(request: Request) {
     }
 
     try {
-        const wabotUrl = `${apiUrl.replace(/\/$/, '')}/api/sessions/${sessionId}/groups`;
+        const baseUrl = apiUrl.replace(/\/$/, '').replace(/\/api\/sessions.*\/groups$/, '').replace(/\/api$/, '');
+        const wabotUrl = `${baseUrl}/api/sessions/${sessionId}/groups`;
+
+        console.log(`[WabotGroups] Calling: ${wabotUrl}`);
 
         const res = await fetch(wabotUrl, {
             headers: {
@@ -21,7 +24,9 @@ export async function GET(request: Request) {
         });
 
         if (!res.ok) {
-            return NextResponse.json({ error: 'Failed to fetch groups' }, { status: res.status });
+            const errBody = await res.text();
+            console.error(`[WabotGroups] Failed with status ${res.status}: ${errBody}`);
+            return NextResponse.json({ error: 'Failed to fetch groups', details: errBody }, { status: res.status });
         }
 
         const data = await res.json();

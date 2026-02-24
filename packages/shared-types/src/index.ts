@@ -29,6 +29,7 @@ export interface AudioSchedule {
     days?: number[]; // 0-6 (Sun-Sat)
 
     enabled: boolean;
+    durationMinutes?: number;
 }
 
 export interface MosqueConfig {
@@ -41,6 +42,7 @@ export interface MosqueConfig {
         theme: 'dark' | 'light' | 'green' | 'blue';
         showSeconds: boolean;
         showHijriDate: boolean;
+        timeOffset?: number; // in seconds
     };
     // Modern Theme Configuration
     theme?: {
@@ -60,6 +62,7 @@ export interface MosqueConfig {
         adjustments: {
             subuh: number;
             dzuhur: number;
+            jumat: number;
             ashar: number;
             maghrib: number;
             isya: number;
@@ -70,6 +73,7 @@ export interface MosqueConfig {
         waitTime: {
             subuh: number;
             dzuhur: number;
+            jumat: number;
             ashar: number;
             maghrib: number;
             isya: number;
@@ -92,6 +96,7 @@ export interface MosqueConfig {
     // New Audio Architecture
     audio: {
         enabled: boolean; // Master switch
+        playbackState?: 'playing' | 'paused' | 'stopped'; // Remote Control
 
         // Storage
         playlists: Playlist[];
@@ -172,16 +177,12 @@ export interface MosqueConfig {
     };
     wabot?: {
         enabled: boolean;
-        apiUrl: string;
+        apiUrl?: string;
         authToken?: string;
+        sessionId?: string;
         targetNumber: string; // Group or specific number
         messageTemplate?: string;
         imsakMessageTemplate?: string;
-        // Auth
-        username?: string;
-        password?: string;
-        sessionId?: string; // Selected session ID
-        // AI
         aiEnabled?: boolean;
         aiPrompt?: string;
         imsakAiEnabled?: boolean;
@@ -198,3 +199,12 @@ export interface LogEntry {
     metadata?: Record<string, any>;
 }
 
+export interface AudioActiveStatus {
+    isPlaying: boolean;
+    title?: string;
+    playlistId?: string;
+    trackId?: string;
+    currentTime: number;
+    duration: number;
+    updatedAt: number; // timestamp
+}

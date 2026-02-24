@@ -21,7 +21,7 @@ export const AdzanOverlay = ({ isVisible, prayerName }: AdzanOverlayProps) => {
                         <motion.h2
                             initial={{ scale: 0.9, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
-                            className="text-4xl lg:text-5xl text-amber-500 font-bold uppercase tracking-[0.2em]"
+                            className="text-4xl lg:text-5xl text-emerald-500 font-bold uppercase tracking-[0.2em]"
                         >
                             Waktu Adzan
                         </motion.h2>
@@ -43,8 +43,8 @@ export const AdzanOverlay = ({ isVisible, prayerName }: AdzanOverlayProps) => {
                     </div>
 
                     {/* Decorative Elements */}
-                    <div className="absolute top-10 left-10 w-32 h-32 border-t-2 border-l-2 border-amber-500/30 rounded-tl-3xl"></div>
-                    <div className="absolute bottom-10 right-10 w-32 h-32 border-b-2 border-r-2 border-amber-500/30 rounded-br-3xl"></div>
+                    <div className="absolute top-10 left-10 w-32 h-32 border-t-2 border-l-2 border-emerald-500/30 rounded-tl-3xl"></div>
+                    <div className="absolute bottom-10 right-10 w-32 h-32 border-b-2 border-r-2 border-emerald-500/30 rounded-br-3xl"></div>
                 </motion.div>
             )}
         </AnimatePresence>
