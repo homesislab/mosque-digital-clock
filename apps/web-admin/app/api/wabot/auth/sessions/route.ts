@@ -11,7 +11,10 @@ export async function GET(request: Request) {
     }
 
     try {
-        const wabotUrl = `${apiUrl.replace(/\/$/, '')}/api/sessions`;
+        const baseUrl = apiUrl.replace(/\/$/, '').replace(/\/api\/sessions$/, '').replace(/\/sessions$/, '').replace(/\/api$/, '');
+        const wabotUrl = `${baseUrl}/api/sessions`;
+
+        console.log(`[WabotSessions] Calling: ${wabotUrl}`);
 
         const res = await fetch(wabotUrl, {
             headers: {
@@ -20,7 +23,9 @@ export async function GET(request: Request) {
         });
 
         if (!res.ok) {
-            return NextResponse.json({ error: 'Failed to fetch sessions' }, { status: res.status });
+            const errBody = await res.text();
+            console.error(`[WabotSessions] Failed with status ${res.status}: ${errBody}`);
+            return NextResponse.json({ error: 'Failed to fetch sessions', details: errBody }, { status: res.status });
         }
 
         const data = await res.json();

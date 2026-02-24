@@ -1,51 +1,24 @@
-
 import { NextResponse } from 'next/server';
+import { waService } from '@/lib/wa-service';
 
 export async function POST(request: Request) {
+    const { searchParams } = new URL(request.url);
+    const mosqueKey = searchParams.get('key') || 'default';
+
     try {
-        const { apiUrl, targetNumber, message, sessionId, authToken } = await request.json();
+        const { targetNumber, message, to } = await request.json();
+        const recipient = to || targetNumber;
 
-        if (!apiUrl || !targetNumber || !message) {
-            return NextResponse.json({ error: 'Missing parameters (apiUrl, targetNumber, message)' }, { status: 400 });
+        if (!recipient || !message) {
+            return NextResponse.json({ error: 'Missing parameters (to/targetNumber, message)' }, { status: 400 });
         }
 
-        // Call Wabot Send Message
-        // Adjusted to match Wabot API: POST /api/messages/send
-        const wabotUrl = `${apiUrl.replace(/\/$/, '')}/api/messages/send`;
+        console.log(`[WabotTest][${mosqueKey}] Sending to ${recipient} via local WA Service`);
+        await waService.sendMessage(mosqueKey, recipient, message);
 
-        // Payload for Wabot
-        const payload = {
-            sessionId: sessionId, // Optional if Wabot handles default session or we pass it
-            to: targetNumber,
-            type: 'TEXT',
-            content: message
-        };
-
-        const headers: any = { 'Content-Type': 'application/json' };
-        if (authToken) {
-            headers['Authorization'] = `Bearer ${authToken}`;
-        }
-
-        const res = await fetch(wabotUrl, {
-            method: 'POST',
-            headers: headers,
-            body: JSON.stringify(payload)
-        });
-
-        if (!res.ok) {
-            const err = await res.text();
-            // Try to parse JSON error
-            try {
-                const jsonErr = JSON.parse(err);
-                return NextResponse.json({ error: jsonErr.error || 'Wabot Error' }, { status: res.status });
-            } catch (e) {
-                return NextResponse.json({ error: `Wabot Failed (${res.status}): ${err}` }, { status: res.status });
-            }
-        }
-
-        const data = await res.json();
-        return NextResponse.json({ success: true, data });
+        return NextResponse.json({ success: true });
     } catch (error: any) {
-        return NextResponse.json({ error: 'Internal Server Error: ' + error.message }, { status: 500 });
+        console.error(`[WabotTest][${mosqueKey}] Error:`, error.message);
+        return NextResponse.json({ success: false, message: error.message }, { status: 500 });
     }
 }

@@ -1,18 +1,25 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
-import { getPrayerTimes, formatTime } from '../../../lib/prayer-times';
+import { getPrayerTimes, formatTime, getNextPrayer } from '../../../lib/prayer-times';
 import pool from '../../../lib/db';
 import { MosqueConfig } from '@mosque-digital-clock/shared-types';
 
 export async function GET(request: Request) {
     try {
-        // For simplicity, we just grab the first config or a default one to show "Server Time"
-        // In a real multi-tenant admin, the admin might want to select WHICH mosque to view.
-        // For now, let's grab the 'default' or first available one to verify the worker logic.
+        const { searchParams } = new URL(request.url);
+        const mosqueKey = searchParams.get('key');
 
-        const [rows]: any = await pool.query('SELECT config_json FROM mosque_configs LIMIT 1');
+        let rows: any = [];
+        if (mosqueKey) {
+            const [data]: any = await pool.query('SELECT config_json FROM mosque_configs WHERE mosque_key = ?', [mosqueKey]);
+            rows = data;
+        } else {
+            // Fallback for overview or single-tenant scenarios
+            const [data]: any = await pool.query('SELECT config_json FROM mosque_configs LIMIT 1');
+            rows = data;
+        }
+
         let config: MosqueConfig | null = null;
-
         if (rows.length > 0) {
             config = JSON.parse(rows[0].config_json);
         }
@@ -21,71 +28,39 @@ export async function GET(request: Request) {
             return NextResponse.json({ success: false, message: 'No config found' }, { status: 404 });
         }
 
-        const prayers = getPrayerTimes(config);
+        let now = new Date();
+        if (config.display?.timeOffset) {
+            now = new Date(now.getTime() + config.display.timeOffset * 1000);
+        }
+
+        const prayers: any = getPrayerTimes(config, now);
         if (!prayers) {
             return NextResponse.json({ success: false, message: 'Invalid coordinates' }, { status: 400 });
         }
 
-        const now = new Date();
+        const isFriday = now.getDay() === 5;
+        const dhuhrKey = isFriday ? 'jumat' : 'dzuhur';
+
         // Calculate formatted times
         const formattedPrayers: Record<string, string> = {
             Imsak: formatTime(prayers.imsak),
             Subuh: formatTime(prayers.subuh),
             Syuruq: formatTime(prayers.syuruq),
-            Dzuhur: formatTime(prayers.dzuhur),
+            [isFriday ? 'Jumat' : 'Dzuhur']: formatTime(prayers[dhuhrKey]),
             Ashar: formatTime(prayers.ashar),
             Maghrib: formatTime(prayers.maghrib),
             Isya: formatTime(prayers.isya),
         };
 
-        // Determine next prayer
-        let nextPrayerName = '';
-        let nextPrayerTime: Date | null = null;
-        let minDiff = Infinity;
-
-        const prayerList = [
-            { name: 'Imsak', time: prayers.imsak },
-            { name: 'Subuh', time: prayers.subuh },
-            { name: 'Dzuhur', time: prayers.dzuhur },
-            { name: 'Ashar', time: prayers.ashar },
-            { name: 'Maghrib', time: prayers.maghrib },
-            { name: 'Isya', time: prayers.isya },
-        ];
-
-        // Sort by time
-        prayerList.sort((a, b) => a.time.getTime() - b.time.getTime());
-
-        // Find next
-        for (const p of prayerList) {
-            const diff = p.time.getTime() - now.getTime();
-            if (diff > 0 && diff < minDiff) {
-                minDiff = diff;
-                nextPrayerName = p.name;
-                nextPrayerTime = p.time;
-            }
-        }
-
-        // If no next prayer today, pick first of tomorrow
-        if (!nextPrayerTime) {
-            nextPrayerName = 'Besok ' + prayerList[0].name;
-            // Create tomorrow's date for the first prayer
-            const tomorrow = new Date(prayerList[0].time);
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            nextPrayerTime = tomorrow;
-            minDiff = nextPrayerTime.getTime() - now.getTime();
-        }
-
-        const hours = Math.floor(minDiff / (1000 * 60 * 60));
-        const minutes = Math.floor((minDiff % (1000 * 60 * 60)) / (1000 * 60));
-        const delta = `${hours}j ${minutes}m`;
+        const nextPrayer = getNextPrayer(prayers, now);
 
         return NextResponse.json({
             success: true,
             prayers: formattedPrayers,
             next: {
-                name: nextPrayerName,
-                time: nextPrayerTime ? formatTime(nextPrayerTime) : '-',
-                delta: delta
+                name: nextPrayer.name,
+                time: nextPrayer.time,
+                delta: nextPrayer.delta
             }
         });
 

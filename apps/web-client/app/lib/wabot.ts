@@ -94,7 +94,7 @@ export async function sendWabotNotification(
         }
     }
 
-    // Payload for Wabot Sisia API
+    // Payload for Wabot API
     const payload = {
         sessionId: config.wabot.sessionId,
         to: config.wabot.targetNumber,

@@ -15,6 +15,7 @@ services:
       - TZ=Asia/Jakarta
     volumes:
       - /home/gie/workspace/mosque-digital-clock/apps/web-admin/public/uploads:/app/apps/web-admin/public/uploads
+      - /home/gie/workspace/mosque-digital-clock/apps/web-admin/wa_auth_info:/app/apps/web-admin/wa_auth_info
     networks:
       - shared_apps
 

@@ -16,6 +16,10 @@ export const metadata: Metadata = {
   title: "Smart Mosque Admin",
   description: "Digital Signage Management System",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/icon.svg?v=3",
+    apple: "/icon.svg?v=3",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

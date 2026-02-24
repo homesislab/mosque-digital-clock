@@ -29,11 +29,11 @@ export function SetupOverlay({ onComplete }: SetupOverlayProps) {
         <div className="fixed inset-0 z-[100] bg-slate-900 flex items-center justify-center p-6">
             <div className="bg-white rounded-[2.5rem] shadow-2xl p-10 max-w-md w-full relative overflow-hidden">
                 {/* Background Decoration */}
-                <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-orange-100 rounded-full blur-3xl opacity-50"></div>
+                <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-emerald-100 rounded-full blur-3xl opacity-50"></div>
                 <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-40 h-40 bg-blue-100 rounded-full blur-3xl opacity-50"></div>
 
                 <div className="relative z-10 flex flex-col items-center text-center">
-                    <div className="w-20 h-20 bg-orange-500 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-orange-500/30 rotate-3">
+                    <div className="w-20 h-20 bg-emerald-500 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-emerald-500/30 rotate-3">
                         <Monitor className="w-10 h-10 text-white" />
                     </div>
 
@@ -52,7 +52,7 @@ export function SetupOverlay({ onComplete }: SetupOverlayProps) {
                                     value={serverUrl}
                                     onChange={(e) => setServerUrl(e.target.value)}
                                     placeholder="http://127.0.0.1:3001"
-                                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-orange-500 focus:ring-0 transition-all font-mono text-sm text-slate-900"
+                                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-emerald-500 focus:ring-0 transition-all font-mono text-sm text-slate-900"
                                     disabled={isSubmitting}
                                 />
                             </div>
@@ -67,7 +67,7 @@ export function SetupOverlay({ onComplete }: SetupOverlayProps) {
                                     value={key}
                                     onChange={(e) => setKey(e.target.value)}
                                     placeholder="Contoh: masjid-al-falah"
-                                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-orange-500 focus:ring-0 transition-all font-mono text-sm text-slate-900"
+                                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-emerald-500 focus:ring-0 transition-all font-mono text-sm text-slate-900"
                                     disabled={isSubmitting}
                                 />
                             </div>

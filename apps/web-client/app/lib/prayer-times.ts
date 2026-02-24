@@ -1,38 +1,40 @@
 import { Coordinates, CalculationMethod, PrayerTimes as AdhanPrayerTimes } from 'adhan';
 import { MosqueConfig } from '@mosque-digital-clock/shared-types';
 
-export function getPrayerTimes(config: MosqueConfig) {
+export function getPrayerTimes(config: MosqueConfig, date: Date = new Date()) {
     const { lat, lng } = config.prayerTimes.coordinates;
     const coordinates = new Coordinates(lat, lng);
 
     // Select method
     let method = CalculationMethod.Singapore(); // Default close to Indonesia
     if (config.prayerTimes.calculationMethod === 'Kemenag') {
-        // Siapkan parameter Kemenag (mirip Singapore tapi dengan adjustment manual biasanya)
-        // Untuk simplifikasi, kita pakai MuslimWorldLeague atau Singapore
         method = CalculationMethod.Singapore();
     }
 
-    const date = new Date();
     const prayerTimes = new AdhanPrayerTimes(coordinates, date, method);
 
-    // Apply adjustments
-    // Note: Adhan lib doesn't support adding minutes directly easily in constructor, 
-    // but we can manipulate result.
-    // We will return formatted strings.
+    // Helper to add minutes
+    const addMin = (d: Date, m: number = 0) => new Date(d.getTime() + (m || 0) * 60000);
+    const adj = config.prayerTimes.adjustments || {};
 
-    // Calculate Imsak (Subuh - X minutes)
+    // Apply adjustments
+    const subuhAdjusted = addMin(prayerTimes.fajr, adj.subuh);
+
+    // Calculate Imsak (Subuh - X minutes - Subuh adjustment)
     const imsakOffset = config.ramadhan?.imsakOffset || 10;
-    const imsakTime = new Date(prayerTimes.fajr.getTime() - imsakOffset * 60000);
+    const imsakTime = addMin(subuhAdjusted, -imsakOffset);
+
+    const isFriday = date.getDay() === 5;
+    const dhuhrAdjusted = addMin(prayerTimes.dhuhr, isFriday ? (adj.jumat ?? adj.dzuhur) : adj.dzuhur);
 
     return {
         imsak: imsakTime,
-        subuh: prayerTimes.fajr,
+        subuh: subuhAdjusted,
         syuruq: prayerTimes.sunrise,
-        dzuhur: prayerTimes.dhuhr,
-        ashar: prayerTimes.asr,
-        maghrib: prayerTimes.maghrib,
-        isya: prayerTimes.isha,
+        [isFriday ? 'jumat' : 'dzuhur']: dhuhrAdjusted,
+        ashar: addMin(prayerTimes.asr, adj.ashar),
+        maghrib: addMin(prayerTimes.maghrib, adj.maghrib),
+        isya: addMin(prayerTimes.isha, adj.isya),
     };
 }
 

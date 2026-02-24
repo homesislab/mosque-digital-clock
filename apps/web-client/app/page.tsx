@@ -19,6 +19,10 @@ import { AdzanOverlay } from './components/AdzanOverlay';
 import { sendWabotNotification } from './lib/wabot';
 import { useLogger } from './lib/useLogger';
 import { AudioUnlockOverlay } from './components/AudioUnlockOverlay';
+import { LogoutConfirmation } from './components/LogoutConfirmation';
+import { LogOut } from 'lucide-react';
+
+
 
 export default function Home() {
   const [mosqueKey, setMosqueKey] = useState<string | null>(null);
@@ -28,6 +32,9 @@ export default function Home() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isManualStopped, setIsManualStopped] = useState(false);
   const [isAudioBlocked, setIsAudioBlocked] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const logoClickRef = useRef(0);
+  const sequenceRef = useRef<string[]>([]);
   const logger = useLogger('client');
 
 
@@ -86,10 +93,13 @@ export default function Home() {
     }
 
     const tick = () => {
-      const now = new Date();
+      let now = new Date();
+      if (config.display?.timeOffset) {
+        now = new Date(now.getTime() + config.display.timeOffset * 1000);
+      }
       setCurrentTime(now);
 
-      const prayerTimes = getPrayerTimes(config);
+      const prayerTimes = getPrayerTimes(config, now);
       const result = calculateAppState(config, prayerTimes, now);
 
       // Log state changes (only when state changes)
@@ -145,6 +155,38 @@ export default function Home() {
     // After user interaction, future plays will be unlocked
     // We can try to play a silent sound or just let the next event trigger it
   }, []);
+
+  const handleLogout = useCallback(() => {
+    localStorage.clear();
+    setMosqueKey(null);
+    setShowLogoutConfirm(false);
+    logger.info('User manually logged out the client');
+  }, [logger]);
+
+  // Logout Triggers: Keyboard & Remote Sequence
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 1. Classical Keyboard: Ctrl+Shift+L
+      if (e.ctrlKey && e.shiftKey && e.key === 'L') {
+        e.preventDefault();
+        setShowLogoutConfirm(true);
+      }
+
+      // 2. Remote D-Pad Sequence: Up, Up, Down, Down
+      const key = e.key;
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)) {
+        sequenceRef.current = [...sequenceRef.current, key].slice(-4);
+        const seq = sequenceRef.current.join(',');
+        if (seq === 'ArrowUp,ArrowUp,ArrowDown,ArrowDown') {
+          setShowLogoutConfirm(true);
+          sequenceRef.current = []; // Reset
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
 
   if (!mounted) return <div className="bg-slate-900 w-screen h-screen"></div>;
 
@@ -223,8 +265,16 @@ export default function Home() {
 
             {/* 1. Clock (Left) */}
             {adv?.showClock !== false && (
-              <div className="w-[25%] flex justify-center items-center h-full sm:pr-2 lg:pr-6 whitespace-nowrap">
+              <div className="w-[25%] flex justify-center items-center h-full sm:pr-2 lg:pr-6 whitespace-nowrap relative group">
+                <button
+                  onClick={() => setShowLogoutConfirm(true)}
+                  className="absolute left-0 p-2 text-slate-300 hover:text-rose-500 transition-colors"
+                  title="Logout"
+                >
+                  <LogOut size={20} />
+                </button>
                 <TimeDisplay
+                  time={currentTime}
                   className="text-2xl sm:text-4xl lg:text-6xl font-bold tracking-tighter text-slate-900 font-mono tabular-nums leading-none drop-shadow-sm"
                   style={{ color: adv?.clockTextColor }}
                 />
@@ -236,7 +286,18 @@ export default function Home() {
 
             {/* 2. Mosque Info (Center) */}
             {/* 2. Mosque Info (Center) */}
-            <div className="flex-1 flex flex-row justify-center items-center h-full px-1 gap-3 lg:gap-4 overflow-hidden">
+            <div
+              className="flex-1 flex flex-row justify-center items-center h-full px-1 gap-3 lg:gap-4 overflow-hidden cursor-pointer active:scale-95 transition-transform"
+              onClick={() => {
+                logoClickRef.current += 1;
+                if (logoClickRef.current >= 5) {
+                  setShowLogoutConfirm(true);
+                  logoClickRef.current = 0;
+                }
+                // Reset click count after 2 seconds of inactivity
+                setTimeout(() => { logoClickRef.current = 0; }, 2000);
+              }}
+            >
               {adv?.showLogo !== false && (config.mosqueInfo.logoUrl ? (
                 <img
                   src={resolveUrl(config.mosqueInfo.logoUrl)}
@@ -246,6 +307,7 @@ export default function Home() {
               ) : (
                 <span className="text-2xl lg:text-4xl">🕌</span>
               ))}
+
 
               <div className="flex flex-col items-start justify-center text-left min-w-0">
                 <h1
@@ -327,12 +389,26 @@ export default function Home() {
         isPlaying={nextEvent.shouldPlayAudio && !isManualStopped}
         onStop={() => setIsManualStopped(true)}
         onBlocked={(blocked) => setIsAudioBlocked(blocked)}
+        playbackState={config.audio?.playbackState}
+        onCommand={(cmd) => {
+          if (cmd === 'logout') {
+            handleLogout();
+          }
+        }}
       />
 
       <AudioUnlockOverlay
         isVisible={isAudioBlocked}
         onUnlock={handleUnlockAudio}
       />
+
+      {showLogoutConfirm && (
+        <LogoutConfirmation
+          onConfirm={handleLogout}
+          onCancel={() => setShowLogoutConfirm(false)}
+        />
+      )}
+
     </main>
   );
 }

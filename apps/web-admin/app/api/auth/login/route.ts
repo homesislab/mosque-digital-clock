@@ -7,18 +7,28 @@ import { httpRequestsTotal, httpRequestDuration } from '../../../../lib/metrics'
 export async function POST(request: Request) {
     const start = Date.now();
     try {
-        const { email, password } = await request.json();
+        const { email, password, rememberMe } = await request.json();
         const user = await findUserByEmail(email);
 
         if (user && user.passwordHash === password) { // Note: Use hashing in real production
             const cookieStore = await cookies();
-            cookieStore.set('admin-session', user.id, {
+
+            const cookieOptions: any = {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
                 sameSite: 'strict',
-                maxAge: 60 * 60 * 24 * 7,
                 path: '/',
-            });
+            };
+
+            if (rememberMe) {
+                // 30 days expiration
+                cookieOptions.maxAge = 60 * 60 * 24 * 30;
+            } else {
+                // Default to 1 day expiration if not remembered
+                cookieOptions.maxAge = 60 * 60 * 24;
+            }
+
+            cookieStore.set('admin-session', user.id, cookieOptions);
 
             return NextResponse.json({ success: true, mosqueKey: user.mosqueKeys[0] });
         }

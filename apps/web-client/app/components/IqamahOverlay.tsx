@@ -23,7 +23,7 @@ export const IqamahOverlay = ({ isVisible, prayerName, secondsRemaining }: Iqama
                     className="absolute inset-0 z-50 bg-black/90 flex flex-col items-center justify-center"
                 >
                     <div className="text-center">
-                        <h2 className="text-4xl text-gray-400 mb-4 uppercase tracking-widest">
+                        <h2 className="text-4xl text-emerald-500 font-bold mb-4 uppercase tracking-widest">
                             Waktu Iqamah {prayerName}
                         </h2>
                         <div className="text-[15vw] font-bold text-white font-mono leading-none tracking-tighter tabular-nums text-red-500">

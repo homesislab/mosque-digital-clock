@@ -60,7 +60,7 @@ export function calculateAppState(
 
     if (!prayerTimes) return { state, nextPrayerName, secondsRemaining, activeAudioUrl, activePlaylistId, shouldPlayAudio };
 
-    const prayers = ['subuh', 'dzuhur', 'ashar', 'maghrib', 'isya'] as const;
+    const prayers = ['subuh', 'dzuhur', 'jumat', 'ashar', 'maghrib', 'isya'] as const;
 
     // --- 1. Find Next Prayer and Current Phase (NORMAL/IQAMAH/SHOLAT) ---
     // First, find the very next prayer (even if it's tomorrow)
@@ -68,6 +68,7 @@ export function calculateAppState(
     let minDiff = Infinity;
 
     for (const prayer of prayers) {
+        if (!prayerTimes[prayer]) continue;
         let pTime = new Date(prayerTimes[prayer]);
         pTime.setFullYear(now.getFullYear(), now.getMonth(), now.getDate());
 
@@ -88,6 +89,7 @@ export function calculateAppState(
 
     // --- 2. Check for "Active" phases (IMSAK/IQAMAH/SHOLAT) ---
     for (const prayer of prayers) {
+        if (!prayerTimes[prayer]) continue;
         const pTime = new Date(prayerTimes[prayer]);
         pTime.setFullYear(now.getFullYear(), now.getMonth(), now.getDate());
 
@@ -111,7 +113,7 @@ export function calculateAppState(
         if (timeDiff >= 0) {
             // Durations
             const adzanDuration = config.adzan?.duration || 4; // Default 4 mins
-            const iqamahWaitTime = config.iqamah?.waitTime?.[prayer] || 10;
+            const iqamahWaitTime = (config.iqamah?.waitTime as any)?.[prayer] || 10;
             const sholatDuration = config.sholat?.duration || 10; // Default 10 mins
 
             // Timelines
@@ -162,6 +164,7 @@ export function calculateAppState(
             if (!schedule.enabled) continue;
 
             if (schedule.type === 'prayer_relative' && schedule.prayer) {
+                if (!prayerTimes[schedule.prayer]) continue;
                 // Check if this schedule matches the "upcoming" prayer OR the "just passed" prayer (for 'after' mode)
                 // Simple approach: Check against ALL prayers for the day
 
@@ -200,6 +203,26 @@ export function calculateAppState(
                     // specific schedule wins
                     break;
                 }
+            } else if (schedule.type === 'manual_time' && schedule.time) {
+                const [hours, minutes] = schedule.time.split(':').map(Number);
+                const scheduleTime = new Date(now);
+                scheduleTime.setHours(hours, minutes, 0, 0);
+
+                // Check Day compatibility
+                if (schedule.days && schedule.days.length > 0) {
+                    if (!schedule.days.includes(now.getDay())) continue;
+                }
+
+                const duration = (schedule.durationMinutes || 15) * 60000;
+                const startTime = scheduleTime.getTime();
+                const endTime = startTime + duration;
+
+                if (now.getTime() >= startTime && now.getTime() < endTime) {
+                    shouldPlayAudio = true;
+                    activePlaylistId = schedule.playlistId;
+                    // specific schedule wins
+                    break;
+                }
             }
         }
     }
@@ -210,6 +233,7 @@ export function calculateAppState(
         // We can keep this for backward compatibility or users who don't set up advanced schedules
         const playBefore = (config.audio as any).playBeforeMinutes || 10;
         for (const prayer of prayers) {
+            if (!prayerTimes[prayer]) continue;
             const pTime = new Date(prayerTimes[prayer]);
             pTime.setFullYear(now.getFullYear(), now.getMonth(), now.getDate());
 

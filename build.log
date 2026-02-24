@@ -1,0 +1,118 @@
+--progress is a global compose flag, better use `docker compose --progress xx build ...
+ Image mosque-digital-clock-admin:v-20260217-132303 Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 609B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile:
+#2 transferring dockerfile: 2.42kB done
+#2 DONE 14.9s
+
+#3 [internal] load metadata for docker.io/library/node:20
+#3 ...
+
+#4 [internal] load metadata for docker.io/library/node:20-slim
+#4 DONE 3.3s
+
+#3 [internal] load metadata for docker.io/library/node:20
+#3 DONE 3.4s
+
+#5 [internal] load .dockerignore
+#5 transferring context:
+#5 transferring context: 217B done
+#5 DONE 1.8s
+
+#6 [internal] load build context
+#6 DONE 0.0s
+
+#7 [admin  1/10] FROM docker.io/library/node:20-slim@sha256:c6585df72c34172bebd8d36abed961e231d7d3b5cee2e01294c4495e8a03f687
+#7 resolve docker.io/library/node:20-slim@sha256:c6585df72c34172bebd8d36abed961e231d7d3b5cee2e01294c4495e8a03f687
+#7 ...
+
+#8 [base  1/10] FROM docker.io/library/node:20@sha256:94a5714e6b243bf37a1767e637996302fadd9443327f5bdbf0179758fe70cacd
+#8 resolve docker.io/library/node:20@sha256:94a5714e6b243bf37a1767e637996302fadd9443327f5bdbf0179758fe70cacd 1.8s done
+#8 DONE 2.1s
+
+#7 [admin  1/10] FROM docker.io/library/node:20-slim@sha256:c6585df72c34172bebd8d36abed961e231d7d3b5cee2e01294c4495e8a03f687
+#7 resolve docker.io/library/node:20-slim@sha256:c6585df72c34172bebd8d36abed961e231d7d3b5cee2e01294c4495e8a03f687 1.8s done
+#7 DONE 2.3s
+
+#6 [internal] load build context
+#6 transferring context:
+#6 transferring context: 682.35kB 0.2s done
+#6 DONE 1.4s
+
+#9 [base  4/10] COPY package.json ./
+#9 CACHED
+
+#10 [base  3/10] RUN apt-get update && apt-get install -y     python3     make     g++     libc6     && rm -rf /var/lib/apt/lists/*
+#10 CACHED
+
+#11 [base  8/10] RUN npm install
+#11 CACHED
+
+#12 [admin-builder 1/1] RUN npm run build -w apps/web-admin
+#12 CACHED
+
+#13 [base  7/10] COPY packages/shared-types/package.json ./packages/shared-types/
+#13 CACHED
+
+#14 [admin  7/10] COPY --from=admin-builder /app/apps/web-admin/public ./apps/web-admin/public
+#14 CACHED
+
+#15 [admin  8/10] COPY --from=admin-builder /app/apps/web-admin/init-db.js ./apps/web-admin/
+#15 CACHED
+
+#16 [base  2/10] WORKDIR /app
+#16 CACHED
+
+#17 [admin  4/10] COPY --from=admin-builder /app/node_modules ./node_modules
+#17 CACHED
+
+#18 [admin  2/10] WORKDIR /app
+#18 CACHED
+
+#19 [base  6/10] COPY apps/web-client/package.json ./apps/web-client/
+#19 CACHED
+
+#20 [admin  5/10] COPY --from=admin-builder /app/apps/web-admin/package.json ./apps/web-admin/
+#20 CACHED
+
+#21 [base  9/10] COPY . .
+#21 CACHED
+
+#22 [base 10/10] RUN npm run build -w packages/shared-types
+#22 CACHED
+
+#23 [admin  6/10] COPY --from=admin-builder /app/apps/web-admin/.next ./apps/web-admin/.next
+#23 CACHED
+
+#24 [admin  9/10] COPY --from=admin-builder /app/apps/web-admin/schema.sql ./apps/web-admin/
+#24 CACHED
+
+#25 [base  5/10] COPY apps/web-admin/package.json ./apps/web-admin/
+#25 CACHED
+
+#26 [admin  3/10] COPY --from=admin-builder /app/package.json ./
+#26 CACHED
+
+#27 [admin 10/10] COPY --from=admin-builder /app/packages ./packages
+#27 CACHED
+
+#28 exporting to image
+#28 exporting layers done
+#28 exporting manifest sha256:d2bac012288418cb5620c2a277079271444756775e447c446bfb85d2fa21a0ed 0.0s done
+#28 exporting config sha256:1276bd426b6f4480fe21875026a75524b7b0e21d91d8956f0946249801850ab5 0.0s done
+#28 exporting attestation manifest sha256:3269a11ac664c19a0b84dcf866d8e551202fd542acd147b10582e097582e5492
+#28 exporting attestation manifest sha256:3269a11ac664c19a0b84dcf866d8e551202fd542acd147b10582e097582e5492 0.3s done
+#28 exporting manifest list sha256:a54ad6ed369f5d07765aa2469022ff38d7a410b3d9eb6b76411945e777c8fb8d
+#28 exporting manifest list sha256:a54ad6ed369f5d07765aa2469022ff38d7a410b3d9eb6b76411945e777c8fb8d 0.2s done
+#28 naming to docker.io/library/mosque-digital-clock-admin:v-20260217-132303
+#28 naming to docker.io/library/mosque-digital-clock-admin:v-20260217-132303 0.0s done
+#28 unpacking to docker.io/library/mosque-digital-clock-admin:v-20260217-132303 0.0s done
+#28 DONE 0.9s
+
+#29 resolving provenance for metadata file
+#29 DONE 0.0s
+ Image mosque-digital-clock-admin:v-20260217-132303 Built 

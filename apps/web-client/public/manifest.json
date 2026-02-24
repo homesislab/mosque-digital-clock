@@ -1,4 +1,5 @@
 {
+    "id": "mosque-digital-clock-client",
     "name": "Mosque Digital Clock",
     "short_name": "MosqueClock",
     "description": "Offline-first Digital Clock for Mosques",
@@ -6,5 +7,18 @@
     "display": "fullscreen",
     "background_color": "#000000",
     "theme_color": "#000000",
-    "icons": []
+    "icons": [
+        {
+            "src": "/icon.svg?v=3",
+            "sizes": "192x192",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/icon.svg?v=3",
+            "sizes": "512x512",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        }
+    ]
 }
