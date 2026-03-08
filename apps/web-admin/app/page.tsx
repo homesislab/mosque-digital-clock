@@ -1780,22 +1780,22 @@ function GallerySection({ config, setConfig, updateConfig, mosqueKey }: any) {
 
     setUploading(true);
     try {
-      const formData = new FormData();
+      const { uploadFileChunked } = await import('./lib/upload-utils');
+      const newUrls: string[] = [];
+
       for (let i = 0; i < files.length; i++) {
-        formData.append('file', files[i]);
+        const url = await uploadFileChunked(files[i], mosqueKey);
+        if (url) newUrls.push(url);
       }
 
-      const res = await fetch(`/api/upload?key=${mosqueKey}`, { method: 'POST', body: formData });
-      const data = await res.json();
-
-      if (data.success && data.urls) {
+      if (newUrls.length > 0) {
         setConfig({
           ...config,
-          gallery: [...gallery, ...data.urls]
+          gallery: [...gallery, ...newUrls]
         });
       }
-    } catch (e) {
-      alert('Gagal mengunggah');
+    } catch (err: any) {
+      alert(`Gagal mengunggah: ${err.message}`);
     } finally {
       setUploading(false);
       // Reset input value to allow re-uploading the same file if needed

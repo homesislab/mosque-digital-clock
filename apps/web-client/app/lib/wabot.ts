@@ -34,7 +34,9 @@ export async function sendWabotNotification(
             (config.wabot.messageTemplate ? config.wabot.messageTemplate.replace(/sholat /gi, '') : "Waktu {sholat} telah tiba.");
     }
 
-    const timeStr = prayerTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    const timeStr = (!prayerTime || isNaN(prayerTime.getTime()))
+        ? '--:--'
+        : prayerTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 
     // Simple template replacement
     const message = template

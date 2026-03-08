@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ['prom-client', 'bintrees', 'adhan', '@whiskeysockets/baileys', 'pino', 'jimp'],
   experimental: {
     serverActions: {
-      bodySizeLimit: '50mb',
+      bodySizeLimit: '250mb',
     },
   },
   async rewrites() {

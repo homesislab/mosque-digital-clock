@@ -2,6 +2,9 @@ import { Coordinates, CalculationMethod, PrayerTimes as AdhanPrayerTimes } from 
 import { MosqueConfig } from '@mosque-digital-clock/shared-types';
 
 export function getPrayerTimes(config: MosqueConfig, date: Date = new Date()) {
+    if (!config.prayerTimes?.coordinates) {
+        return null;
+    }
     const { lat, lng } = config.prayerTimes.coordinates;
     const coordinates = new Coordinates(lat, lng);
 
@@ -38,7 +41,9 @@ export function getPrayerTimes(config: MosqueConfig, date: Date = new Date()) {
     };
 }
 
-export function formatTime(date: Date) {
+export function formatTime(date: Date | null | undefined) {
+    if (!date || isNaN(date.getTime())) return '--:--';
+
     return date.toLocaleTimeString('id-ID', {
         hour: '2-digit',
         minute: '2-digit',

@@ -24,7 +24,8 @@ export const TimeDisplay = ({ className = '', style, time: externalTime }: TimeD
 
     if (!displayTime) return null; // Hydration mismatch prevention
 
-    const formatTime = (date: Date) => {
+    const formatTime = (date: Date | null | undefined) => {
+        if (!date || isNaN(date.getTime())) return '--:--:--';
         return date.toLocaleTimeString('id-ID', {
             hour: '2-digit',
             minute: '2-digit',

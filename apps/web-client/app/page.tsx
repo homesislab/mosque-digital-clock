@@ -20,7 +20,8 @@ import { sendWabotNotification } from './lib/wabot';
 import { useLogger } from './lib/useLogger';
 import { AudioUnlockOverlay } from './components/AudioUnlockOverlay';
 import { LogoutConfirmation } from './components/LogoutConfirmation';
-import { LogOut } from 'lucide-react';
+import { LogOut, Download } from 'lucide-react';
+import { usePWAInstall } from './lib/usePWAInstall';
 
 
 
@@ -36,6 +37,7 @@ export default function Home() {
   const logoClickRef = useRef(0);
   const sequenceRef = useRef<string[]>([]);
   const logger = useLogger('client');
+  const { isInstallable, install } = usePWAInstall();
 
 
   // Mounted state to prevent hydration mismatch for time-dependent rendering
@@ -273,6 +275,17 @@ export default function Home() {
                 >
                   <LogOut size={20} />
                 </button>
+
+                {isInstallable && (
+                  <button
+                    onClick={install}
+                    className="absolute left-10 p-2 text-emerald-500 hover:text-emerald-600 transition-colors animate-pulse"
+                    title="Install App"
+                  >
+                    <Download size={22} />
+                  </button>
+                )}
+
                 <TimeDisplay
                   time={currentTime}
                   className="text-2xl sm:text-4xl lg:text-6xl font-bold tracking-tighter text-slate-900 font-mono tabular-nums leading-none drop-shadow-sm"
