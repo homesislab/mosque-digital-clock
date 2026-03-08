@@ -61,6 +61,14 @@ export function calculateAppState(
     if (!prayerTimes) return { state, nextPrayerName, secondsRemaining, activeAudioUrl, activePlaylistId, shouldPlayAudio };
 
     const prayers = ['subuh', 'dzuhur', 'jumat', 'ashar', 'maghrib', 'isya'] as const;
+    const nameMap: Record<string, string> = {
+        subuh: 'Subuh',
+        dzuhur: 'Dzuhur',
+        jumat: 'Jumat',
+        ashar: 'Ashar',
+        maghrib: 'Maghrib',
+        isya: 'Isya'
+    };
 
     // --- 1. Find Next Prayer and Current Phase (NORMAL/IQAMAH/SHOLAT) ---
     // First, find the very next prayer (even if it's tomorrow)
@@ -84,7 +92,7 @@ export function calculateAppState(
             nextP = prayer;
         }
     }
-    nextPrayerName = nextP;
+    nextPrayerName = nameMap[nextP] || nextP;
     secondsRemaining = Math.floor(minDiff / 1000);
 
     // --- 2. Check for "Active" phases (IMSAK/IQAMAH/SHOLAT) ---
@@ -126,7 +134,7 @@ export function calculateAppState(
             if (now < adzanEndTime) {
                 state = 'ADZAN';
                 secondsRemaining = Math.floor((adzanEndTime.getTime() - now.getTime()) / 1000);
-                nextPrayerName = prayer;
+                nextPrayerName = nameMap[prayer] || prayer;
                 eventTime = pTime;
                 break;
             }
@@ -136,7 +144,7 @@ export function calculateAppState(
                 state = 'IQAMAH';
                 // Seconds remaining until Iqamah ends (Sholat starts)
                 secondsRemaining = Math.floor((iqamahEndTime.getTime() - now.getTime()) / 1000);
-                nextPrayerName = prayer;
+                nextPrayerName = nameMap[prayer] || prayer;
                 break;
             }
 
@@ -144,7 +152,7 @@ export function calculateAppState(
             if (now < sholatEndTime) {
                 state = 'SHOLAT';
                 secondsRemaining = Math.floor((sholatEndTime.getTime() - now.getTime()) / 1000);
-                nextPrayerName = prayer;
+                nextPrayerName = nameMap[prayer] || prayer;
                 break;
             }
         }

@@ -41,7 +41,8 @@ export function getPrayerTimes(config: MosqueConfig, date: Date = new Date()) {
     };
 }
 
-export function formatTime(date: Date) {
+export function formatTime(date: Date | null | undefined) {
+    if (!date || isNaN(date.getTime())) return '--:--';
     return date.toLocaleTimeString('id-ID', {
         hour: '2-digit',
         minute: '2-digit',
@@ -64,7 +65,11 @@ export function getNextPrayer(prayers: any, now: Date) {
     ];
 
     // Sort by time
-    prayerList.sort((a, b) => a.time.getTime() - b.time.getTime());
+    prayerList.sort((a, b) => {
+        if (!a.time || isNaN(a.time.getTime())) return 1;
+        if (!b.time || isNaN(b.time.getTime())) return -1;
+        return a.time.getTime() - b.time.getTime();
+    });
 
     // Find next
     let nextPrayerName = '';
@@ -72,6 +77,7 @@ export function getNextPrayer(prayers: any, now: Date) {
     let minDiff = Infinity;
 
     for (const p of prayerList) {
+        if (!p.time || isNaN(p.time.getTime())) continue;
         const diff = p.time.getTime() - now.getTime();
         if (diff > 0 && diff < minDiff) {
             minDiff = diff;
@@ -82,11 +88,20 @@ export function getNextPrayer(prayers: any, now: Date) {
 
     // If no next prayer today, pick first of tomorrow
     if (!nextPrayerTime) {
-        nextPrayerName = 'Besok ' + prayerList[0].name;
-        const tomorrow = new Date(prayerList[0].time);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        nextPrayerTime = tomorrow;
-        minDiff = nextPrayerTime.getTime() - now.getTime();
+        if (prayerList[0] && prayerList[0].time && !isNaN(prayerList[0].time.getTime())) {
+            nextPrayerName = 'Besok ' + prayerList[0].name;
+            const tomorrow = new Date(prayerList[0].time);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            nextPrayerTime = tomorrow;
+            minDiff = nextPrayerTime.getTime() - now.getTime();
+        } else {
+            return {
+                name: 'Data Tidak Tersedia',
+                time: '--:--',
+                delta: '--:--',
+                diff: 0
+            };
+        }
     }
 
     const hours = Math.floor(minDiff / (1000 * 60 * 60));

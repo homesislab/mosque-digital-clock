@@ -172,28 +172,24 @@ export default function PlaylistManager({ config, setConfig, mosqueKey, onPickTr
 
         setUploading(true);
         try {
-            const formData = new FormData();
-            formData.append('file', file);
-            const res = await fetch(`/api/upload?key=${mosqueKey}`, { method: 'POST', body: formData });
-            const data = await res.json();
+            const { uploadFileChunked } = await import('../lib/upload-utils');
+            const url = await uploadFileChunked(file, mosqueKey);
 
-            if (data.success) {
+            if (url) {
                 // handleAddTrack is async now
-                await handleAddTrack(playlistId, data.url, file.name.replace(/\.[^/.]+$/, ""));
+                await handleAddTrack(playlistId, url, file.name.replace(/\.[^/.]+$/, ""));
 
                 // Add to gallery if not exists
-                if (!config.gallery?.includes(data.url)) {
+                if (!config.gallery?.includes(url)) {
                     setConfig({
                         ...config,
-                        gallery: [...(config.gallery || []), data.url]
+                        gallery: [...(config.gallery || []), url]
                     });
                 }
-            } else {
-                alert('Upload failed: ' + data.message);
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
-            alert('Upload error');
+            alert(`Upload error: ${err.message}`);
         } finally {
             setUploading(false);
         }
