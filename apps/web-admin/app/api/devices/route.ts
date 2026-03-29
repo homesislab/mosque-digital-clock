@@ -104,6 +104,31 @@ export async function DELETE(request: Request) {
     }
 }
 
+export async function PUT(request: Request) {
+    const body = await request.json();
+    const { deviceId, deviceName, key } = body;
+
+    if (!deviceId || !key) {
+        return NextResponse.json({ success: false, message: 'Missing params' }, { status: 400, headers: corsHeaders });
+    }
+
+    const access = await validateAccess(request, key);
+    if (!access.allowed) {
+        return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: access.status, headers: corsHeaders });
+    }
+
+    try {
+        await pool.query(
+            'UPDATE devices SET device_name = ? WHERE device_id = ? AND mosque_key = ?',
+            [deviceName || 'TV Device', deviceId, key]
+        );
+        return NextResponse.json({ success: true }, { headers: corsHeaders });
+    } catch (error) {
+        console.error('Device PUT error:', error);
+        return NextResponse.json({ success: false, message: 'DB Error' }, { status: 500, headers: corsHeaders });
+    }
+}
+
 export async function OPTIONS() {
     return NextResponse.json({}, {
         headers: corsHeaders,

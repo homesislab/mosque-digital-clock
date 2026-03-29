@@ -316,6 +316,52 @@ export default function AdminDashboard() {
           </div>
         </header>
 
+        {/* Emergency Stop Bar — persistent across ALL tabs when audio is playing */}
+        <AnimatePresence>
+          {audioStatus && audioStatus.isPlaying && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden shrink-0"
+            >
+              <div className="bg-slate-900 border-b border-emerald-800/50 px-4 lg:px-8 py-2.5 flex items-center gap-3">
+                {/* Pulse indicator */}
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+
+                {/* Track info */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-emerald-400 uppercase tracking-widest">Sedang Memutar</p>
+                  <p className="text-sm text-white truncate font-semibold">{audioStatus.title || 'Audio Aktif'}</p>
+                </div>
+
+                {/* Controls */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={async () => {
+                      const newConfig = { ...config, audio: { ...config.audio, playbackState: 'paused' as const } };
+                      await handleSave(newConfig);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-lg transition"
+                  >
+                    <Pause size={13} fill="currentColor" /> Pause
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const newConfig = { ...config, audio: { ...config.audio, playbackState: 'stopped' as const } };
+                      await handleSave(newConfig);
+                    }}
+                    className="flex items-center gap-1.5 px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg transition shadow-lg shadow-rose-900/50 active:scale-95"
+                  >
+                    <Square size={13} fill="currentColor" stroke="none" /> STOP AUDIO
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-4 lg:p-8 relative scroll-smooth bg-slate-50/50">
           <AnimatePresence mode="wait">
@@ -2351,9 +2397,14 @@ function ContentSection({ config, setConfig, onOpenPicker, mosqueKey }: any) {
 function DevicesSection({ mosqueKey }: { mosqueKey: string }) {
   const [devices, setDevices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchDevices();
+    const interval = setInterval(fetchDevices, 15000);
+    return () => clearInterval(interval);
   }, [mosqueKey]);
 
   const fetchDevices = async () => {
@@ -2361,12 +2412,7 @@ function DevicesSection({ mosqueKey }: { mosqueKey: string }) {
     try {
       const res = await fetch(`/api/devices?key=${mosqueKey}`);
       const data = await res.json();
-      if (Array.isArray(data)) {
-        setDevices(data);
-      } else {
-        console.error("Failed to load devices:", data);
-        setDevices([]);
-      }
+      setDevices(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error(e);
       setDevices([]);
@@ -2375,9 +2421,26 @@ function DevicesSection({ mosqueKey }: { mosqueKey: string }) {
   };
 
   const deleteDevice = async (id: string) => {
-    if (!confirm('Hapus perangkat ini?')) return;
+    if (!confirm('Hapus perangkat ini dari daftar? Perangkat bisa mendaftarkan diri kembali.')) return;
     await fetch(`/api/devices?deviceId=${id}&key=${mosqueKey}`, { method: 'DELETE' });
     fetchDevices();
+  };
+
+  const saveRename = async (device: any) => {
+    if (!editName.trim()) return;
+    setSavingId(device.device_id);
+    try {
+      await fetch('/api/devices', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId: device.device_id, deviceName: editName.trim(), key: mosqueKey })
+      });
+      setDevices(prev => prev.map(d => d.device_id === device.device_id ? { ...d, device_name: editName.trim() } : d));
+    } catch (e) {
+      alert('Gagal menyimpan nama perangkat.');
+    }
+    setSavingId(null);
+    setEditingId(null);
   };
 
   const remoteLogout = async () => {
@@ -2390,55 +2453,114 @@ function DevicesSection({ mosqueKey }: { mosqueKey: string }) {
     }
   };
 
+  const getRelativeTime = (lastSeen: string) => {
+    const diffMs = Date.now() - new Date(lastSeen).getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    if (diffSec < 10) return 'baru saja';
+    if (diffSec < 60) return `${diffSec} detik lalu`;
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin} menit lalu`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr} jam lalu`;
+    return `${Math.floor(diffHr / 24)} hari lalu`;
+  };
+
+  const isOnline = (lastSeen: string) => (Date.now() - new Date(lastSeen).getTime()) < 2 * 60 * 1000;
+  const onlineCount = devices.filter(d => isOnline(d.last_seen)).length;
 
   return (
     <SectionCard title="Daftar Perangkat Terhubung (TV/Client)">
       <div className="space-y-4">
-        <p className="text-sm text-slate-500">
-          Perangkat yang telah menginputkan <b>Mosque Key</b> Anda akan muncul di sini secara otomatis.
-        </p>
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-slate-500">
+            Perangkat yang menginputkan <b>Mosque Key</b> Anda akan muncul otomatis.
+          </p>
+          {devices.length > 0 && (
+            <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest ${onlineCount > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+              {onlineCount}/{devices.length} Online
+            </span>
+          )}
+        </div>
 
         {loading ? (
-          <div className="py-10 text-center text-slate-400 italic">Memuat daftar perangkat...</div>
+          <div className="py-10 text-center text-slate-400 italic flex items-center justify-center gap-2">
+            <RefreshCw size={16} className="animate-spin" /> Memuat daftar perangkat...
+          </div>
         ) : devices.length === 0 ? (
-          <div className="py-10 bg-slate-50 border border-dashed rounded-xl text-center text-slate-400">
-            Belum ada perangkat yang terhubung.
+          <div className="py-14 bg-slate-50 border-2 border-dashed rounded-2xl text-center text-slate-400 flex flex-col items-center gap-2">
+            <Monitor size={36} className="opacity-30" />
+            <p className="font-medium">Belum ada perangkat terhubung</p>
+            <p className="text-xs">Buka Web Client di TV, masukkan Mosque Key untuk menautkan.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4">
-            {devices.map((d) => (
-              <div key={d.device_id} className="flex items-center justify-between p-4 bg-white border rounded-xl hover:shadow-sm transition-shadow">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center text-slate-400">
-                    <Monitor size={24} />
+          <div className="grid grid-cols-1 gap-3">
+            {devices.map((d) => {
+              const online = isOnline(d.last_seen);
+              const isEditing = editingId === d.device_id;
+              const isSaving = savingId === d.device_id;
+              return (
+                <div key={d.device_id} className={`flex items-center gap-4 p-4 bg-white border rounded-2xl hover:shadow-sm transition-all ${online ? 'border-emerald-100' : 'border-slate-200'}`}>
+                  {/* Status icon */}
+                  <div className={`relative w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${online ? 'bg-emerald-50' : 'bg-slate-100'}`}>
+                    <Monitor size={22} className={online ? 'text-emerald-600' : 'text-slate-400'} />
+                    <span className={`absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-white ${online ? 'bg-emerald-500' : 'bg-slate-300'}`} />
                   </div>
-                  <div>
-                    <h4 className="font-bold text-slate-800">{d.device_name || 'Generic TV Box'}</h4>
-                    <p className="text-xs font-mono text-slate-400 truncate max-w-[200px]">{d.device_id}</p>
-                    <p className="text-[10px] text-emerald-500 font-bold mt-1 uppercase tracking-tighter">
-                      Online • Aktif: {new Date(d.last_seen).toLocaleString('id-ID')}
+
+                  {/* Info + Rename */}
+                  <div className="flex-1 min-w-0">
+                    {isEditing ? (
+                      <div className="flex items-center gap-2">
+                        <input
+                          className="flex-1 px-3 py-1.5 border border-emerald-300 rounded-lg text-sm font-bold text-slate-800 focus:ring-2 focus:ring-emerald-400 outline-none"
+                          value={editName}
+                          onChange={e => setEditName(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') saveRename(d); if (e.key === 'Escape') setEditingId(null); }}
+                          autoFocus
+                        />
+                        <button onClick={() => saveRename(d)} disabled={isSaving} className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 transition disabled:opacity-50">
+                          {isSaving ? '...' : 'Simpan'}
+                        </button>
+                        <button onClick={() => setEditingId(null)} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition">
+                          <XCircle size={16} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-bold text-slate-800 truncate">{d.device_name || 'TV Device'}</h4>
+                        <button
+                          onClick={() => { setEditingId(d.device_id); setEditName(d.device_name || ''); }}
+                          className="shrink-0 text-[10px] font-bold text-slate-400 hover:text-emerald-600 bg-slate-100 hover:bg-emerald-50 px-2 py-0.5 rounded-md transition"
+                        >
+                          Ganti Nama
+                        </button>
+                      </div>
+                    )}
+                    <p className="text-[10px] font-mono text-slate-400 truncate mt-0.5">{d.device_id}</p>
+                    <p className={`text-[10px] font-bold mt-1 uppercase tracking-tight ${online ? 'text-emerald-500' : 'text-slate-400'}`}>
+                      {online ? '● Online' : '○ Offline'} — {getRelativeTime(d.last_seen)}
                     </p>
                   </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={remoteLogout}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-rose-50 text-rose-600 rounded-xl text-xs font-bold hover:bg-rose-600 hover:text-white transition-all border border-rose-100"
+                      title="Reset perangkat (logout paksa)"
+                    >
+                      <RefreshCw size={13} /> Reset
+                    </button>
+                    <button
+                      onClick={() => deleteDevice(d.device_id)}
+                      className="p-2.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition border border-transparent hover:border-red-100"
+                      title="Hapus dari daftar"
+                    >
+                      <XCircle size={18} />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => remoteLogout()}
-                    className="flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-600 rounded-xl text-xs font-bold hover:bg-rose-600 hover:text-white transition-all border border-rose-100 shadow-sm active:scale-95"
-                    title="Reset Perangkat"
-                  >
-                    <RefreshCw size={14} className="animate-spin-slow" />
-                    Reset
-                  </button>
-                  <button
-                    onClick={() => deleteDevice(d.device_id)}
-                    className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors border border-transparent hover:border-red-100"
-                    title="Hapus dari Daftar"
-                  >
-                    <XCircle size={20} />
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
