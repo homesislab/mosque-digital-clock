@@ -11,6 +11,7 @@ export interface Playlist {
     name: string;
     tracks: AudioTrack[];
     shuffle: boolean;
+    targetDevices?: string[];
 }
 
 export interface AudioSchedule {
@@ -187,6 +188,12 @@ export interface MosqueConfig {
         aiPrompt?: string;
         imsakAiEnabled?: boolean;
         imsakAiPrompt?: string;
+        prayerNotifications?: {
+            [key: string]: {
+                enabled: boolean;
+                template?: string;
+            }
+        };
     };
 }
 

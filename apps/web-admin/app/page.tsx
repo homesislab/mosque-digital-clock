@@ -9,7 +9,7 @@ import {
   Save, RefreshCw, LogOut, LayoutDashboard, MapPin,
   Clock, Image as ImageIcon, MessageSquare, Users,
   Wallet, Settings, Settings2, ChevronRight, UploadCloud,
-  Music, Library, Plus, Moon, Menu, X, Play, Pause, Square, PlayCircle, XCircle, AlarmCheck, Sliders, Smartphone, Activity,
+  Music, Library, Plus, Moon, Menu, X, Play, Pause, Square, PlayCircle, XCircle, AlarmCheck, Sliders, Smartphone, Activity, Calendar,
   LogIn, Send, LayoutGrid, List, Power, Monitor
 } from 'lucide-react';
 import { useLogger } from './hooks/useLogger';
@@ -181,15 +181,15 @@ export default function AdminDashboard() {
   };
 
   if (loading && !config) return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-400">
-      <RefreshCw className="animate-spin mr-2" /> Memuat Data...
+    <div className="min-h-screen flex items-center justify-center bg-slate-100 text-slate-400">
+      <RefreshCw className="animate-spin mr-2" size={18} /> Memuat Data...
     </div>
   );
 
   if (!config) return <div className="p-10 text-center text-red-500">Error loading config</div>;
 
   return (
-    <div className="flex h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden relative">
+    <div className="flex h-screen bg-slate-100 font-sans text-slate-800 overflow-hidden">
 
       {/* Mobile Sidebar Backdrop */}
       <AnimatePresence>
@@ -199,33 +199,33 @@ export default function AdminDashboard() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setSidebarOpen(false)}
-            className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 lg:hidden"
+            className="fixed inset-0 bg-slate-900/60 z-40 lg:hidden"
           />
         )}
       </AnimatePresence>
 
       {/* Sidebar Navigation */}
       <aside className={`
-        fixed inset-y-0 left-0 w-64 bg-white border-r border-slate-200 flex flex-col shadow-xl z-50 transition-transform duration-300 transform
-        lg:relative lg:translate-x-0 lg:shadow-sm
+        fixed inset-y-0 left-0 w-64 bg-[#1a2744] flex flex-col z-50 transition-transform duration-300 transform
+        lg:relative lg:translate-x-0
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+        <div className="p-5 flex items-center justify-between border-b border-white/10">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 flex items-center justify-center">
-              <img src="/logo.svg?v=3" alt="Logo" className="w-8 h-8 rounded-lg shadow-sm" />
+              <img src="/logo.svg?v=3" alt="Logo" className="w-8 h-8 rounded-lg" />
             </div>
             <div>
-              <h1 className="font-bold text-slate-800 text-lg leading-tight">Smart Mosque</h1>
-              <p className="text-xs text-slate-400 font-medium">Digital Signage System</p>
+              <h1 className="font-bold text-white text-sm leading-tight">Smart Mosque</h1>
+              <p className="text-[10px] text-slate-400 font-medium">Digital Signage System</p>
             </div>
           </div>
-          <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-2 text-slate-400 hover:text-slate-600">
-            <X size={20} />
+          <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-1.5 text-slate-400 hover:text-white rounded">
+            <X size={18} />
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto p-4 space-y-1">
+        <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
           <SidebarItem icon={LayoutDashboard} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }} />
           <SidebarItem icon={MapPin} label="Identitas & Lokasi" active={activeTab === 'identity'} onClick={() => { setActiveTab('identity'); setSidebarOpen(false); }} />
           <SidebarItem icon={Clock} label="Jadwal Sholat" active={activeTab === 'prayer'} onClick={() => { setActiveTab('prayer'); setSidebarOpen(false); }} />
@@ -233,30 +233,30 @@ export default function AdminDashboard() {
           <SidebarItem icon={Settings} label="Media & Fitur" active={activeTab === 'media'} onClick={() => { setActiveTab('media'); setSidebarOpen(false); }} />
           <SidebarItem icon={Library} label="Galeri Media" active={activeTab === 'gallery'} onClick={() => { setActiveTab('gallery'); setSidebarOpen(false); }} />
           <SidebarItem icon={MessageSquare} label="Konten Informasi" active={activeTab === 'content'} onClick={() => { setActiveTab('content'); setSidebarOpen(false); }} />
-          <SidebarItem icon={LayoutDashboard} label="Manajemen Device" active={activeTab === 'devices'} onClick={() => { setActiveTab('devices'); setSidebarOpen(false); }} />
+          <SidebarItem icon={Monitor} label="Manajemen Device" active={activeTab === 'devices'} onClick={() => { setActiveTab('devices'); setSidebarOpen(false); }} />
           <SidebarItem icon={Sliders} label="Advance Config" active={activeTab === 'advance'} onClick={() => { setActiveTab('advance'); setSidebarOpen(false); }} />
-          <div className="pt-4 mt-4 border-t border-slate-100">
+          <div className="pt-3 mt-3 border-t border-white/10">
             <button
               onClick={() => router.push('/logs')}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition-all duration-200 relative overflow-hidden group"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:bg-white/10 hover:text-white transition-colors"
             >
-              <Activity size={20} className="text-slate-400 group-hover:text-slate-600" />
+              <Activity size={18} />
               System Logs
-              <ChevronRight size={14} className="ml-auto opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+              <ChevronRight size={14} className="ml-auto opacity-40" />
             </button>
           </div>
         </nav>
 
-        <div className="p-4 border-t border-slate-100">
-          <div className="px-4 py-3 bg-slate-50 rounded-xl mb-4 border border-slate-100">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Mosque Key</p>
-            <p className="text-sm font-mono font-bold text-emerald-600 truncate">{mosqueKey}</p>
+        <div className="p-4 border-t border-white/10">
+          <div className="px-3 py-2.5 bg-white/5 rounded-lg mb-3">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Mosque Key</p>
+            <p className="text-sm font-mono font-bold text-amber-400 truncate">{mosqueKey}</p>
           </div>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 w-full px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm font-medium text-slate-400 hover:bg-white/10 hover:text-rose-400 rounded-lg transition-colors"
           >
-            <LogOut size={18} />
+            <LogOut size={16} />
             Keluar
           </button>
         </div>
@@ -264,55 +264,53 @@ export default function AdminDashboard() {
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
-        {/* Header Bar - Redesigned */}
-        <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-4 lg:px-8 shadow-sm z-10 shrink-0">
-          <div className="flex items-center gap-4">
+        {/* Header Bar */}
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 lg:px-6 z-20 shrink-0">
+          <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="p-2 -ml-2 text-slate-500 hover:bg-slate-50 rounded-lg lg:hidden"
+              className="p-2 -ml-1 text-slate-500 hover:bg-slate-100 rounded-lg lg:hidden"
             >
-              <Menu size={24} />
+              <Menu size={22} />
             </button>
 
             <div>
-              <h2 className="text-xl font-bold text-slate-800 leading-tight">
+              <h2 className="text-base font-bold text-slate-800 leading-tight">
                 {activeTab === 'dashboard' ? (
                   <span>
                     Selamat {new Date().getHours() < 12 ? 'Pagi' : new Date().getHours() < 15 ? 'Siang' : new Date().getHours() < 18 ? 'Sore' : 'Malam'},
-                    <span className="text-emerald-600 block sm:inline sm:ml-2">{config?.mosqueInfo.name || 'Admin'}</span>
+                    <span className="text-amber-500 ml-1.5">{config?.mosqueInfo.name || 'Admin'}</span>
                   </span>
                 ) : (
                   tabLabels[activeTab]
                 )}
               </h2>
               {activeTab === 'dashboard' && (
-                <p className="hidden sm:block text-xs text-slate-400 font-medium">Control Panel & Digital Signage Management</p>
+                <p className="hidden sm:block text-[11px] text-slate-400">Control Panel & Digital Signage</p>
               )}
             </div>
           </div>
 
-          <div className="flex items-center gap-3 lg:gap-6">
-            <div className="hidden md:flex flex-col items-end border-r border-slate-100 pr-6">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status Perangkat</span>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+          <div className="flex items-center gap-2 lg:gap-4">
+            <div className="hidden md:flex flex-col items-end border-r border-slate-200 pr-4 mr-1">
+              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Status</span>
+              <div className="flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
                 <span className="text-xs font-bold text-slate-700">Online</span>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <div className="text-right hidden xs:block">
-                <span className="block text-[10px] font-bold text-slate-400 uppercase">Mosque Key</span>
-                <span className="block text-sm font-mono font-black text-slate-700 bg-slate-100 px-2 rounded">{mosqueKey}</span>
-              </div>
-              <button
-                onClick={() => fetchConfig()}
-                className="p-2.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-full transition-all border border-slate-100 hover:border-emerald-100"
-                title="Refresh Data"
-              >
-                <RefreshCw size={20} />
-              </button>
+            <div className="hidden xs:flex flex-col items-end">
+              <span className="block text-[10px] font-semibold text-slate-400 uppercase">Mosque Key</span>
+              <span className="block text-xs font-mono font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">{mosqueKey}</span>
             </div>
+            <button
+              onClick={() => fetchConfig()}
+              className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200"
+              title="Refresh Data"
+            >
+              <RefreshCw size={18} />
+            </button>
           </div>
         </header>
 
@@ -363,15 +361,15 @@ export default function AdminDashboard() {
         </AnimatePresence>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-4 lg:p-8 relative scroll-smooth bg-slate-50/50">
+        <div className="flex-1 overflow-y-auto p-4 lg:p-8 relative scroll-smooth">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-              className="max-w-5xl mx-auto pb-24"
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              className="max-w-6xl mx-auto pb-24"
             >
               {activeTab === 'dashboard' && (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -515,20 +513,20 @@ export default function AdminDashboard() {
         </div>
 
         {/* Floating Save Bar */}
-        <div className="sticky bottom-0 left-0 w-full bg-white/90 backdrop-blur-md border-t border-slate-200 p-4 px-4 lg:px-8 flex flex-col sm:flex-row gap-4 justify-between items-center z-30 shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
-          <div className="text-xs lg:text-sm text-slate-500 text-center sm:text-left">
+        <div className="sticky bottom-0 left-0 w-full bg-white border-t border-slate-200 px-4 lg:px-6 py-3 flex flex-col sm:flex-row gap-3 justify-between items-center z-30">
+          <div className="text-xs text-slate-500 font-medium text-center sm:text-left">
             {saving ? 'Menyimpan perubahan...' : 'Pastikan menyimpan setelah mengubah data.'}
           </div>
           <button
             onClick={() => handleSave()}
             disabled={saving}
             className={`
-                    w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-2.5 rounded-lg font-semibold text-white shadow-lg shadow-emerald-200 transition-all
-                    ${saving ? 'bg-emerald-400 cursor-wait' : 'bg-emerald-600 hover:bg-emerald-700 hover:scale-105 active:scale-95'}
+                    w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg font-bold text-white text-sm transition-all duration-200
+                    ${saving ? 'bg-slate-300 cursor-wait' : 'bg-amber-500 hover:bg-amber-600 active:scale-95'}
                 `}
           >
-            <Save size={18} />
-            {saving ? 'Saving...' : 'Simpan Perubahan'}
+            <Save size={16} />
+            {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
           </button>
         </div>
       </main >
@@ -586,32 +584,28 @@ function LiveAudioWidget({ status, updateConfig, config }: { status: AudioActive
     <motion.div
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-slate-900 rounded-3xl p-6 text-white border border-slate-800 shadow-xl shadow-emerald-900/10 relative overflow-hidden"
+      className="bg-[#1a2744] rounded-2xl p-5 text-white border border-slate-700 shadow-sm relative overflow-hidden"
     >
-      <div className="absolute top-0 right-0 p-6 opacity-10">
-        <Music className="w-24 h-24 transform rotate-12" />
-      </div>
-
       <div className="relative z-10">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400">
-            <Activity size={20} className="animate-pulse" />
+          <div className="w-9 h-9 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-400">
+            <Activity size={18} />
           </div>
           <div>
-            <h3 className="font-bold text-white tracking-tight">Sedang Memutar</h3>
-            <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">Live Client Playback</p>
+            <h3 className="font-bold text-white text-sm">Sedang Memutar</h3>
+            <p className="text-[10px] text-amber-400 font-bold uppercase tracking-widest">Live Client Playback</p>
           </div>
         </div>
 
-        <div className="mb-6">
-          <h4 className="text-lg font-bold text-slate-100 mb-1 truncate pr-12">{status.title || 'Unknown Track'}</h4>
-          <div className="flex items-center justify-between text-xs font-mono text-slate-400 mt-2">
+        <div className="mb-5">
+          <h4 className="text-base font-bold text-slate-100 mb-1 truncate pr-12">{status.title || 'Unknown Track'}</h4>
+          <div className="flex items-center justify-between text-xs font-mono text-slate-500 mt-2">
             <span>{formatTime(status.currentTime)}</span>
             <span>{formatTime(status.duration)}</span>
           </div>
-          <div className="h-1.5 w-full bg-slate-800 rounded-full mt-2 overflow-hidden">
+          <div className="h-1 w-full bg-slate-700 rounded-full mt-1.5 overflow-hidden">
             <motion.div
-              className="h-full bg-emerald-500"
+              className="h-full bg-amber-400"
               initial={{ width: 0 }}
               animate={{ width: `${currentProgress}%` }}
               transition={{ ease: "linear" }}
@@ -619,21 +613,21 @@ function LiveAudioWidget({ status, updateConfig, config }: { status: AudioActive
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => handleControl(status.isPlaying ? 'paused' : 'playing')}
             disabled={isPausing}
-            className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm font-semibold transition-all disabled:opacity-50"
           >
-            {status.isPlaying ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}
+            {status.isPlaying ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
             {status.isPlaying ? 'Pause' : 'Resume'}
           </button>
           <button
             onClick={() => handleControl('stopped')}
             disabled={isStopping}
-            className="flex items-center gap-2 px-4 py-2 bg-rose-500/80 hover:bg-rose-600 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-2 bg-rose-500/80 hover:bg-rose-600 rounded-lg text-sm font-semibold transition-all disabled:opacity-50"
           >
-            <Square size={16} fill="currentColor" stroke="none" />
+            <Square size={14} fill="currentColor" stroke="none" />
             Stop
           </button>
         </div>
@@ -646,21 +640,22 @@ function SidebarItem({ icon: Icon, label, active, onClick }: { icon: any, label:
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 relative overflow-hidden group ${active ? 'text-emerald-700 bg-emerald-50' : 'text-slate-600 hover:bg-slate-50'
-        }`}
+      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors relative ${
+        active
+          ? 'bg-amber-500/15 text-amber-400 border-l-[3px] border-amber-400 pl-[9px]'
+          : 'text-slate-400 hover:bg-white/10 hover:text-white border-l-[3px] border-transparent'
+      }`}
     >
-      <Icon size={20} className={active ? 'text-emerald-600' : 'text-slate-400 group-hover:text-slate-600'} />
-      {label}
-      {active && <motion.div layoutId="active-pill" className="absolute left-0 top-0 w-1 h-full bg-emerald-500 rounded-r" />}
-      <ChevronRight size={14} className={`ml-auto transition-transform ${active ? 'opacity-100 text-emerald-400' : 'opacity-0 -translate-x-2'}`} />
+      <Icon size={18} className={`shrink-0 ${active ? 'text-amber-400' : 'text-slate-500'}`} />
+      <span className={active ? 'font-semibold' : ''}>{label}</span>
     </button>
   );
 }
 
 function SectionCard({ title, children, className = '' }: { title: string, children: React.ReactNode, className?: string }) {
   return (
-    <div className={`bg-white rounded-xl shadow-sm border border-slate-100 p-6 mb-6 ${className}`}>
-      <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2 after:content-[''] after:h-px after:flex-1 after:bg-slate-100 after:ml-4">
+    <div className={`bg-white rounded-xl border border-slate-200 p-5 md:p-6 mb-5 ${className}`}>
+      <h3 className="text-base font-bold text-slate-800 mb-5 pb-3 border-b border-slate-100">
         {title}
       </h3>
       {children}
@@ -727,68 +722,57 @@ function PlaybackRemoteControl({ config, setConfig, onSave, status, className = 
 function DashboardOverview({ config, setActiveTab, updateConfig, onSave, status }: { config: MosqueConfig, setActiveTab: (tab: Tab) => void, updateConfig: any, onSave: any, status?: AudioActiveStatus | null }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      {/* Mosque Info Card - Redesigned */}
+      {/* Mosque Info Card */}
       <div
         onClick={() => setActiveTab('identity')}
-        className="group bg-white rounded-3xl p-6 border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-emerald-500/5 transition-all duration-300 cursor-pointer relative overflow-hidden"
+        className="group bg-white rounded-xl p-5 border border-slate-200 hover:border-amber-300 hover:shadow-md transition-all duration-200 cursor-pointer"
       >
-        <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
-          <MapPin className="w-24 h-24 text-emerald-600 transform rotate-12 translate-x-4 -translate-y-4" />
-        </div>
-
-        <div className="flex items-center gap-4 mb-4">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-            <MapPin size={24} />
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center text-amber-500 group-hover:bg-amber-500 group-hover:text-white transition-colors">
+            <MapPin size={20} />
           </div>
           <div>
-            <h3 className="font-bold text-slate-800 text-lg leading-tight group-hover:text-emerald-600 transition-colors">Identitas Masjid</h3>
-            <p className="text-xs text-slate-400 font-medium mt-0.5">Kelola informasi dasar</p>
+            <h3 className="font-bold text-slate-800 text-sm">Identitas Masjid</h3>
+            <p className="text-xs text-slate-400">Kelola informasi dasar</p>
           </div>
+          <ChevronRight size={16} className="ml-auto text-slate-300 group-hover:text-amber-400 transition-colors" />
         </div>
 
-        <div className="space-y-3">
-          <div className="flex items-start gap-3 text-sm text-slate-600 bg-slate-50 p-3 rounded-xl">
-            <MapPin size={16} className="text-emerald-500 mt-0.5 shrink-0" />
-            <span className="line-clamp-2 leading-relaxed">{config.mosqueInfo.address || 'Belum ada alamat'}</span>
-          </div>
+        <div className="text-sm text-slate-600 bg-slate-50 p-3 rounded-lg flex gap-2">
+          <MapPin size={14} className="text-emerald-500 mt-0.5 shrink-0" />
+          <span className="line-clamp-2">{config.mosqueInfo.address || 'Belum ada alamat'}</span>
         </div>
       </div>
 
-      {/* Finance Card - Redesigned */}
-      <div className="group bg-white rounded-3xl p-6 border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-blue-500/5 transition-all duration-300 relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
-          <Wallet className="w-24 h-24 text-blue-600 transform -rotate-12 translate-x-4 -translate-y-4" />
-        </div>
-
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-              <Wallet size={24} />
-            </div>
-            <div>
-              <h3 className="font-bold text-slate-800 text-lg leading-tight">Kas Masjid</h3>
-              <p className="text-xs text-slate-400 font-medium mt-0.5">Laporan Keuangan</p>
-            </div>
+      {/* Finance Card */}
+      <div className="group bg-white rounded-xl p-5 border border-slate-200 hover:border-blue-200 hover:shadow-md transition-all duration-200">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center text-blue-500 group-hover:bg-blue-500 group-hover:text-white transition-colors">
+            <Wallet size={20} />
+          </div>
+          <div>
+            <h3 className="font-bold text-slate-800 text-sm">Kas Masjid</h3>
+            <p className="text-xs text-slate-400">Laporan Keuangan</p>
           </div>
         </div>
 
         <div className="mb-4">
-          <div className="text-sm text-slate-400 mb-1">Total Saldo</div>
-          <div className="text-3xl font-black text-slate-800 tracking-tight">
+          <div className="text-xs text-slate-400 mb-1">Total Saldo</div>
+          <div className="text-2xl font-black text-slate-800">
             Rp {config.finance?.totalBalance?.toLocaleString('id-ID') || '0'}
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-100">
-            <div className="text-[10px] font-bold text-emerald-600 uppercase mb-1">Pemasukan</div>
-            <div className="font-bold text-slate-700">
+        <div className="grid grid-cols-2 gap-2">
+          <div className="bg-emerald-50 p-2.5 rounded-lg border border-emerald-100">
+            <div className="text-[10px] font-bold text-emerald-600 uppercase mb-0.5">Pemasukan</div>
+            <div className="font-bold text-slate-700 text-sm">
               Rp {(config.finance?.accounts?.[0]?.income || 0).toLocaleString('id-ID')}
             </div>
           </div>
-          <div className="bg-rose-50 p-3 rounded-xl border border-rose-100">
-            <div className="text-[10px] font-bold text-rose-600 uppercase mb-1">Pengeluaran</div>
-            <div className="font-bold text-slate-700">
+          <div className="bg-rose-50 p-2.5 rounded-lg border border-rose-100">
+            <div className="text-[10px] font-bold text-rose-600 uppercase mb-0.5">Pengeluaran</div>
+            <div className="font-bold text-slate-700 text-sm">
               Rp {(config.finance?.accounts?.[0]?.expense || 0).toLocaleString('id-ID')}
             </div>
           </div>
@@ -797,42 +781,36 @@ function DashboardOverview({ config, setActiveTab, updateConfig, onSave, status 
 
       {/* Quick Actions / Other Stats - Redesigned */}
       <div className="space-y-6">
-        {/* Running Text Preview */}
-        <div
-          onClick={() => setActiveTab('content')}
-          className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer group"
-        >
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-bold text-slate-800 flex items-center gap-2">
-              <MessageSquare size={18} className="text-amber-500" />
-              Running Text
-            </h3>
-            <ChevronRight size={16} className="text-slate-300 group-hover:text-amber-500 transition-colors" />
-          </div>
-          <div className="bg-slate-900 text-amber-400 p-3 rounded-xl font-mono text-sm overflow-hidden whitespace-nowrap">
-            <div className="animate-marquee inline-block">
-              {config.runningText?.[0] || "Selamat Datang di Masjid..."}
-            </div>
+      {/* Running Text Preview */}
+      <div
+        onClick={() => setActiveTab('content')}
+        className="bg-white rounded-xl p-5 border border-slate-200 hover:border-amber-300 hover:shadow-sm transition-all cursor-pointer group"
+      >
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+            <MessageSquare size={16} className="text-amber-500" />
+            Running Text
+          </h3>
+          <ChevronRight size={15} className="text-slate-300 group-hover:text-amber-500 transition-colors" />
+        </div>
+        <div className="bg-slate-900 text-amber-400 p-2.5 rounded-lg font-mono text-xs overflow-hidden whitespace-nowrap">
+          <div className="animate-marquee inline-block">
+            {config.runningText?.[0] || "Selamat Datang di Masjid..."}
           </div>
         </div>
+      </div>
 
         {/* Theme / Mode */}
-        <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-6 text-white relative overflow-hidden">
-          <div className="relative z-10">
-            <div className="text-slate-400 text-xs font-bold uppercase mb-2">Tema Saat Ini</div>
-            <div className="text-xl font-bold mb-1 capitalize">{config.theme?.mode || 'default'}</div>
-            <div className="text-sm text-slate-400 opacity-80">
-              Background: {config.theme?.backgroundType === 'image' ? 'Gambar' : 'Warna Solid'}
-            </div>
-          </div>
-
-          <div className="absolute bottom-0 right-0 p-4 opacity-10">
-            <ImageIcon size={64} />
+        <div className="bg-[#1a2744] rounded-xl p-5 text-white">
+          <div className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Tema Saat Ini</div>
+          <div className="text-lg font-bold mb-0.5 capitalize">{config.theme?.mode || 'default'}</div>
+          <div className="text-xs text-slate-500">
+            Background: {config.theme?.backgroundType === 'image' ? 'Gambar' : 'Warna Solid'}
           </div>
         </div>
 
         {/* Playback Control on Dashboard */}
-        <div className="md:col-span-2 bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
+        <div className="md:col-span-2 bg-white rounded-xl p-5 border border-slate-200">
           <PlaybackRemoteControl config={config} setConfig={updateConfig} onSave={onSave} status={status} />
         </div>
       </div>
@@ -1235,6 +1213,58 @@ function WabotConfigSection({ config, setConfig, mosqueKey }: { config: MosqueCo
                   type="textarea"
                 />
 
+                {/* Per-Prayer Config */}
+                <div className="pt-4 border-t border-slate-100">
+                  <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <AlarmCheck size={14} className="text-amber-500" />
+                    Kustomisasi Per Waktu Sholat
+                  </h5>
+                  <div className="grid grid-cols-1 gap-2">
+                    {['imsak', 'subuh', 'dzuhur', 'jumat', 'ashar', 'maghrib', 'isya'].map((pKey) => {
+                      const pConfig = wabotConfig.prayerNotifications?.[pKey] || { enabled: true };
+                      const pNames: any = { imsak: 'Imsak', subuh: 'Subuh', dzuhur: 'Dzuhur', jumat: 'Sholat Jumat', ashar: 'Ashar', maghrib: 'Maghrib', isya: 'Isya' };
+                      return (
+                        <div key={pKey} className={`group bg-slate-50/50 border rounded-xl p-3 transition-all ${pConfig.enabled ? 'border-slate-200 hover:border-amber-200 hover:bg-white' : 'border-slate-100 opacity-60'}`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="relative flex items-center">
+                                <input 
+                                  type="checkbox" 
+                                  id={`notify-${pKey}`}
+                                  checked={pConfig.enabled}
+                                  onChange={(e) => {
+                                    const newNotify = { ...(wabotConfig.prayerNotifications || {}), [pKey]: { ...pConfig, enabled: e.target.checked } };
+                                    setConfig({ ...config, wabot: { ...wabotConfig, prayerNotifications: newNotify } });
+                                  }}
+                                  className="w-4 h-4 accent-emerald-500 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                                />
+                              </div>
+                              <label htmlFor={`notify-${pKey}`} className={`text-[11px] font-bold cursor-pointer select-none ${pConfig.enabled ? 'text-slate-700' : 'text-slate-400'}`}>
+                                {pNames[pKey]}
+                              </label>
+                            </div>
+                            {!pConfig.enabled && <span className="text-[9px] bg-slate-100 text-slate-400 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">OFF</span>}
+                          </div>
+                          
+                          {pConfig.enabled && (
+                             <div className="mt-2 pl-7 animate-in fade-in slide-in-from-top-1 duration-200">
+                               <textarea
+                                 value={pConfig.template || ''}
+                                 onChange={(e) => {
+                                   const newNotify = { ...(wabotConfig.prayerNotifications || {}), [pKey]: { ...pConfig, template: e.target.value } };
+                                   setConfig({ ...config, wabot: { ...wabotConfig, prayerNotifications: newNotify } });
+                                 }}
+                                 placeholder="Gunakan pesan khusus untuk waktu ini (opsional)"
+                                 className="w-full p-2 text-[10px] bg-white border border-slate-200 rounded-lg focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-none min-h-[44px] resize-none font-medium text-slate-600"
+                               />
+                             </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <div className="p-3 bg-amber-50 rounded-lg border border-amber-100">
                   <p className="text-[10px] text-amber-800 leading-relaxed font-medium">
                     <b>TIP:</b> Anda bisa menggunakan kode <b>{`{sholat}`}</b> untuk nama waktu dan <b>{`{jam}`}</b> untuk pukul otomatis di dalam template.
@@ -1484,47 +1514,10 @@ function MediaConfigSection({ config, setConfig, onOpenPicker, mosqueKey, onSave
 
           {subTab === 'audio' && (
             <div className="space-y-8">
-              <SectionCard title="Audio Global (Fallback)">
-                <div className="flex flex-col gap-6">
-                  <div className="flex gap-4 items-end">
-                    <div className="flex-1">
-                      <InputGroup
-                        label="URL Audio Global"
-                        value={config.audio.globalUrl || ''}
-                        onChange={(v: string) => setConfig({ ...config, audio: { ...config.audio, globalUrl: v } })}
-                        placeholder="http://..."
-                      />
-                    </div>
-                    <button
-                      onClick={() => {
-                        onOpenPicker('audio', { section: 'global-audio' });
-                      }}
-                      className="p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
-                      title="Pilih dari Galeri"
-                    >
-                      <Library size={20} className="text-slate-600" />
-                    </button>
-                    <button
-                      onClick={() => onSave()}
-                      className="px-6 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-all font-bold shadow-sm"
-                    >
-                      SIMPAN
-                    </button>
-                  </div>
-
-                  {/* Remote Controls */}
-                  <div className="pt-6 border-t border-slate-100">
-                    <PlaybackRemoteControl config={config} setConfig={setConfig} onSave={onSave} status={audioStatus} />
-                  </div>
-                </div>
-                {config.audio.globalUrl && (
-                  <audio controls className="w-full mt-4 h-10 rounded-lg">
-                    <source src={resolveUrl(config.audio.globalUrl, mosqueKey)} type="audio/mpeg" />
-                  </audio>
-                )}
+              <SectionCard title="Remote Control Playback">
+                <PlaybackRemoteControl config={config} setConfig={setConfig} onSave={onSave} status={audioStatus} />
               </SectionCard>
-
-              <SectionCard title="Atur Playlist">
+              <SectionCard title="Playlist & Jadwal Putar Audio">
                 <PlaylistManager
                   config={config}
                   setConfig={setConfig}
@@ -1533,10 +1526,6 @@ function MediaConfigSection({ config, setConfig, onOpenPicker, mosqueKey, onSave
                     onOpenPicker('audio', { section: 'playlist-track', playlistId });
                   }}
                 />
-              </SectionCard>
-
-              <SectionCard title="Jadwal Putar">
-                <ScheduleManager config={config} setConfig={setConfig} />
               </SectionCard>
             </div>
           )}
@@ -1819,6 +1808,33 @@ function MediaPickerModal({
 function GallerySection({ config, setConfig, updateConfig, mosqueKey }: any) {
   const gallery = config.gallery || [];
   const [uploading, setUploading] = useState(false);
+  const [playingUrl, setPlayingUrl] = useState<string | null>(null);
+  const [previewAudio, setPreviewAudio] = useState<HTMLAudioElement | null>(null);
+
+  const imageItems = gallery.filter((url: string) => !url.toLowerCase().endsWith('.mp3'));
+  const audioItems = gallery.filter((url: string) => url.toLowerCase().endsWith('.mp3'));
+
+  const togglePreview = (url: string) => {
+    if (playingUrl === url) {
+      if (previewAudio) {
+        previewAudio.pause();
+        previewAudio.currentTime = 0;
+      }
+      setPlayingUrl(null);
+    } else {
+      if (previewAudio) {
+        previewAudio.pause();
+        previewAudio.currentTime = 0;
+      }
+      // @ts-ignore - Assuming resolveUrl is globally available since it was used in the previous implementation
+      const resolved = typeof resolveUrl === 'function' ? resolveUrl(url, mosqueKey) : url.startsWith('/') ? url : '/' + url;
+      const audio = new window.Audio(resolved);
+      audio.onended = () => setPlayingUrl(null);
+      audio.play();
+      setPreviewAudio(audio);
+      setPlayingUrl(url);
+    }
+  };
 
   const handleUpload = async (e: any) => {
     const files = e.target.files;
@@ -1844,7 +1860,6 @@ function GallerySection({ config, setConfig, updateConfig, mosqueKey }: any) {
       alert(`Gagal mengunggah: ${err.message}`);
     } finally {
       setUploading(false);
-      // Reset input value to allow re-uploading the same file if needed
       e.target.value = '';
     }
   };
@@ -1852,79 +1867,204 @@ function GallerySection({ config, setConfig, updateConfig, mosqueKey }: any) {
   return (
     <div className="space-y-6">
       <SectionCard title="Manajemen Galeri Media">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-6">
-          {gallery.map((url: string, idx: number) => {
-            const isAudio = url.toLowerCase().endsWith('.mp3');
-            return (
-              <div key={idx} className="group relative aspect-square bg-slate-100 rounded-xl overflow-hidden border border-slate-200 shadow-sm flex flex-col">
-                {isAudio ? (
-                  <div className="flex-1 w-full h-full flex flex-col items-center justify-center text-emerald-600 bg-emerald-50/30 p-2">
-                    <Music size={40} />
-                    <span className="text-[10px] mt-2 font-mono truncate w-full text-center px-1">
-                      {url.split('/').pop()}
-                    </span>
-                  </div>
-                ) : (
-                  <img src={resolveUrl(url, mosqueKey)} className="flex-1 w-full h-full object-cover transition-transform group-hover:scale-105" alt="Gallery item" />
-                )}
-
-                <div className="absolute inset-0 bg-slate-900/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-3 gap-2 backdrop-blur-[2px]">
-                  {!isAudio && (
-                    <>
-                      <button
-                        onClick={() => {
-                          if (!config.sliderImages.includes(url)) {
-                            setConfig({ ...config, sliderImages: [...config.sliderImages, url] });
-                          }
-                        }}
-                        className="w-full py-1.5 bg-emerald-600 text-white text-[10px] font-bold rounded-lg hover:bg-emerald-700 transition shadow-sm"
-                      >
-                        Jadikan Slide
-                      </button>
-                      <button
-                        onClick={() => setConfig({
-                          ...config,
-                          mosqueInfo: { ...config.mosqueInfo, logoUrl: url }
-                        })}
-                        className="w-full py-1.5 bg-white text-slate-800 text-[10px] font-bold rounded-lg hover:bg-slate-100 transition shadow-sm"
-                      >
-                        Gunakan sbg Logo
-                      </button>
-                    </>
-                  )}
-                  {isAudio && (
-                    <button
-                      onClick={() => setConfig({
-                        ...config,
-                        audio: { ...config.audio, url }
-                      })}
-                      className="w-full py-1.5 bg-emerald-600 text-white text-[10px] font-bold rounded-lg hover:bg-emerald-700 transition shadow-sm"
-                    >
-                      Set Audio Global
-                    </button>
-                  )}
-                  <button
-                    onClick={() => {
-                      const n = gallery.filter((_: any, i: number) => i !== idx);
-                      const nS = config.sliderImages.filter((u: string) => u !== url);
-                      setConfig({ ...config, gallery: n, sliderImages: nS });
-                    }}
-                    className="w-full py-1.5 bg-red-500 text-white text-[10px] font-bold rounded-lg hover:bg-red-600 transition shadow-sm"
-                  >
-                    Hapus
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+        {/* Upload Action */}
+        <div className="mb-8">
           <label className={`
-            aspect-square border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center text-slate-400 hover:text-emerald-600 hover:border-emerald-400 hover:bg-emerald-50 transition-all cursor-pointer group gap-2
+            w-full border-2 border-dashed border-slate-300 rounded-xl py-8 flex flex-col items-center justify-center text-slate-400 hover:text-emerald-600 hover:border-emerald-400 hover:bg-emerald-50 transition-all cursor-pointer group gap-2
             ${uploading ? 'opacity-50 cursor-wait' : ''}
           `}>
-            {uploading ? <RefreshCw size={32} className="animate-spin" /> : <UploadCloud size={32} className="group-hover:scale-110 transition-transform" />}
-            <span className="text-xs font-bold uppercase tracking-widest">{uploading ? 'Uploading...' : 'Upload Files'}</span>
+            {uploading ? <RefreshCw size={40} className="animate-spin" /> : <UploadCloud size={40} className="group-hover:scale-110 transition-transform" />}
+            <span className="text-sm font-bold uppercase tracking-widest">{uploading ? 'Sedang Mengunggah...' : 'Klik untuk Upload Gambar / Audio Baru'}</span>
             <input type="file" hidden accept="image/*,audio/mpeg" onChange={handleUpload} disabled={uploading} multiple />
           </label>
+        </div>
+
+        {/* IMAGE GALLERY */}
+        <div className="mb-8">
+            <h4 className="text-sm font-bold text-slate-600 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <ImageIcon size={18} className="text-amber-500" /> Galeri Gambar ({imageItems.length})
+            </h4>
+            {imageItems.length === 0 ? (
+                <div className="text-sm text-slate-400 italic bg-slate-50 p-4 rounded-xl text-center border border-slate-100">Belum ada gambar yang diunggah</div>
+            ) : (
+                <div className="flex flex-col sm:grid sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                  {imageItems.map((url: string, idx: number) => {
+                    const resolvedUrl = typeof resolveUrl === 'function' ? resolveUrl(url, mosqueKey) : url;
+                    const fileName = url.split('/').pop() || 'image';
+                    return (
+                      <div key={idx} className="group relative sm:aspect-square bg-slate-100 rounded-xl overflow-hidden border border-slate-200 shadow-sm flex flex-col">
+                        
+                        {/* --- MOBILE LIST VIEW --- */}
+                        <div className="flex flex-col gap-3 p-3 sm:hidden bg-white h-full w-full">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 shrink-0 rounded-lg overflow-hidden border border-slate-200">
+                              <img src={resolvedUrl} className="w-full h-full object-cover" alt="Gallery item" />
+                            </div>
+                            <span className="text-xs font-mono font-bold truncate flex-1 text-slate-700">
+                              {fileName}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                             <a
+                               href={resolvedUrl} target="_blank" rel="noopener noreferrer"
+                               className="flex-1 py-2 flex items-center justify-center gap-1.5 text-white text-[10px] font-bold rounded-lg transition shadow-sm border-none bg-blue-500 hover:bg-blue-600"
+                             >
+                               Preview
+                             </a>
+                            <button
+                              onClick={() => {
+                                if (!config.sliderImages.includes(url)) {
+                                  setConfig({ ...config, sliderImages: [...config.sliderImages, url] });
+                                }
+                              }}
+                              className="flex-1 py-2 bg-emerald-600 text-white text-[10px] font-bold rounded-lg hover:bg-emerald-700 transition shadow-sm"
+                            >
+                              Jadikan Slide
+                            </button>
+                            <button
+                              onClick={() => {
+                                const n = gallery.filter((u: string) => u !== url);
+                                const nS = config.sliderImages.filter((u: string) => u !== url);
+                                setConfig({ ...config, gallery: n, sliderImages: nS });
+                              }}
+                              className="px-3 py-2 flex items-center justify-center bg-rose-500 text-white text-[10px] font-bold rounded-lg hover:bg-rose-600 transition shadow-sm"
+                            >
+                              Hapus
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* --- DESKTOP GRID VIEW --- */}
+                        <div className="hidden sm:flex flex-col h-full w-full relative">
+                          <img src={resolvedUrl} className="flex-1 w-full h-full object-cover transition-transform group-hover:scale-105" alt="Gallery item" />
+                          <div className="absolute inset-0 bg-slate-900/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-3 gap-2 backdrop-blur-[2px]">
+                             <a
+                               href={resolvedUrl} target="_blank" rel="noopener noreferrer"
+                               className="w-full py-1.5 flex items-center justify-center gap-2 bg-blue-500 text-white text-[10px] font-bold rounded-lg hover:bg-blue-600 transition shadow-sm"
+                             >
+                               Preview
+                             </a>
+                             <button
+                               onClick={() => {
+                                 if (!config.sliderImages.includes(url)) {
+                                   setConfig({ ...config, sliderImages: [...config.sliderImages, url] });
+                                 }
+                               }}
+                               className="w-full py-1.5 bg-emerald-600 text-white text-[10px] font-bold rounded-lg hover:bg-emerald-700 transition shadow-sm"
+                             >
+                               Jadikan Slide
+                             </button>
+                             <button
+                               onClick={() => {
+                                 const n = gallery.filter((u: string) => u !== url);
+                                 const nS = config.sliderImages.filter((u: string) => u !== url);
+                                 setConfig({ ...config, gallery: n, sliderImages: nS });
+                               }}
+                               className="w-full py-1.5 bg-rose-500 text-white text-[10px] font-bold rounded-lg hover:bg-rose-600 transition shadow-sm"
+                             >
+                               Hapus
+                             </button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+            )}
+        </div>
+
+        {/* AUDIO GALLERY */}
+        <div>
+            <h4 className="text-sm font-bold text-slate-600 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <Music size={18} className="text-emerald-500" /> Galeri Audio ({audioItems.length})
+            </h4>
+            {audioItems.length === 0 ? (
+                <div className="text-sm text-slate-400 italic bg-slate-50 p-4 rounded-xl text-center border border-slate-100">Belum ada audio (MTQ/Tarhim) yang diunggah</div>
+            ) : (
+                <div className="flex flex-col sm:grid sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                  {audioItems.map((url: string, idx: number) => {
+                      const isPlaying = playingUrl === url;
+                      const fileName = url.split('/').pop();
+                      return (
+                        <div key={idx} className={`group relative sm:aspect-square rounded-xl overflow-hidden border shadow-sm flex flex-col transition-colors ${isPlaying ? 'bg-amber-50 border-amber-300' : 'bg-emerald-50/50 border-emerald-100 hover:bg-emerald-100'}`}>
+                          
+                          {/* --- MOBILE LIST VIEW --- */}
+                          <div className="flex flex-col gap-3 p-3 sm:hidden">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-10 h-10 shrink-0 rounded-lg flex items-center justify-center ${isPlaying ? 'bg-amber-200 text-amber-600' : 'bg-emerald-200 text-emerald-600'}`}>
+                                <Music size={20} className={isPlaying ? 'animate-pulse' : ''} />
+                              </div>
+                              <span className={`text-xs font-mono font-bold truncate flex-1 ${isPlaying ? 'text-amber-700' : 'text-emerald-700'}`}>
+                                {fileName}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => togglePreview(url)}
+                                className={`flex-1 py-2 flex items-center justify-center gap-1.5 text-white text-[10px] font-bold rounded-lg transition shadow-sm border-none ${isPlaying ? 'bg-rose-500 hover:bg-rose-600' : 'bg-blue-500 hover:bg-blue-600'}`}
+                              >
+                                {isPlaying ? <Square size={13} fill="currentColor" stroke="none"/> : <Play size={13} fill="currentColor" />} 
+                                {isPlaying ? 'STOP' : 'TEST'}
+                              </button>
+
+                              {!isPlaying && (
+                                <button
+                                  onClick={() => {
+                                    if (playingUrl === url && previewAudio) {
+                                         previewAudio.pause();
+                                         setPlayingUrl(null);
+                                    }
+                                    const n = gallery.filter((u: string) => u !== url);
+                                    setConfig({ ...config, gallery: n });
+                                  }}
+                                  className="px-3 py-2 flex items-center justify-center bg-rose-500 text-white text-[10px] font-bold rounded-lg hover:bg-rose-600 transition shadow-sm"
+                                >
+                                  Hapus
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* --- DESKTOP GRID VIEW --- */}
+                          <div className="hidden sm:flex flex-col justify-center items-center p-2 h-full w-full relative">
+                            <Music size={40} className={`mb-2 ${isPlaying ? 'animate-pulse text-amber-500' : 'text-emerald-500'}`} />
+                            <span className={`text-[10px] font-mono truncate w-full text-center px-1 font-bold ${isPlaying ? 'text-amber-600' : 'text-emerald-600'}`}>
+                              {fileName}
+                            </span>
+
+                            <div className={`absolute inset-0 bg-slate-900/85 transition-opacity flex flex-col items-center justify-center p-3 gap-2 backdrop-blur-[2px] ${isPlaying ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                               <button
+                                 onClick={() => togglePreview(url)}
+                                 className={`w-full py-2 flex items-center justify-center gap-2 text-white text-[10px] font-bold rounded-lg transition shadow-sm border-none ${isPlaying ? 'bg-rose-500 hover:bg-rose-600' : 'bg-blue-500 hover:bg-blue-600'}`}
+                               >
+                                 {isPlaying ? <Square size={13} fill="currentColor" stroke="none"/> : <Play size={13} fill="currentColor" />} 
+                                 {isPlaying ? 'STOP TEST' : 'TEST PLAY'}
+                               </button>
+
+                               {!isPlaying && (
+                                 <button
+                                   onClick={() => {
+                                     if (playingUrl === url && previewAudio) {
+                                          previewAudio.pause();
+                                          setPlayingUrl(null);
+                                     }
+                                     const n = gallery.filter((u: string) => u !== url);
+                                     setConfig({ ...config, gallery: n });
+                                   }}
+                                   className="w-full py-1.5 bg-rose-500 text-white text-[10px] font-bold rounded-lg hover:bg-rose-600 transition shadow-sm"
+                                 >
+                                   Hapus
+                                 </button>
+                               )}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                  })}
+                </div>
+            )}
         </div>
       </SectionCard>
     </div>
@@ -2582,10 +2722,10 @@ function resolveUrl(url: string | undefined, mosqueKey: string) {
 function InputGroup({ label, value, onChange, type = 'text', step, placeholder }: any) {
   return (
     <div className="w-full">
-      <label className="block text-sm font-semibold text-slate-600 mb-1.5">{label}</label>
+      <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">{label}</label>
       {type === 'textarea' ? (
         <textarea
-          className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-slate-800 text-sm shadow-sm min-h-[100px]"
+          className="w-full p-3.5 bg-slate-50/50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 outline-none text-slate-800 text-sm shadow-sm hover:border-slate-300 min-h-[100px]"
           value={value ?? ""}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
@@ -2594,7 +2734,7 @@ function InputGroup({ label, value, onChange, type = 'text', step, placeholder }
         <input
           type={type}
           step={step}
-          className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-slate-800 text-sm shadow-sm"
+          className="w-full p-3.5 bg-slate-50/50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 outline-none text-slate-800 text-sm shadow-sm hover:border-slate-300"
           value={value ?? ""}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}

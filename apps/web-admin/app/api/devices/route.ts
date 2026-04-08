@@ -65,8 +65,8 @@ export async function POST(request: Request) {
              VALUES (?, ?, ?, 'active') 
              ON DUPLICATE KEY UPDATE 
                 mosque_key = VALUES(mosque_key), 
-                device_name = VALUES(device_name),
-                status = IF(status = 'blocked', 'blocked', 'active')`,
+                status = IF(status = 'blocked', 'blocked', 'active'),
+                last_seen = CURRENT_TIMESTAMP`,
             [deviceId, mosqueKey, deviceName || 'TV Device']
         );
         return NextResponse.json({ success: true }, {

@@ -13,3 +13,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .DS_Store
+
+# Ignore uploads and db files to significantly speed up Docker build context
+apps/web-admin/public/uploads
+apps/web-admin/wa_auth_info

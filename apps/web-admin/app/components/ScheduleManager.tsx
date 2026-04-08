@@ -7,6 +7,7 @@ import { Plus, Trash2, Calendar, Clock, Volume2, ChevronDown, ChevronUp, Check, 
 interface ScheduleManagerProps {
     config: MosqueConfig;
     setConfig: (config: MosqueConfig) => void;
+    forcedPlaylistId?: string;
 }
 
 const prayers = ['subuh', 'dzuhur', 'ashar', 'maghrib', 'isya', 'jumat'] as const;
@@ -31,7 +32,7 @@ function getSchedulePreview(schedule: AudioSchedule, playlists: Playlist[]): str
     }
 }
 
-export default function ScheduleManager({ config, setConfig }: ScheduleManagerProps) {
+export default function ScheduleManager({ config, setConfig, forcedPlaylistId }: ScheduleManagerProps) {
     const [expandedId, setExpandedId] = useState<string | null>(null);
 
     const getSchedules = () => config.audio?.schedules || [];
@@ -44,7 +45,7 @@ export default function ScheduleManager({ config, setConfig }: ScheduleManagerPr
     const handleCreateSchedule = () => {
         const newSchedule: AudioSchedule = {
             id: `sch-${Date.now()}`,
-            playlistId: getPlaylists()[0]?.id || '',
+            playlistId: forcedPlaylistId || getPlaylists()[0]?.id || '',
             type: 'prayer_relative',
             prayer: 'subuh',
             trigger: 'adzan',
@@ -67,17 +68,17 @@ export default function ScheduleManager({ config, setConfig }: ScheduleManagerPr
         updateConfigSchedules(getSchedules().map(s => s.id === id ? { ...s, ...updates } : s));
     };
 
-    const schedules = getSchedules();
+    const schedules = forcedPlaylistId ? getSchedules().filter(s => s.playlistId === forcedPlaylistId) : getSchedules();
     const playlists = getPlaylists();
 
     return (
         <div className="space-y-3">
             {/* Empty State */}
             {schedules.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-16 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 bg-slate-50/50">
-                    <Clock size={40} className="mb-3 opacity-40" />
-                    <p className="font-semibold text-slate-500 mb-1">Belum ada jadwal putar audio</p>
-                    <p className="text-sm text-slate-400">Buat jadwal baru untuk mengatur kapan murottal diputar secara otomatis.</p>
+                <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 bg-slate-50">
+                    <Clock size={32} className="mb-2 opacity-30" />
+                    <p className="font-semibold text-slate-500 text-sm mb-0.5">Belum ada jadwal putar audio</p>
+                    <p className="text-xs text-slate-400">Buat jadwal baru untuk mengatur kapan murottal diputar.</p>
                 </div>
             )}
 
@@ -90,23 +91,24 @@ export default function ScheduleManager({ config, setConfig }: ScheduleManagerPr
                 return (
                     <div
                         key={schedule.id}
-                        className={`rounded-2xl border transition-all duration-200 overflow-hidden ${isExpanded
-                            ? 'border-emerald-200 shadow-md shadow-emerald-50'
-                            : 'border-slate-200 hover:border-slate-300 hover:shadow-sm'
+                        className={`rounded-xl border transition-all duration-200 overflow-hidden bg-white ${
+                            isExpanded
+                                ? 'border-amber-200 shadow-sm'
+                                : 'border-slate-200 hover:border-slate-300'
                         }`}
                     >
-                        {/* Card Header — always visible */}
+                        {/* Card Header */}
                         <button
                             onClick={() => setExpandedId(isExpanded ? null : schedule.id)}
-                            className="w-full flex items-center gap-3 p-4 bg-white text-left"
+                            className="w-full flex items-center gap-3 p-4 text-left"
                         >
                             {/* Enable Toggle */}
                             <div
                                 onClick={(e) => { e.stopPropagation(); handleUpdate(schedule.id, { enabled: !schedule.enabled }); }}
-                                className={`shrink-0 w-10 h-6 rounded-full relative transition-colors cursor-pointer ${schedule.enabled ? 'bg-emerald-500' : 'bg-slate-200'}`}
+                                className={`shrink-0 w-9 h-5 rounded-full relative transition-colors cursor-pointer ${schedule.enabled ? 'bg-amber-500' : 'bg-slate-200'}`}
                                 title={schedule.enabled ? 'Nonaktifkan' : 'Aktifkan'}
                             >
-                                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${schedule.enabled ? 'left-5' : 'left-1'}`} />
+                                <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${schedule.enabled ? 'left-4' : 'left-0.5'}`} />
                             </div>
 
                             {/* Preview Text */}
@@ -114,15 +116,16 @@ export default function ScheduleManager({ config, setConfig }: ScheduleManagerPr
                                 <p className={`text-sm font-semibold truncate ${schedule.enabled ? 'text-slate-800' : 'text-slate-400 line-through'}`}>
                                     {preview}
                                 </p>
-                                <p className="text-[10px] font-mono text-slate-400 mt-0.5">
-                                    {schedule.type === 'prayer_relative' ? '📿 Relatif Waktu Sholat' : '⏰ Jam Tertentu'}
-                                    {hasNoPlaylist && <span className="ml-2 text-amber-500">⚠ Playlist belum dipilih</span>}
+                                <p className="text-[10px] font-mono text-slate-400 mt-0.5 mt-1">
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-slate-100 rounded text-slate-500 mr-2">
+                                        {schedule.type === 'prayer_relative' ? '🕌 Relatif Waktu Sholat' : '⏰ Jam Tertentu'}
+                                    </span>
+                                    {hasNoPlaylist && !forcedPlaylistId && <span className="text-amber-500">⚠ Playlist belum dipilih</span>}
                                 </p>
                             </div>
 
-                            {/* Expand Icon */}
-                            <div className={`shrink-0 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}>
-                                <ChevronDown size={16} />
+                            <div className={`shrink-0 text-slate-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
+                                <ChevronDown size={15} />
                             </div>
                         </button>
 
@@ -137,14 +140,15 @@ export default function ScheduleManager({ config, setConfig }: ScheduleManagerPr
                                         <select
                                             value={schedule.playlistId}
                                             onChange={(e) => handleUpdate(schedule.id, { playlistId: e.target.value })}
-                                            className="w-full p-3 bg-white border border-slate-200 rounded-xl font-medium text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400 outline-none"
+                                            disabled={!!forcedPlaylistId}
+                                            className={`w-full p-2.5 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 outline-none ${forcedPlaylistId ? 'bg-slate-100 cursor-not-allowed opacity-70' : 'bg-white focus:ring-2 focus:ring-amber-400 focus:border-amber-400'}`}
                                         >
                                             <option value="" disabled>— Pilih Playlist —</option>
                                             {playlists.map(p => (
                                                 <option key={p.id} value={p.id}>{p.name} ({p.tracks.length} track)</option>
                                             ))}
                                         </select>
-                                        {playlists.length === 0 && (
+                                        {playlists.length === 0 && !forcedPlaylistId && (
                                             <p className="text-[10px] text-amber-600 flex items-center gap-1"><AlertCircle size={10} /> Buat playlist dulu di tab "Playlist Audio".</p>
                                         )}
                                     </div>
@@ -155,9 +159,10 @@ export default function ScheduleManager({ config, setConfig }: ScheduleManagerPr
                                             <button
                                                 type="button"
                                                 onClick={() => handleUpdate(schedule.id, { type: 'prayer_relative' })}
-                                                className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition-all ${schedule.type === 'prayer_relative'
-                                                    ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
-                                                    : 'bg-white border-slate-200 text-slate-500 hover:border-emerald-200 hover:text-emerald-600'
+                                                className={`p-2.5 rounded-lg border text-xs font-bold flex flex-col items-center gap-1 transition-all ${
+                                                    schedule.type === 'prayer_relative'
+                                                        ? 'bg-amber-500 border-amber-500 text-white'
+                                                        : 'bg-white border-slate-200 text-slate-500 hover:border-amber-200 hover:text-amber-600'
                                                 }`}
                                             >
                                                 <span className="text-base">🕌</span>
@@ -166,9 +171,10 @@ export default function ScheduleManager({ config, setConfig }: ScheduleManagerPr
                                             <button
                                                 type="button"
                                                 onClick={() => handleUpdate(schedule.id, { type: 'manual_time', time: schedule.time || '07:00', durationMinutes: schedule.durationMinutes || 30 })}
-                                                className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition-all ${schedule.type === 'manual_time'
-                                                    ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
-                                                    : 'bg-white border-slate-200 text-slate-500 hover:border-emerald-200 hover:text-emerald-600'
+                                                className={`p-2.5 rounded-lg border text-xs font-bold flex flex-col items-center gap-1 transition-all ${
+                                                    schedule.type === 'manual_time'
+                                                        ? 'bg-amber-500 border-amber-500 text-white'
+                                                        : 'bg-white border-slate-200 text-slate-500 hover:border-amber-200 hover:text-amber-600'
                                                 }`}
                                             >
                                                 <span className="text-base">⏰</span>
@@ -180,14 +186,14 @@ export default function ScheduleManager({ config, setConfig }: ScheduleManagerPr
 
                                 {/* Row 2: Prayer-relative config */}
                                 {schedule.type === 'prayer_relative' && (
-                                    <div className="p-4 bg-white rounded-xl border border-slate-200 space-y-4">
+                                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 space-y-4">
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="flex flex-col gap-1.5">
                                                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Waktu Sholat</label>
                                                 <select
                                                     value={schedule.prayer}
                                                     onChange={(e) => handleUpdate(schedule.id, { prayer: e.target.value as any })}
-                                                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-semibold focus:ring-emerald-500 outline-none"
+                                                    className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm font-semibold focus:ring-amber-400 outline-none"
                                                 >
                                                     {prayers.map(p => <option key={p} value={p}>{prayerLabel[p]}</option>)}
                                                 </select>
@@ -197,7 +203,7 @@ export default function ScheduleManager({ config, setConfig }: ScheduleManagerPr
                                                 <select
                                                     value={schedule.trigger}
                                                     onChange={(e) => handleUpdate(schedule.id, { trigger: e.target.value as any })}
-                                                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-semibold focus:ring-emerald-500 outline-none"
+                                                    className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm font-semibold focus:ring-amber-400 outline-none"
                                                 >
                                                     <option value="adzan">Waktu Adzan</option>
                                                     <option value="iqamah">Waktu Iqamah</option>
@@ -239,7 +245,7 @@ export default function ScheduleManager({ config, setConfig }: ScheduleManagerPr
 
                                 {/* Row 2b: Manual time config */}
                                 {schedule.type === 'manual_time' && (
-                                    <div className="p-4 bg-white rounded-xl border border-slate-200 space-y-4">
+                                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 space-y-4">
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="flex flex-col gap-1.5">
                                                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Jam Mulai</label>
@@ -274,7 +280,7 @@ export default function ScheduleManager({ config, setConfig }: ScheduleManagerPr
                                                                 const next = isSelected ? current.filter(d => d !== idx) : [...current, idx].sort();
                                                                 handleUpdate(schedule.id, { days: next });
                                                             }}
-                                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition ${isSelected ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white border-slate-200 text-slate-400 hover:border-emerald-300'}`}
+                                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${isSelected ? 'bg-amber-500 border-amber-500 text-white' : 'bg-white border-slate-200 text-slate-400 hover:border-amber-300'}`}
                                                         >
                                                             {day}
                                                         </button>
@@ -303,10 +309,10 @@ export default function ScheduleManager({ config, setConfig }: ScheduleManagerPr
             {/* Create CTA */}
             <button
                 onClick={handleCreateSchedule}
-                className="w-full flex items-center justify-center gap-2 py-4 border-2 border-dashed border-emerald-200 rounded-2xl text-emerald-600 font-bold text-sm hover:bg-emerald-50 hover:border-emerald-400 transition-all group"
+                className="w-full flex items-center justify-center gap-2 py-3.5 border-2 border-dashed border-amber-200 rounded-xl text-amber-600 font-bold text-sm hover:bg-amber-50 hover:border-amber-400 transition-colors group"
             >
-                <div className="w-7 h-7 bg-emerald-100 group-hover:bg-emerald-200 rounded-full flex items-center justify-center transition-colors">
-                    <Plus size={16} />
+                <div className="w-6 h-6 bg-amber-100 group-hover:bg-amber-200 rounded-full flex items-center justify-center transition-colors">
+                    <Plus size={14} />
                 </div>
                 Buat Jadwal Baru
             </button>

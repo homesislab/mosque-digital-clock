@@ -77,6 +77,15 @@ export async function checkAndSendNotifications() {
                             continue;
                         }
 
+                        // NEW: Check per-prayer notification setting
+                        const prayerKey = name.toLowerCase();
+                        if (config.wabot?.prayerNotifications && config.wabot.prayerNotifications[prayerKey]) {
+                            if (!config.wabot.prayerNotifications[prayerKey].enabled) {
+                                console.log(`[Worker] Skipping ${displayName} for ${key} (disabled in config)`);
+                                continue;
+                            }
+                        }
+
                         console.log(`[Worker] Triggering ${displayName} for ${key} at ${formatTime(time)}`);
 
                         // Mark as sent
@@ -101,7 +110,13 @@ async function triggerWabot(mosqueKey: string, config: MosqueConfig, prayerName:
 
         // Choose Template
         let template = config.wabot?.messageTemplate || "Waktu sholat {sholat} telah tiba.";
-        if (isImsak && config.wabot?.imsakMessageTemplate) {
+
+        // NEW: Check for per-prayer specific template
+        const prayerKey = prayerName.toLowerCase();
+        if (config.wabot?.prayerNotifications && config.wabot.prayerNotifications[prayerKey]?.template) {
+            template = config.wabot.prayerNotifications[prayerKey].template!;
+        } else if (isImsak && config.wabot?.imsakMessageTemplate) {
+            // Legacy/Fallback for Imsak
             template = config.wabot.imsakMessageTemplate;
         }
 

@@ -52,18 +52,31 @@ export const AudioPlayer = ({ url, playlist, isPlaying, onStop, onBlocked, playb
     }, [playlist?.id]);
 
     // Sync isPaused with prop isPlaying
+    const [isTargetDevice, setIsTargetDevice] = useState(true);
+
     useEffect(() => {
-        setIsPaused(!isPlaying);
-    }, [isPlaying]);
+        if (!playlist || !playlist.targetDevices || playlist.targetDevices.length === 0) {
+            setIsTargetDevice(true);
+            return;
+        }
+        const did = localStorage.getItem('deviceId') || 'unknown-device';
+        setIsTargetDevice(playlist.targetDevices.includes(did));
+    }, [playlist?.id, playlist?.targetDevices]);
+
+    const effectiveIsPlaying = isPlaying && isTargetDevice;
+
+    useEffect(() => {
+        setIsPaused(!effectiveIsPlaying);
+    }, [effectiveIsPlaying]);
 
     useEffect(() => {
         setLoadError(null);
-    }, [effectiveUrl, isPlaying]);
+    }, [effectiveUrl, effectiveIsPlaying]);
 
     useEffect(() => {
         if (!audioRef.current || !effectiveUrl) return;
 
-        if (isPlaying && !isPaused) {
+        if (effectiveIsPlaying && !isPaused) {
             const playPromise = audioRef.current.play();
             if (playPromise !== undefined) {
                 playPromise.then(() => {
