@@ -10,7 +10,7 @@ import {
   Clock, Image as ImageIcon, MessageSquare, Users,
   Wallet, Settings, Settings2, ChevronRight, UploadCloud,
   Music, Library, Plus, Moon, Menu, X, Play, Pause, Square, PlayCircle, XCircle, AlarmCheck, Sliders, Smartphone, Activity, Calendar,
-  LogIn, Send, LayoutGrid, List, Power, Monitor
+  LogIn, Send, LayoutGrid, List, Power, Monitor, Video, Volume2, VolumeX
 } from 'lucide-react';
 import { useLogger } from './hooks/useLogger';
 import { PrayerTimesCard } from '@/components/PrayerTimesCard';
@@ -24,6 +24,7 @@ const MapPicker = dynamic(() => import('./components/MapPicker'), {
 import AdvancedConfigSection from './components/AdvancedConfigSection';
 import PlaylistManager from './components/PlaylistManager';
 import ScheduleManager from './components/ScheduleManager';
+import { QuranBrowser } from '@/components/QuranBrowser';
 // InputGroup is defined locally in AdvancedConfigSection usually, OR I need to check where it is.
 // Actually, looking at line 500 of page.tsx, InputGroup is used but I don't see it defined in page.tsx in the views I had.
 // Wait, at line 21, `import AdvancedConfigSection from ...`.
@@ -52,17 +53,40 @@ export default function AdminDashboard() {
   const logger = useLogger('admin');
 
   useEffect(() => {
-    const key = new URLSearchParams(window.location.search).get('key');
-    if (key) {
-      setMosqueKey(key);
-    } else {
-      // Fallback if no key in URL (might happen if user just logs in)
-      const stored = localStorage.getItem('lastMosqueKey');
-      if (stored) {
-        setMosqueKey(stored);
-        router.replace(`/?key=${stored}`);
+    const checkAuthAndKey = async () => {
+      const key = new URLSearchParams(window.location.search).get('key');
+      if (key) {
+        setMosqueKey(key);
+        localStorage.setItem('lastMosqueKey', key);
+      } else {
+        // Fallback if no key in URL
+        const stored = localStorage.getItem('lastMosqueKey');
+        if (stored) {
+          setMosqueKey(stored);
+          router.replace(`/?key=${stored}`);
+        } else {
+          // If no stored key, try to fetch the default key from the server
+          try {
+            const res = await fetch('/api/auth/me');
+            if (res.ok) {
+              const data = await res.json();
+              if (data.mosqueKey) {
+                localStorage.setItem('lastMosqueKey', data.mosqueKey);
+                setMosqueKey(data.mosqueKey);
+                router.replace(`/?key=${data.mosqueKey}`);
+                return;
+              }
+            }
+          } catch (e) {
+            console.error('Failed to fetch user mosque key:', e);
+          }
+          // If all fails, redirect to login
+          router.push('/login');
+        }
       }
-    }
+    };
+    
+    checkAuthAndKey();
   }, [router]);
 
   useEffect(() => {
@@ -117,7 +141,11 @@ export default function AdminDashboard() {
             : data.mosqueInfo.logoUrl
         },
         jumat: Array.isArray(data.jumat) ? data.jumat : (data.jumat ? [{ ...data.jumat }] : []),
-        finance: data.finance?.accounts ? data.finance : {
+        finance: data.finance?.accounts ? {
+          ...data.finance,
+          enabled: data.finance.enabled !== undefined ? data.finance.enabled : true
+        } : {
+          enabled: true,
           totalBalance: data.finance?.balance || 0,
           lastUpdated: data.finance?.lastUpdated || new Date().toISOString().split('T')[0],
           accounts: data.finance?.balance !== undefined ? [
@@ -250,7 +278,7 @@ export default function AdminDashboard() {
         <div className="p-4 border-t border-white/10">
           <div className="px-3 py-2.5 bg-white/5 rounded-lg mb-3">
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Mosque Key</p>
-            <p className="text-sm font-mono font-bold text-amber-400 truncate">{mosqueKey}</p>
+            <p className="text-sm font-mono font-bold text-emerald-400 truncate">{mosqueKey}</p>
           </div>
           <button
             onClick={handleLogout}
@@ -279,7 +307,7 @@ export default function AdminDashboard() {
                 {activeTab === 'dashboard' ? (
                   <span>
                     Selamat {new Date().getHours() < 12 ? 'Pagi' : new Date().getHours() < 15 ? 'Siang' : new Date().getHours() < 18 ? 'Sore' : 'Malam'},
-                    <span className="text-amber-500 ml-1.5">{config?.mosqueInfo.name || 'Admin'}</span>
+                    <span className="text-emerald-500 ml-1.5">{config?.mosqueInfo.name || 'Admin'}</span>
                   </span>
                 ) : (
                   tabLabels[activeTab]
@@ -522,7 +550,7 @@ export default function AdminDashboard() {
             disabled={saving}
             className={`
                     w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg font-bold text-white text-sm transition-all duration-200
-                    ${saving ? 'bg-slate-300 cursor-wait' : 'bg-amber-500 hover:bg-amber-600 active:scale-95'}
+                    ${saving ? 'bg-slate-300 cursor-wait' : 'bg-emerald-500 hover:bg-emerald-600 active:scale-95'}
                 `}
           >
             <Save size={16} />
@@ -588,12 +616,12 @@ function LiveAudioWidget({ status, updateConfig, config }: { status: AudioActive
     >
       <div className="relative z-10">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-9 h-9 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-400">
+          <div className="w-9 h-9 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400">
             <Activity size={18} />
           </div>
           <div>
             <h3 className="font-bold text-white text-sm">Sedang Memutar</h3>
-            <p className="text-[10px] text-amber-400 font-bold uppercase tracking-widest">Live Client Playback</p>
+            <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">Live Client Playback</p>
           </div>
         </div>
 
@@ -605,7 +633,7 @@ function LiveAudioWidget({ status, updateConfig, config }: { status: AudioActive
           </div>
           <div className="h-1 w-full bg-slate-700 rounded-full mt-1.5 overflow-hidden">
             <motion.div
-              className="h-full bg-amber-400"
+              className="h-full bg-emerald-400"
               initial={{ width: 0 }}
               animate={{ width: `${currentProgress}%` }}
               transition={{ ease: "linear" }}
@@ -642,24 +670,39 @@ function SidebarItem({ icon: Icon, label, active, onClick }: { icon: any, label:
       onClick={onClick}
       className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors relative ${
         active
-          ? 'bg-amber-500/15 text-amber-400 border-l-[3px] border-amber-400 pl-[9px]'
+          ? 'bg-emerald-500/15 text-emerald-400 border-l-[3px] border-emerald-400 pl-[9px]'
           : 'text-slate-400 hover:bg-white/10 hover:text-white border-l-[3px] border-transparent'
       }`}
     >
-      <Icon size={18} className={`shrink-0 ${active ? 'text-amber-400' : 'text-slate-500'}`} />
+      <Icon size={18} className={`shrink-0 ${active ? 'text-emerald-400' : 'text-slate-500'}`} />
       <span className={active ? 'font-semibold' : ''}>{label}</span>
     </button>
   );
 }
 
-function SectionCard({ title, children, className = '' }: { title: string, children: React.ReactNode, className?: string }) {
+function SectionCard({ title, children, className = '', headerAction }: { title: string, children: React.ReactNode, className?: string, headerAction?: React.ReactNode }) {
   return (
     <div className={`bg-white rounded-xl border border-slate-200 p-5 md:p-6 mb-5 ${className}`}>
-      <h3 className="text-base font-bold text-slate-800 mb-5 pb-3 border-b border-slate-100">
-        {title}
-      </h3>
+      <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
+        <h3 className="text-base font-bold text-slate-800">
+          {title}
+        </h3>
+        {headerAction}
+      </div>
       {children}
     </div>
+  );
+}
+
+function ToggleSwitch({ label, checked, onChange }: { label: string, checked: boolean, onChange: (v: boolean) => void }) {
+  return (
+    <label className="flex items-center gap-2 cursor-pointer group">
+      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-emerald-600 transition-colors">{label}</span>
+      <div className="relative inline-flex items-center">
+        <input type="checkbox" className="sr-only peer" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+        <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+      </div>
+    </label>
   );
 }
 
@@ -701,7 +744,7 @@ function PlaybackRemoteControl({ config, setConfig, onSave, status, className = 
         </button>
         <button
           onClick={() => handleStateChange('paused')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border-none transition-all font-bold text-sm ${isPaused ? 'bg-amber-500 text-white shadow-lg shadow-amber-200' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border-none transition-all font-bold text-sm ${isPaused ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
         >
           <Pause size={16} fill={isPaused ? "currentColor" : "none"} />
           PAUSE
@@ -725,17 +768,17 @@ function DashboardOverview({ config, setActiveTab, updateConfig, onSave, status 
       {/* Mosque Info Card */}
       <div
         onClick={() => setActiveTab('identity')}
-        className="group bg-white rounded-xl p-5 border border-slate-200 hover:border-amber-300 hover:shadow-md transition-all duration-200 cursor-pointer"
+        className="group bg-white rounded-xl p-5 border border-slate-200 hover:border-emerald-300 hover:shadow-md transition-all duration-200 cursor-pointer"
       >
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center text-amber-500 group-hover:bg-amber-500 group-hover:text-white transition-colors">
+          <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-500 group-hover:bg-emerald-500 group-hover:text-white transition-colors">
             <MapPin size={20} />
           </div>
           <div>
             <h3 className="font-bold text-slate-800 text-sm">Identitas Masjid</h3>
             <p className="text-xs text-slate-400">Kelola informasi dasar</p>
           </div>
-          <ChevronRight size={16} className="ml-auto text-slate-300 group-hover:text-amber-400 transition-colors" />
+          <ChevronRight size={16} className="ml-auto text-slate-300 group-hover:text-emerald-400 transition-colors" />
         </div>
 
         <div className="text-sm text-slate-600 bg-slate-50 p-3 rounded-lg flex gap-2">
@@ -784,16 +827,16 @@ function DashboardOverview({ config, setActiveTab, updateConfig, onSave, status 
       {/* Running Text Preview */}
       <div
         onClick={() => setActiveTab('content')}
-        className="bg-white rounded-xl p-5 border border-slate-200 hover:border-amber-300 hover:shadow-sm transition-all cursor-pointer group"
+        className="bg-white rounded-xl p-5 border border-slate-200 hover:border-emerald-300 hover:shadow-sm transition-all cursor-pointer group"
       >
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
-            <MessageSquare size={16} className="text-amber-500" />
+            <MessageSquare size={16} className="text-emerald-500" />
             Running Text
           </h3>
-          <ChevronRight size={15} className="text-slate-300 group-hover:text-amber-500 transition-colors" />
+          <ChevronRight size={15} className="text-slate-300 group-hover:text-emerald-500 transition-colors" />
         </div>
-        <div className="bg-slate-900 text-amber-400 p-2.5 rounded-lg font-mono text-xs overflow-hidden whitespace-nowrap">
+        <div className="bg-slate-900 text-emerald-400 p-2.5 rounded-lg font-mono text-xs overflow-hidden whitespace-nowrap">
           <div className="animate-marquee inline-block">
             {config.runningText?.[0] || "Selamat Datang di Masjid..."}
           </div>
@@ -899,7 +942,7 @@ function IdentitySection({ config, setConfig, updateConfig, onPickLogo, mosqueKe
               type="number"
               step="0.000001"
             />
-            <div className="mt-4 p-4 bg-amber-50 text-amber-700 text-xs rounded-lg flex items-start gap-2 border border-amber-100 italic">
+            <div className="mt-4 p-4 bg-emerald-50 text-emerald-700 text-xs rounded-lg flex items-start gap-2 border border-emerald-100 italic">
               <MapPin size={16} className="mt-0.5 flex-shrink-0" />
               <span>Tip: Klik pada peta untuk mengambil titik koordinat secara otomatis.</span>
             </div>
@@ -1001,44 +1044,7 @@ function PrayerSection({ config, setConfig, onOpenPicker, onSave }: any) {
             <strong>Durasi Sholat:</strong> Waktu layar gelap/tenang setelah Iqamah selesai.
           </p>
 
-          <div className="mt-8 pt-6 border-t border-slate-100">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={config.adzan?.audioEnabled}
-                  onChange={(e) => setConfig({
-                    ...config,
-                    adzan: { ...config.adzan, audioEnabled: e.target.checked }
-                  })}
-                  className="w-5 h-5 accent-emerald-600"
-                />
-                <div>
-                  <span className="font-bold text-slate-700 block text-sm">Audio Adzan Otomatis</span>
-                  <span className="text-[10px] text-slate-400">Putar suara Adzan saat masuk waktu sholat</span>
-                </div>
-              </div>
-            </div>
 
-            {config.adzan?.audioEnabled && (
-              <div className="flex items-center gap-3 animate-in slide-in-from-top-2 duration-200">
-                <div className="flex-1 p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between truncate">
-                  <div className="flex items-center gap-2 truncate">
-                    <Music size={16} className="text-emerald-500" />
-                    <span className="text-xs font-mono text-slate-600 truncate">
-                      {config.adzan?.audioUrl ? config.adzan.audioUrl.split('/').pop() : 'Belum ada audio terpilih'}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => onOpenPicker('audio', { section: 'adzan-audio' })}
-                    className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-sm ml-2 shrink-0"
-                  >
-                    PILIH
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
         </SectionCard>
 
         <SectionCard title="Countdown Iqamah">
@@ -1216,7 +1222,7 @@ function WabotConfigSection({ config, setConfig, mosqueKey }: { config: MosqueCo
                 {/* Per-Prayer Config */}
                 <div className="pt-4 border-t border-slate-100">
                   <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                    <AlarmCheck size={14} className="text-amber-500" />
+                    <AlarmCheck size={14} className="text-emerald-500" />
                     Kustomisasi Per Waktu Sholat
                   </h5>
                   <div className="grid grid-cols-1 gap-2">
@@ -1224,7 +1230,7 @@ function WabotConfigSection({ config, setConfig, mosqueKey }: { config: MosqueCo
                       const pConfig = wabotConfig.prayerNotifications?.[pKey] || { enabled: true };
                       const pNames: any = { imsak: 'Imsak', subuh: 'Subuh', dzuhur: 'Dzuhur', jumat: 'Sholat Jumat', ashar: 'Ashar', maghrib: 'Maghrib', isya: 'Isya' };
                       return (
-                        <div key={pKey} className={`group bg-slate-50/50 border rounded-xl p-3 transition-all ${pConfig.enabled ? 'border-slate-200 hover:border-amber-200 hover:bg-white' : 'border-slate-100 opacity-60'}`}>
+                        <div key={pKey} className={`group bg-slate-50/50 border rounded-xl p-3 transition-all ${pConfig.enabled ? 'border-slate-200 hover:border-emerald-200 hover:bg-white' : 'border-slate-100 opacity-60'}`}>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
                               <div className="relative flex items-center">
@@ -1255,7 +1261,7 @@ function WabotConfigSection({ config, setConfig, mosqueKey }: { config: MosqueCo
                                    setConfig({ ...config, wabot: { ...wabotConfig, prayerNotifications: newNotify } });
                                  }}
                                  placeholder="Gunakan pesan khusus untuk waktu ini (opsional)"
-                                 className="w-full p-2 text-[10px] bg-white border border-slate-200 rounded-lg focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-none min-h-[44px] resize-none font-medium text-slate-600"
+                                 className="w-full p-2 text-[10px] bg-white border border-slate-200 rounded-lg focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 outline-none min-h-[44px] resize-none font-medium text-slate-600"
                                />
                              </div>
                           )}
@@ -1265,8 +1271,8 @@ function WabotConfigSection({ config, setConfig, mosqueKey }: { config: MosqueCo
                   </div>
                 </div>
 
-                <div className="p-3 bg-amber-50 rounded-lg border border-amber-100">
-                  <p className="text-[10px] text-amber-800 leading-relaxed font-medium">
+                <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-100">
+                  <p className="text-[10px] text-emerald-800 leading-relaxed font-medium">
                     <b>TIP:</b> Anda bisa menggunakan kode <b>{`{sholat}`}</b> untuk nama waktu dan <b>{`{jam}`}</b> untuk pukul otomatis di dalam template.
                   </p>
                 </div>
@@ -1284,7 +1290,7 @@ function WabotConfigSection({ config, setConfig, mosqueKey }: { config: MosqueCo
                   <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/10">
                     <div className="flex flex-col gap-1">
                       <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Status</span>
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold tracking-widest text-center ${waStatus.status === 'CONNECTED' ? 'bg-emerald-500/20 text-emerald-400' : waStatus.status === 'CONNECTING' ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400'}`}>
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold tracking-widest text-center ${waStatus.status === 'CONNECTED' ? 'bg-emerald-500/20 text-emerald-400' : waStatus.status === 'CONNECTING' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
                         {waStatus.status}
                       </span>
                     </div>
@@ -1413,55 +1419,150 @@ function WabotConfigSection({ config, setConfig, mosqueKey }: { config: MosqueCo
 
 
 function SlideshowSection({ config, setConfig, onPickSlide, mosqueKey }: any) {
+  const updateVideoStreaming = (key: string, value: any) => {
+    setConfig({
+        ...config,
+        videoStreaming: {
+            ...(config.videoStreaming || { enabled: false, url: '', showInSlideshow: false, durationMinutes: 2 }),
+            [key]: value
+        }
+    });
+  };
+
+  const isStreamingApp = config.videoStreaming?.enabled ?? false;
+
   return (
     <div className="space-y-6">
-      <SectionCard title="Pengaturan Slide Show">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-6">
-          {config.sliderImages.map((url: string, idx: number) => (
-            <div key={idx} className="group relative aspect-video bg-slate-100 rounded-lg overflow-hidden border border-slate-200 shadow-sm">
-              <img src={resolveUrl(url, mosqueKey)} alt={`Slide ${idx + 1}`} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
-              <button
-                onClick={() => {
-                  const n = config.sliderImages.filter((_: any, i: number) => i !== idx);
-                  setConfig({ ...config, sliderImages: n });
-                }}
-                className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
-              >
-                <LogOut size={12} className="rotate-180" />
-              </button>
-              <div className="absolute bottom-0 left-0 w-full bg-black/50 text-white text-[10px] p-1 truncate px-2 backdrop-blur-sm">
-                Urutan #{idx + 1}
-              </div>
-            </div>
-          ))}
-          <div className="flex gap-4">
-            <label className="flex-1 aspect-video border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center text-slate-400 hover:text-emerald-600 hover:border-emerald-400 hover:bg-emerald-50 transition-all cursor-pointer group gap-2">
-              <UploadCloud size={32} className="group-hover:scale-110 transition-transform" />
-              <span className="text-xs font-bold uppercase tracking-widest">Upload Baru</span>
-              <input type="file" hidden accept="image/*" onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  const formData = new FormData();
-                  formData.append('file', file);
-                  const res = await fetch(`/api/upload?key=${mosqueKey}`, { method: 'POST', body: formData });
-                  const data = await res.json();
-                  if (data.success) setConfig({ ...config, sliderImages: [...config.sliderImages, data.url], gallery: [...(config.gallery || []), data.url] });
-                }
-              }} />
-            </label>
-            <button
-              onClick={onPickSlide}
-              className="flex-1 aspect-video border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center text-slate-400 hover:text-emerald-600 hover:border-emerald-400 hover:bg-emerald-50 transition-all cursor-pointer group gap-2"
+      
+      {/* Mode Selector */}
+      <SectionCard title="Mode Konten Visual (Latar Layar Tengah)">
+        <p className="text-sm text-slate-500 mb-4">Pilih jenis konten utama yang akan mengisi ruang layar TV ketika tidak ada jadwal sholat.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <button 
+               onClick={() => updateVideoStreaming('enabled', false)}
+               className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${!isStreamingApp ? 'border-emerald-500 bg-emerald-50/50' : 'border-slate-200 bg-white hover:border-emerald-200'}`}
             >
-              <Library size={32} className="group-hover:scale-110 transition-transform" />
-              <span className="text-xs font-bold uppercase tracking-widest">Pilih dari Galeri</span>
+               <div className={`p-3 rounded-lg ${!isStreamingApp ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
+                   <ImageIcon size={24} />
+               </div>
+               <div className="text-left">
+                   <h3 className={`font-bold ${!isStreamingApp ? 'text-emerald-700' : 'text-slate-700'}`}>Gambar Slide Show</h3>
+                   <p className="text-xs text-slate-500 mt-0.5">Tampilkan rotasi poster kegiatan panti/mosque</p>
+               </div>
             </button>
-          </div>
+
+            <button 
+               onClick={() => updateVideoStreaming('enabled', true)}
+               className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${isStreamingApp ? 'border-red-500 bg-red-50/50' : 'border-slate-200 bg-white hover:border-red-200'}`}
+            >
+               <div className={`p-3 rounded-lg ${isStreamingApp ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-500'}`}>
+                   <Video size={24} />
+               </div>
+               <div className="text-left">
+                   <h3 className={`font-bold ${isStreamingApp ? 'text-red-700' : 'text-slate-700'}`}>Live Streaming</h3>
+                   <p className="text-xs text-slate-500 mt-0.5">Tampilkan video streaming (misal: YouTube Live)</p>
+               </div>
+            </button>
         </div>
       </SectionCard>
-      <p className="text-sm text-slate-400 italic">Tip: Gunakan menu Galeri untuk mengelola file dan menambahkannya ke Slide.</p>
+
+      {!isStreamingApp && (
+        <SectionCard title="Pengaturan Slide Show">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-6">
+            {config.sliderImages.map((url: string, idx: number) => (
+              <div key={idx} className="group relative aspect-video bg-slate-100 rounded-lg overflow-hidden border border-slate-200 shadow-sm">
+                <img src={resolveUrl(url, mosqueKey)} alt={`Slide ${idx + 1}`} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                <button
+                  onClick={() => {
+                    const n = config.sliderImages.filter((_: any, i: number) => i !== idx);
+                    setConfig({ ...config, sliderImages: n });
+                  }}
+                  className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                >
+                  <LogOut size={12} className="rotate-180" />
+                </button>
+                <div className="absolute bottom-0 left-0 w-full bg-black/50 text-white text-[10px] p-1 truncate px-2 backdrop-blur-sm">
+                  Urutan #{idx + 1}
+                </div>
+              </div>
+            ))}
+            <div className="flex gap-4">
+              <label className="flex-1 aspect-video border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center text-slate-400 hover:text-emerald-600 hover:border-emerald-400 hover:bg-emerald-50 transition-all cursor-pointer group gap-2">
+                <UploadCloud size={32} className="group-hover:scale-110 transition-transform" />
+                <span className="text-xs font-bold uppercase tracking-widest text-center">Upload Baru</span>
+                <input type="file" hidden accept="image/*" onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    const res = await fetch(`/api/upload?key=${mosqueKey}`, { method: 'POST', body: formData });
+                    const data = await res.json();
+                    if (data.success) setConfig({ ...config, sliderImages: [...config.sliderImages, data.url], gallery: [...(config.gallery || []), data.url] });
+                  }
+                }} />
+              </label>
+              <button
+                onClick={onPickSlide}
+                className="flex-1 aspect-video border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center text-slate-400 hover:text-emerald-600 hover:border-emerald-400 hover:bg-emerald-50 transition-all cursor-pointer group gap-2 px-2 text-center"
+              >
+                <Library size={32} className="group-hover:scale-110 transition-transform" />
+                <span className="text-xs font-bold uppercase tracking-widest">Pilih dari Galeri</span>
+              </button>
+            </div>
+          </div>
+          <p className="text-sm text-slate-400 italic">Tip: Gunakan menu Galeri untuk mengelola file dan menambahkannya ke list rotasi Slide.</p>
+        </SectionCard>
+      )}
+
+      {isStreamingApp && (
+        <SectionCard title="Detail Live Streaming (YouTube)">
+            <div className="space-y-4">
+                <div>
+                    <label className="block text-sm font-semibold text-slate-600 mb-2">YouTube Embed URL</label>
+                    <input
+                        type="text"
+                        value={config.videoStreaming?.url || ''}
+                        onChange={(e) => updateVideoStreaming('url', e.target.value)}
+                        placeholder="https://www.youtube.com/embed/dQw4w9WgXcQ"
+                        className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 outline-none text-sm"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">Get embedded URL from YouTube live stream share options (use /embed/ format)</p>
+                </div>
+                <div>
+                    <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
+                        <input 
+                           type="checkbox" 
+                           className="w-5 h-5 rounded text-red-500 focus:ring-red-500" 
+                           checked={config.videoStreaming?.showInSlideshow ?? false} 
+                           onChange={(e) => updateVideoStreaming('showInSlideshow', e.target.checked)} 
+                        />
+                        <div>
+                           <span className="text-sm font-bold text-slate-700 block">Gabungkan dengan Slide Show?</span>
+                           <span className="text-xs text-slate-500 block">Jika dicentang, live streaming tidak memonopoli layar terus menerus, tetapi akan diselingi rotasi gambar slide.</span>
+                        </div>
+                    </label>
+                </div>
+                {(config.videoStreaming?.showInSlideshow ?? false) && (
+                   <div>
+                       <label className="block text-sm font-semibold text-slate-600 mb-2">Durasi Tampil (Menit)</label>
+                       <input
+                           type="number"
+                           min="1"
+                           max="60"
+                           value={config.videoStreaming?.durationMinutes || 2}
+                           onChange={(e) => updateVideoStreaming('durationMinutes', parseInt(e.target.value) || 2)}
+                           className="w-full sm:w-1/3 p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 outline-none text-sm"
+                       />
+                       <p className="text-xs text-slate-500 mt-1">Lama durasi streaming diputar sebelum bergiliran dengan gambar slide.</p>
+                   </div>
+                )}
+            </div>
+        </SectionCard>
+      )}
+
     </div>
   );
+
 }
 
 
@@ -1517,6 +1618,7 @@ function MediaConfigSection({ config, setConfig, onOpenPicker, mosqueKey, onSave
               <SectionCard title="Remote Control Playback">
                 <PlaybackRemoteControl config={config} setConfig={setConfig} onSave={onSave} status={audioStatus} />
               </SectionCard>
+
               <SectionCard title="Playlist & Jadwal Putar Audio">
                 <PlaylistManager
                   config={config}
@@ -1694,8 +1796,11 @@ function MediaPickerModal({
 
   if (!isOpen) return null;
 
+  const AUDIO_EXTS = ['.mp3', '.m4a', '.aac', '.ogg', '.wav', '.flac', '.opus', '.wma'];
+  const isAudioUrl = (url: string) => AUDIO_EXTS.some(ext => url.toLowerCase().endsWith(ext));
+
   const filteredGallery = gallery.filter(url => {
-    const isAudio = url.toLowerCase().endsWith('.mp3');
+    const isAudio = isAudioUrl(url);
     if (type === 'image') return !isAudio;
     if (type === 'audio') return isAudio;
     return true;
@@ -1742,7 +1847,7 @@ function MediaPickerModal({
             viewMode === 'grid' ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {filteredGallery.map((url, idx) => {
-                  const isAudio = url.toLowerCase().endsWith('.mp3');
+                  const isAudio = isAudioUrl(url);
                   return (
                     <button
                       key={idx}
@@ -1769,7 +1874,7 @@ function MediaPickerModal({
             ) : (
               <div className="space-y-2">
                 {filteredGallery.map((url, idx) => {
-                  const isAudio = url.toLowerCase().endsWith('.mp3');
+                  const isAudio = isAudioUrl(url);
                   const fileName = url.split('/').pop();
                   return (
                     <button
@@ -1811,8 +1916,10 @@ function GallerySection({ config, setConfig, updateConfig, mosqueKey }: any) {
   const [playingUrl, setPlayingUrl] = useState<string | null>(null);
   const [previewAudio, setPreviewAudio] = useState<HTMLAudioElement | null>(null);
 
-  const imageItems = gallery.filter((url: string) => !url.toLowerCase().endsWith('.mp3'));
-  const audioItems = gallery.filter((url: string) => url.toLowerCase().endsWith('.mp3'));
+  const AUDIO_EXTENSIONS = ['.mp3', '.m4a', '.aac', '.ogg', '.wav', '.flac', '.opus', '.wma'];
+  const isAudio = (url: string) => AUDIO_EXTENSIONS.some(ext => url.toLowerCase().endsWith(ext));
+  const imageItems = gallery.filter((url: string) => !isAudio(url));
+  const audioItems = gallery.filter((url: string) => isAudio(url));
 
   const togglePreview = (url: string) => {
     if (playingUrl === url) {
@@ -1875,14 +1982,14 @@ function GallerySection({ config, setConfig, updateConfig, mosqueKey }: any) {
           `}>
             {uploading ? <RefreshCw size={40} className="animate-spin" /> : <UploadCloud size={40} className="group-hover:scale-110 transition-transform" />}
             <span className="text-sm font-bold uppercase tracking-widest">{uploading ? 'Sedang Mengunggah...' : 'Klik untuk Upload Gambar / Audio Baru'}</span>
-            <input type="file" hidden accept="image/*,audio/mpeg" onChange={handleUpload} disabled={uploading} multiple />
+            <input type="file" hidden accept="image/*,audio/*,.mp3,.m4a,.aac,.ogg,.wav,.flac,.opus,.wma" onChange={handleUpload} disabled={uploading} multiple />
           </label>
         </div>
 
         {/* IMAGE GALLERY */}
         <div className="mb-8">
             <h4 className="text-sm font-bold text-slate-600 uppercase tracking-widest mb-4 flex items-center gap-2">
-                <ImageIcon size={18} className="text-amber-500" /> Galeri Gambar ({imageItems.length})
+                <ImageIcon size={18} className="text-emerald-500" /> Galeri Gambar ({imageItems.length})
             </h4>
             {imageItems.length === 0 ? (
                 <div className="text-sm text-slate-400 italic bg-slate-50 p-4 rounded-xl text-center border border-slate-100">Belum ada gambar yang diunggah</div>
@@ -1987,15 +2094,15 @@ function GallerySection({ config, setConfig, updateConfig, mosqueKey }: any) {
                       const isPlaying = playingUrl === url;
                       const fileName = url.split('/').pop();
                       return (
-                        <div key={idx} className={`group relative sm:aspect-square rounded-xl overflow-hidden border shadow-sm flex flex-col transition-colors ${isPlaying ? 'bg-amber-50 border-amber-300' : 'bg-emerald-50/50 border-emerald-100 hover:bg-emerald-100'}`}>
+                        <div key={idx} className={`group relative sm:aspect-square rounded-xl overflow-hidden border shadow-sm flex flex-col transition-colors ${isPlaying ? 'bg-emerald-50 border-emerald-300' : 'bg-emerald-50/50 border-emerald-100 hover:bg-emerald-100'}`}>
                           
                           {/* --- MOBILE LIST VIEW --- */}
                           <div className="flex flex-col gap-3 p-3 sm:hidden">
                             <div className="flex items-center gap-3">
-                              <div className={`w-10 h-10 shrink-0 rounded-lg flex items-center justify-center ${isPlaying ? 'bg-amber-200 text-amber-600' : 'bg-emerald-200 text-emerald-600'}`}>
+                              <div className={`w-10 h-10 shrink-0 rounded-lg flex items-center justify-center ${isPlaying ? 'bg-emerald-200 text-emerald-600' : 'bg-emerald-200 text-emerald-600'}`}>
                                 <Music size={20} className={isPlaying ? 'animate-pulse' : ''} />
                               </div>
-                              <span className={`text-xs font-mono font-bold truncate flex-1 ${isPlaying ? 'text-amber-700' : 'text-emerald-700'}`}>
+                              <span className={`text-xs font-mono font-bold truncate flex-1 ${isPlaying ? 'text-emerald-700' : 'text-emerald-700'}`}>
                                 {fileName}
                               </span>
                             </div>
@@ -2029,8 +2136,8 @@ function GallerySection({ config, setConfig, updateConfig, mosqueKey }: any) {
 
                           {/* --- DESKTOP GRID VIEW --- */}
                           <div className="hidden sm:flex flex-col justify-center items-center p-2 h-full w-full relative">
-                            <Music size={40} className={`mb-2 ${isPlaying ? 'animate-pulse text-amber-500' : 'text-emerald-500'}`} />
-                            <span className={`text-[10px] font-mono truncate w-full text-center px-1 font-bold ${isPlaying ? 'text-amber-600' : 'text-emerald-600'}`}>
+                            <Music size={40} className={`mb-2 ${isPlaying ? 'animate-pulse text-emerald-500' : 'text-emerald-500'}`} />
+                            <span className={`text-[10px] font-mono truncate w-full text-center px-1 font-bold ${isPlaying ? 'text-emerald-600' : 'text-emerald-600'}`}>
                               {fileName}
                             </span>
 
@@ -2114,13 +2221,16 @@ function ContentSection({ config, setConfig, onOpenPicker, mosqueKey }: any) {
         >
           {subTab === 'info' && (
             <div className="space-y-6">
-              <SectionCard title="Jadwal Kajian">
-                <div className="flex items-center gap-3 mb-6 bg-slate-50 p-3 rounded-lg border border-slate-100">
-                  <input type="checkbox" checked={config.kajian?.enabled} onChange={(e) =>
-                    setConfig({ ...config, kajian: { ...(config.kajian || { schedule: [] }), enabled: e.target.checked } })
-                  } className="w-5 h-5 accent-emerald-600" />
-                  <span className="font-medium text-slate-700">Tampilkan Jadwal Kajian</span>
-                </div>
+              <SectionCard 
+                title="Jadwal Kajian"
+                headerAction={
+                  <ToggleSwitch 
+                    label="Tampilkan di Digital Clock" 
+                    checked={config.kajian?.enabled} 
+                    onChange={(v) => setConfig({ ...config, kajian: { ...(config.kajian || { schedule: [] }), enabled: v } })}
+                  />
+                }
+              >
 
                 {config.kajian?.enabled && (
                   <div className="space-y-4">
@@ -2326,7 +2436,16 @@ function ContentSection({ config, setConfig, onOpenPicker, mosqueKey }: any) {
           {subTab === 'finance' && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <SectionCard title="Ringkasan Kas">
+                <SectionCard 
+                  title="Ringkasan Kas"
+                  headerAction={
+                    <ToggleSwitch 
+                      label="Tampilkan di Slideshow" 
+                      checked={config.finance.enabled !== false} 
+                      onChange={(v) => setConfig({ ...config, finance: { ...config.finance, enabled: v } })}
+                    />
+                  }
+                >
                   <div className="bg-emerald-600 rounded-2xl p-6 text-white shadow-lg shadow-emerald-100">
                     <span className="text-emerald-100 text-sm font-bold uppercase tracking-wider">Total Seluruh Saldo</span>
                     <h3 className="text-4xl font-black mt-1">Rp {(config.finance.totalBalance || 0).toLocaleString('id-ID')}</h3>
@@ -2435,7 +2554,16 @@ function ContentSection({ config, setConfig, onOpenPicker, mosqueKey }: any) {
 
           {subTab === 'officers' && (
             <div className="space-y-6">
-              <SectionCard title="Jadwal Petugas Sholat Jum'at">
+              <SectionCard 
+                title="Jadwal Petugas Sholat Jum'at"
+                headerAction={
+                  <ToggleSwitch 
+                    label="Tampilkan di Slideshow" 
+                    checked={config.jumatEnabled !== false} 
+                    onChange={(v) => setConfig({ ...config, jumatEnabled: v })}
+                  />
+                }
+              >
                 <div className="space-y-4">
                   {(config.jumat || []).length === 0 ? (
                     <div className="py-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200 text-slate-400">
@@ -2490,7 +2618,16 @@ function ContentSection({ config, setConfig, onOpenPicker, mosqueKey }: any) {
                 </div>
               </SectionCard>
 
-              <SectionCard title="Daftar Petugas (Marbot, Muadzin, Pengurus)">
+              <SectionCard 
+                title="Daftar Petugas (Marbot, Muadzin, Pengurus)"
+                headerAction={
+                  <ToggleSwitch 
+                    label="Tampilkan di Slideshow" 
+                    checked={config.officersEnabled !== false} 
+                    onChange={(v) => setConfig({ ...config, officersEnabled: v })}
+                  />
+                }
+              >
                 <div className="space-y-4">
                   {config.officers.map((off: any, idx: number) => (
                     <div key={idx} className="flex gap-4 items-end bg-slate-50 p-4 rounded-xl border border-slate-100 transition-all hover:bg-white hover:shadow-sm group">

@@ -21,12 +21,19 @@ export const IqamahOverlay = ({ isVisible, prayerName, secondsRemaining }: Iqama
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     className="absolute inset-0 z-50 bg-black/90 flex flex-col items-center justify-center"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label={`Iqamah ${prayerName}, ${minutes} menit ${seconds} detik tersisa`}
+                    aria-live="polite"
                 >
                     <div className="text-center">
                         <h2 className="text-4xl text-emerald-500 font-bold mb-4 uppercase tracking-widest">
                             Waktu Iqamah {prayerName}
                         </h2>
-                        <div className="text-[15vw] font-bold text-white font-mono leading-none tracking-tighter tabular-nums text-red-500">
+                        <div
+                            className="text-[15vw] font-bold text-white font-mono leading-none tracking-tighter tabular-nums text-red-500"
+                            aria-label={`${minutes} menit ${seconds} detik`}
+                        >
                             {timeString}
                         </div>
                         <p className="text-2xl text-gray-500 mt-8 animate-pulse">

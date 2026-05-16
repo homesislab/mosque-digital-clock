@@ -93,7 +93,7 @@ export default function ScheduleManager({ config, setConfig, forcedPlaylistId }:
                         key={schedule.id}
                         className={`rounded-xl border transition-all duration-200 overflow-hidden bg-white ${
                             isExpanded
-                                ? 'border-amber-200 shadow-sm'
+                                ? 'border-emerald-200 shadow-sm'
                                 : 'border-slate-200 hover:border-slate-300'
                         }`}
                     >
@@ -105,7 +105,7 @@ export default function ScheduleManager({ config, setConfig, forcedPlaylistId }:
                             {/* Enable Toggle */}
                             <div
                                 onClick={(e) => { e.stopPropagation(); handleUpdate(schedule.id, { enabled: !schedule.enabled }); }}
-                                className={`shrink-0 w-9 h-5 rounded-full relative transition-colors cursor-pointer ${schedule.enabled ? 'bg-amber-500' : 'bg-slate-200'}`}
+                                className={`shrink-0 w-9 h-5 rounded-full relative transition-colors cursor-pointer ${schedule.enabled ? 'bg-emerald-500' : 'bg-slate-200'}`}
                                 title={schedule.enabled ? 'Nonaktifkan' : 'Aktifkan'}
                             >
                                 <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${schedule.enabled ? 'left-4' : 'left-0.5'}`} />
@@ -120,7 +120,7 @@ export default function ScheduleManager({ config, setConfig, forcedPlaylistId }:
                                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-slate-100 rounded text-slate-500 mr-2">
                                         {schedule.type === 'prayer_relative' ? '🕌 Relatif Waktu Sholat' : '⏰ Jam Tertentu'}
                                     </span>
-                                    {hasNoPlaylist && !forcedPlaylistId && <span className="text-amber-500">⚠ Playlist belum dipilih</span>}
+                                    {hasNoPlaylist && !forcedPlaylistId && <span className="text-emerald-500">⚠ Playlist belum dipilih</span>}
                                 </p>
                             </div>
 
@@ -141,7 +141,7 @@ export default function ScheduleManager({ config, setConfig, forcedPlaylistId }:
                                             value={schedule.playlistId}
                                             onChange={(e) => handleUpdate(schedule.id, { playlistId: e.target.value })}
                                             disabled={!!forcedPlaylistId}
-                                            className={`w-full p-2.5 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 outline-none ${forcedPlaylistId ? 'bg-slate-100 cursor-not-allowed opacity-70' : 'bg-white focus:ring-2 focus:ring-amber-400 focus:border-amber-400'}`}
+                                            className={`w-full p-2.5 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 outline-none ${forcedPlaylistId ? 'bg-slate-100 cursor-not-allowed opacity-70' : 'bg-white focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400'}`}
                                         >
                                             <option value="" disabled>— Pilih Playlist —</option>
                                             {playlists.map(p => (
@@ -149,7 +149,7 @@ export default function ScheduleManager({ config, setConfig, forcedPlaylistId }:
                                             ))}
                                         </select>
                                         {playlists.length === 0 && !forcedPlaylistId && (
-                                            <p className="text-[10px] text-amber-600 flex items-center gap-1"><AlertCircle size={10} /> Buat playlist dulu di tab "Playlist Audio".</p>
+                                            <p className="text-[10px] text-emerald-600 flex items-center gap-1"><AlertCircle size={10} /> Buat playlist dulu di tab "Playlist Audio".</p>
                                         )}
                                     </div>
 
@@ -161,8 +161,8 @@ export default function ScheduleManager({ config, setConfig, forcedPlaylistId }:
                                                 onClick={() => handleUpdate(schedule.id, { type: 'prayer_relative' })}
                                                 className={`p-2.5 rounded-lg border text-xs font-bold flex flex-col items-center gap-1 transition-all ${
                                                     schedule.type === 'prayer_relative'
-                                                        ? 'bg-amber-500 border-amber-500 text-white'
-                                                        : 'bg-white border-slate-200 text-slate-500 hover:border-amber-200 hover:text-amber-600'
+                                                        ? 'bg-emerald-500 border-emerald-500 text-white'
+                                                        : 'bg-white border-slate-200 text-slate-500 hover:border-emerald-200 hover:text-emerald-600'
                                                 }`}
                                             >
                                                 <span className="text-base">🕌</span>
@@ -173,8 +173,8 @@ export default function ScheduleManager({ config, setConfig, forcedPlaylistId }:
                                                 onClick={() => handleUpdate(schedule.id, { type: 'manual_time', time: schedule.time || '07:00', durationMinutes: schedule.durationMinutes || 30 })}
                                                 className={`p-2.5 rounded-lg border text-xs font-bold flex flex-col items-center gap-1 transition-all ${
                                                     schedule.type === 'manual_time'
-                                                        ? 'bg-amber-500 border-amber-500 text-white'
-                                                        : 'bg-white border-slate-200 text-slate-500 hover:border-amber-200 hover:text-amber-600'
+                                                        ? 'bg-emerald-500 border-emerald-500 text-white'
+                                                        : 'bg-white border-slate-200 text-slate-500 hover:border-emerald-200 hover:text-emerald-600'
                                                 }`}
                                             >
                                                 <span className="text-base">⏰</span>
@@ -193,7 +193,7 @@ export default function ScheduleManager({ config, setConfig, forcedPlaylistId }:
                                                 <select
                                                     value={schedule.prayer}
                                                     onChange={(e) => handleUpdate(schedule.id, { prayer: e.target.value as any })}
-                                                    className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm font-semibold focus:ring-amber-400 outline-none"
+                                                    className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm font-semibold focus:ring-emerald-400 outline-none"
                                                 >
                                                     {prayers.map(p => <option key={p} value={p}>{prayerLabel[p]}</option>)}
                                                 </select>
@@ -203,7 +203,7 @@ export default function ScheduleManager({ config, setConfig, forcedPlaylistId }:
                                                 <select
                                                     value={schedule.trigger}
                                                     onChange={(e) => handleUpdate(schedule.id, { trigger: e.target.value as any })}
-                                                    className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm font-semibold focus:ring-amber-400 outline-none"
+                                                    className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm font-semibold focus:ring-emerald-400 outline-none"
                                                 >
                                                     <option value="adzan">Waktu Adzan</option>
                                                     <option value="iqamah">Waktu Iqamah</option>
@@ -214,7 +214,7 @@ export default function ScheduleManager({ config, setConfig, forcedPlaylistId }:
                                         <div className="flex flex-col gap-2">
                                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center justify-between">
                                                 <span>Offset (Menit)</span>
-                                                <span className={`text-xs font-black px-2 py-0.5 rounded-full ${(schedule.offsetMinutes || 0) < 0 ? 'bg-blue-100 text-blue-700' : (schedule.offsetMinutes || 0) > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
+                                                <span className={`text-xs font-black px-2 py-0.5 rounded-full ${(schedule.offsetMinutes || 0) < 0 ? 'bg-blue-100 text-blue-700' : (schedule.offsetMinutes || 0) > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
                                                     {(schedule.offsetMinutes || 0) < 0
                                                         ? `${Math.abs(schedule.offsetMinutes || 0)} mnt SEBELUM`
                                                         : (schedule.offsetMinutes || 0) > 0
@@ -280,7 +280,7 @@ export default function ScheduleManager({ config, setConfig, forcedPlaylistId }:
                                                                 const next = isSelected ? current.filter(d => d !== idx) : [...current, idx].sort();
                                                                 handleUpdate(schedule.id, { days: next });
                                                             }}
-                                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${isSelected ? 'bg-amber-500 border-amber-500 text-white' : 'bg-white border-slate-200 text-slate-400 hover:border-amber-300'}`}
+                                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${isSelected ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-white border-slate-200 text-slate-400 hover:border-emerald-300'}`}
                                                         >
                                                             {day}
                                                         </button>
@@ -309,9 +309,9 @@ export default function ScheduleManager({ config, setConfig, forcedPlaylistId }:
             {/* Create CTA */}
             <button
                 onClick={handleCreateSchedule}
-                className="w-full flex items-center justify-center gap-2 py-3.5 border-2 border-dashed border-amber-200 rounded-xl text-amber-600 font-bold text-sm hover:bg-amber-50 hover:border-amber-400 transition-colors group"
+                className="w-full flex items-center justify-center gap-2 py-3.5 border-2 border-dashed border-emerald-200 rounded-xl text-emerald-600 font-bold text-sm hover:bg-emerald-50 hover:border-emerald-400 transition-colors group"
             >
-                <div className="w-6 h-6 bg-amber-100 group-hover:bg-amber-200 rounded-full flex items-center justify-center transition-colors">
+                <div className="w-6 h-6 bg-emerald-100 group-hover:bg-emerald-200 rounded-full flex items-center justify-center transition-colors">
                     <Plus size={14} />
                 </div>
                 Buat Jadwal Baru

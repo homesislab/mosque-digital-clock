@@ -33,62 +33,72 @@ export const PrayerTimes = ({ config, nextPrayer, secondsRemaining }: PrayerTime
         { name: 'Isya', time: formatTime(times.isya) },
     ];
 
-    // Determine active prayer based on next event or current time
-    // For simplicity, we'll basic highlighting here. The parent component usually handles "next event".
-    // But to match the mockup, let's highlight "Dzuhur" as an example or pass a prop.
-    // Ideally, we should pass `nextPrayer` prop to this component. 
-
     const adv = config.advancedDisplay;
+    const blurAmount = adv?.prayerTimesBlur || 0;
 
     return (
         <div
-            className="grid grid-cols-4 lg:flex lg:flex-row w-full h-full"
-            style={{ opacity: adv?.prayerTimesOpacity ?? 1 }}
+            className="flex flex-row items-center justify-center gap-4 w-full h-full"
+            style={{ 
+                opacity: adv?.prayerTimesOpacity ?? 1,
+            }}
+            role="list"
+            aria-label="Jadwal waktu sholat"
         >
             {prayers.map((prayer, index) => {
                 const isActive = nextPrayer?.toLowerCase() === prayer.name.toLowerCase();
 
-                // Dynamic Styles
-                const itemStyle = isActive
-                    ? { backgroundColor: adv?.prayerTimesActiveColor || undefined, color: '#ffffff' }
-                    : { backgroundColor: adv?.prayerTimesBgColor || 'transparent', color: adv?.prayerTimesTextColor || undefined };
+                const itemStyle: React.CSSProperties = {
+                    backgroundColor: isActive 
+                        ? (adv?.prayerTimesActiveBgColor || undefined) 
+                        : (adv?.prayerTimesBgColor || undefined),
+                    color: isActive 
+                        ? (adv?.prayerTimesActiveTextColor || undefined) 
+                        : (adv?.prayerTimesTextColor || undefined),
+                    borderColor: isActive 
+                        ? (adv?.prayerTimesActiveColor || undefined) 
+                        : undefined,
+                    backdropFilter: blurAmount > 0 ? `blur(${blurAmount}px)` : 'none'
+                };
 
                 return (
                     <div
                         key={prayer.name}
                         className={`
-                            relative flex-1 flex flex-col items-center justify-center p-2 lg:p-0 transition-all duration-300
-                            ${!isActive && index < prayers.length - 1 ? 'lg:border-r-2 lg:border-emerald-400/30' : ''}
+                            relative flex-1 flex flex-col items-center justify-center p-6 rounded-2xl transition-all duration-300 shadow-sm
                             ${isActive
-                                ? 'bg-emerald-600 text-white shadow-lg lg:transform lg:scale-y-110 lg:origin-bottom lg:rounded-t-lg z-10 lg:-mt-1'
-                                : 'bg-transparent text-slate-800 hover:bg-slate-50'}
+                                ? 'bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-200 shadow-md ring-4 ring-emerald-50 active-prayer-glow'
+                                : 'bg-white border border-slate-200'}
                         `}
                         style={itemStyle}
+                        role="listitem"
+                        aria-current={isActive ? 'true' : undefined}
+                        aria-label={`${prayer.name}: ${prayer.time}${isActive ? ' (sholat berikutnya)' : ''}`}
                     >
-                        {/* Ornamental top line for non-active items */}
-                        {!isActive && <div className="hidden lg:block absolute top-3 w-1 h-4 bg-emerald-400/20 rounded-full mb-1"></div>}
-
                         <span
-                            className={`text-[10px] lg:text-sm uppercase tracking-widest font-bold mb-0 z-10 ${isActive ? 'text-emerald-100' : 'text-slate-500'}`}
-                            style={{ color: isActive ? '#ffffff' : adv?.prayerTimesTextColor }}
+                            className={`text-sm lg:text-[20px] uppercase font-semibold mb-1 ${isActive ? 'text-emerald-900' : 'text-slate-900'}`}
+                            style={{ color: isActive ? adv?.prayerTimesActiveTextColor : adv?.prayerTimesTextColor }}
+                            aria-hidden="true"
                         >
                             {prayer.name}
                         </span>
                         <span
-                            className={`text-xl sm:text-2xl lg:text-4xl font-bold font-mono tracking-tighter tabular-nums z-10 ${isActive ? 'text-white' : 'text-slate-900'}`}
-                            style={{ color: isActive ? '#ffffff' : adv?.prayerTimesTextColor }}
+                            className={`text-2xl lg:text-[32px] font-bold font-mono tracking-tighter tabular-nums ${isActive ? 'text-emerald-900' : 'text-slate-900'}`}
+                            style={{ color: isActive ? adv?.prayerTimesActiveTextColor : adv?.prayerTimesTextColor }}
+                            aria-hidden="true"
                         >
                             {prayer.time}
                         </span>
 
-                        {isActive && secondsRemaining !== undefined && secondsRemaining > 0 && (
-                            <div className="absolute bottom-1 bg-black/20 px-2 lg:px-3 py-0.5 rounded-full text-[8px] lg:text-xs font-mono font-bold tracking-widest text-white backdrop-blur-sm">
+                        {isActive && secondsRemaining !== undefined && secondsRemaining > 0 && adv?.showNextPrayerCountdown !== false && (
+                            <div
+                                className="mt-2 bg-emerald-500/20 text-orange-500 px-3 py-1 rounded-full text-xs font-mono font-bold animate-pulse tracking-widest"
+                                style={{ color: adv?.prayerTimesActiveColor || undefined }}
+                                aria-hidden="true"
+                            >
                                 -{new Date(secondsRemaining * 1000).toISOString().substr(11, 8)}
                             </div>
                         )}
-
-                        {/* Decorative bottom accent for active */}
-                        {isActive && <div className="absolute bottom-0 w-full h-1 bg-white/30"></div>}
                     </div>
                 );
             })}

@@ -4,24 +4,26 @@ console.log('Initializing database pool...');
 const dbUrl = process.env.DATABASE_URL;
 console.log('DATABASE_URL is', dbUrl ? 'DEFINED' : 'UNDEFINED');
 
-if (dbUrl) {
-    console.log('Using DATABASE_URL connection string');
-} else {
-    console.log('Using default object connection (mariadb_server)');
+// Validate required database environment variables
+const requiredDbEnvVars = ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'];
+if (!dbUrl) {
+    const missingVars = requiredDbEnvVars.filter(v => !process.env[v]);
+    if (missingVars.length > 0) {
+        throw new Error(`Missing required database environment variables: ${missingVars.join(', ')}`);
+    }
 }
 
 const pool = dbUrl
     ? mysql.createPool(dbUrl)
     : mysql.createPool({
-        host: 'localhost',
-        user: 'mosque_user',
-        password: 'Moalnyaho135',
-        database: 'mosque-digitaldb',
+        host: process.env.DB_HOST || 'localhost',
+        user: process.env.DB_USER,
+        password: process.env.DB_PASSWORD,
+        database: process.env.DB_NAME,
+        port: parseInt(process.env.DB_PORT || '3306'),
         waitForConnections: true,
         connectionLimit: 10,
         queueLimit: 0,
     });
-
-
 
 export default pool;

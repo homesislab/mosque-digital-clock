@@ -1,11 +1,13 @@
 export const dynamic = 'force-dynamic';
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { writeFile, appendFile, unlink, mkdir } from 'fs/promises';
 import { join } from 'path';
+import { withRateLimit } from '../../../lib/rate-limit';
+import { getUploadsDir } from '../../../lib/uploads-path';
 
 export const maxDuration = 300; // 5 minutes
 
-export async function POST(request: Request) {
+async function handleUpload(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
         const key = searchParams.get('key');
@@ -25,8 +27,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ success: false, message: 'No files uploaded' }, { status: 400 });
         }
 
-        const cwd = process.cwd();
-        const uploadDir = join(cwd, 'public', 'uploads', key);
+        const uploadDir = getUploadsDir(key);
         await mkdir(uploadDir, { recursive: true });
 
         // Handle Chunked Upload
@@ -86,4 +87,8 @@ export async function POST(request: Request) {
             debug: error instanceof Error ? error.message : String(error)
         }, { status: 500 });
     }
+}
+
+export async function POST(request: NextRequest) {
+    return withRateLimit('/api/upload', request, () => handleUpload(request));
 }

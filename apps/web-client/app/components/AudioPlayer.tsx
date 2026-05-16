@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { Play, Pause, Square, Volume2, SkipForward, SkipBack } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { Play, Pause, Square, SkipForward, SkipBack } from 'lucide-react';
 import { Playlist } from '@mosque-digital-clock/shared-types';
 import { resolveUrl } from '../lib/constants';
 
@@ -22,291 +21,221 @@ export const AudioPlayer = ({ url, playlist, isPlaying, onStop, onBlocked, playb
     const [duration, setDuration] = useState(0);
     const [isPaused, setIsPaused] = useState(false);
     const [loadError, setLoadError] = useState<string | null>(null);
-
-    // Playlist State
     const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
+    const lastTimeRef = useRef(0); // throttle timeupdate
 
     // Remote Control Effect
     useEffect(() => {
-        if (playbackState === 'paused') {
-            setIsPaused(true);
-        } else if (playbackState === 'playing') {
-            setIsPaused(false);
-        } else if (playbackState === 'stopped') {
-            onStop?.();
-        }
+        if (playbackState === 'paused') setIsPaused(true);
+        else if (playbackState === 'playing') setIsPaused(false);
+        else if (playbackState === 'stopped') onStop?.();
     }, [playbackState, onStop]);
 
-    // Determine effective source
+    // Effective source
     const effectiveUrl = playlist
         ? resolveUrl(playlist.tracks[currentTrackIndex]?.url)
         : url;
 
     const currentTitle = playlist
         ? `${playlist.name}: ${playlist.tracks[currentTrackIndex]?.title}`
-        : 'Audio Pengingat / Murrotal Aktif';
+        : 'Audio Pengingat';
 
-    // Reset playlist index when playlist changes (id comparison)
-    useEffect(() => {
-        setCurrentTrackIndex(0);
-    }, [playlist?.id]);
+    // Reset track on playlist change
+    useEffect(() => { setCurrentTrackIndex(0); }, [playlist?.id]);
 
-    // Sync isPaused with prop isPlaying
+    // Target device check
     const [isTargetDevice, setIsTargetDevice] = useState(true);
-
     useEffect(() => {
-        if (!playlist || !playlist.targetDevices || playlist.targetDevices.length === 0) {
-            setIsTargetDevice(true);
-            return;
-        }
+        if (!playlist?.targetDevices?.length) { setIsTargetDevice(true); return; }
         const did = localStorage.getItem('deviceId') || 'unknown-device';
         setIsTargetDevice(playlist.targetDevices.includes(did));
     }, [playlist?.id, playlist?.targetDevices]);
 
     const effectiveIsPlaying = isPlaying && isTargetDevice;
+    useEffect(() => { setIsPaused(!effectiveIsPlaying); }, [effectiveIsPlaying]);
+    useEffect(() => { setLoadError(null); }, [effectiveUrl, effectiveIsPlaying]);
 
-    useEffect(() => {
-        setIsPaused(!effectiveIsPlaying);
-    }, [effectiveIsPlaying]);
-
-    useEffect(() => {
-        setLoadError(null);
-    }, [effectiveUrl, effectiveIsPlaying]);
-
+    // Playback control
     useEffect(() => {
         if (!audioRef.current || !effectiveUrl) return;
-
         if (effectiveIsPlaying && !isPaused) {
-            const playPromise = audioRef.current.play();
-            if (playPromise !== undefined) {
-                playPromise.then(() => {
-                    onBlocked?.(false);
-                }).catch(error => {
-                    console.error("Playback failed:", error);
-                    if (error.name === 'NotAllowedError') {
-                        onBlocked?.(true);
-                    } else {
-                        setLoadError(error.message);
-                    }
-                });
-            }
+            const p = audioRef.current.play();
+            p?.then(() => onBlocked?.(false))
+              .catch(err => {
+                  if (err.name === 'NotAllowedError') onBlocked?.(true);
+                  else setLoadError(err.message);
+              });
         } else {
             audioRef.current.pause();
             if (!isPlaying) {
-                // If stopped completely
-                if (playlist) setCurrentTrackIndex(0); // Reset playlist
+                if (playlist) setCurrentTrackIndex(0);
                 audioRef.current.currentTime = 0;
             }
         }
     }, [isPlaying, isPaused, effectiveUrl, playlist]);
 
-    // Handlers
-    const handleNext = () => {
+    const handleNext = useCallback(() => {
         if (!playlist) return;
-        if (currentTrackIndex < playlist.tracks.length - 1) {
-            setCurrentTrackIndex(prev => prev + 1);
-        } else {
-            // End of playlist
-            if (onStop) onStop();
-        }
-    };
+        if (currentTrackIndex < playlist.tracks.length - 1) setCurrentTrackIndex(p => p + 1);
+        else onStop?.();
+    }, [playlist, currentTrackIndex, onStop]);
 
-    const handlePrev = () => {
-        if (!playlist) return;
-        if (currentTrackIndex > 0) {
-            setCurrentTrackIndex(prev => prev - 1);
-        }
-    };
+    const handlePrev = useCallback(() => {
+        if (!playlist || currentTrackIndex === 0) return;
+        setCurrentTrackIndex(p => p - 1);
+    }, [playlist, currentTrackIndex]);
 
+    // Audio event listeners — throttle timeupdate to 1s interval to reduce re-renders
     useEffect(() => {
         const audio = audioRef.current;
         if (!audio) return;
 
-        const handleTimeUpdate = () => setCurrentTime(audio.currentTime);
-        const handleDurationChange = () => setDuration(audio.duration);
-
-        const handleEnded = () => {
-            if (playlist) {
-                handleNext();
-            } else {
-                if (onStop) onStop();
+        const handleTimeUpdate = () => {
+            const now = audio.currentTime;
+            if (Math.abs(now - lastTimeRef.current) >= 1) {
+                lastTimeRef.current = now;
+                setCurrentTime(Math.floor(now));
             }
         };
-
-        const handleError = (e: any) => {
+        const handleDuration = () => setDuration(audio.duration || 0);
+        const handleEnded = () => { playlist ? handleNext() : onStop?.(); };
+        const handleError = () => {
             const err = audio.error;
-            let msg = "Unknown Audio Error";
-            if (err) {
-                switch (err.code) {
-                    case 1: msg = "Aborted"; break;
-                    case 2: msg = "Network Error"; break;
-                    case 3: msg = "Decode Error"; break;
-                    case 4: msg = "Source Not Supported"; break;
-                }
-                setLoadError(`[${err.code}] ${msg}`);
-            }
+            if (!err) return;
+            const msgs: Record<number, string> = { 1: 'Aborted', 2: 'Network Error', 3: 'Decode Error', 4: 'Not Supported' };
+            setLoadError(`[${err.code}] ${msgs[err.code] || 'Unknown'}`);
         };
 
         audio.addEventListener('timeupdate', handleTimeUpdate);
-        audio.addEventListener('durationchange', handleDurationChange);
+        audio.addEventListener('durationchange', handleDuration);
         audio.addEventListener('ended', handleEnded);
         audio.addEventListener('error', handleError);
-
         return () => {
             audio.removeEventListener('timeupdate', handleTimeUpdate);
-            audio.removeEventListener('durationchange', handleDurationChange);
+            audio.removeEventListener('durationchange', handleDuration);
             audio.removeEventListener('ended', handleEnded);
             audio.removeEventListener('error', handleError);
         };
-    }, [onStop, effectiveUrl, playlist, currentTrackIndex]);
+    }, [onStop, effectiveUrl, playlist, handleNext]);
 
-    // Status Reporting Heartbeat
+    // Heartbeat — increased to 10s to reduce API load
     useEffect(() => {
         if (!isPlaying) return;
+        const key = new URLSearchParams(window.location.search).get('key') || 'default';
 
-        const reportStatus = async () => {
-            const key = new URLSearchParams(window.location.search).get('key') || 'default';
-            try {
-                const res = await fetch(`/api/audio/active-status?key=${key}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        isPlaying: true,
-                        title: currentTitle,
-                        currentTime: currentTime,
-                        duration: duration,
-                        playlistId: playlist?.id,
-                    }),
-                });
-                const data = await res.json();
-                if (data.command) {
-                    onCommand?.(data.command);
-                }
-            } catch (e) {
-                console.error('Failed to report audio status', e);
-            }
+        const report = () => {
+            fetch(`/api/audio/active-status?key=${key}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    isPlaying: true,
+                    title: currentTitle,
+                    currentTime,
+                    duration,
+                    playlistId: playlist?.id,
+                }),
+            }).then(r => r.json()).then(d => { if (d.command) onCommand?.(d.command); }).catch(() => {});
         };
 
-        reportStatus();
-        const interval = setInterval(reportStatus, 5000);
+        report();
+        const interval = setInterval(report, 10000); // was 5s → now 10s
         return () => {
             clearInterval(interval);
-            // Try to report stopped status on unmount or when playing stops
-            const key = new URLSearchParams(window.location.search).get('key') || 'default';
             fetch(`/api/audio/active-status?key=${key}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ isPlaying: false, currentTime: 0, duration: 0 }),
-            }).catch(() => { });
+            }).catch(() => {});
         };
-    }, [isPlaying, currentTitle, currentTime, duration, playlist?.id]);
+    }, [isPlaying, currentTitle, playlist?.id]); // removed currentTime/duration from deps → no re-register every second
 
-    // Keyboard Shortcuts
+    // Keyboard shortcuts
     useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (!isPlaying) return;
-
-            if (e.code === 'Space') {
-                e.preventDefault();
-                setIsPaused(!isPaused);
-            } else if (e.code === 'Escape') {
-                if (onStop) onStop();
-            } else if (e.code === 'ArrowRight' && playlist) {
-                handleNext();
-            } else if (e.code === 'ArrowLeft' && playlist) {
-                handlePrev();
-            }
+        if (!isPlaying) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.code === 'Space') { e.preventDefault(); setIsPaused(p => !p); }
+            else if (e.code === 'Escape') onStop?.();
+            else if (e.code === 'ArrowRight' && playlist) handleNext();
+            else if (e.code === 'ArrowLeft' && playlist) handlePrev();
         };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isPaused, onStop, isPlaying, playlist, currentTrackIndex]);
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [isPlaying, onStop, playlist, handleNext, handlePrev]);
 
     if (!effectiveUrl) return null;
 
-    // Format helper
-    const formatTime = (time: number) => {
-        const mins = Math.floor(time / 60);
-        const secs = Math.floor(time % 60);
-        return `${mins}:${secs.toString().padStart(2, '0')}`;
-    };
+    const formatTime = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+    const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
     return (
-        <div className="fixed inset-x-0 bottom-12 z-[100] px-10 pointer-events-none">
-            <audio ref={audioRef} src={effectiveUrl} />
+        <div className="fixed bottom-10 left-6 z-[100] pointer-events-none">
+            <audio ref={audioRef} src={effectiveUrl} preload="auto" />
 
-            <AnimatePresence>
-                {isPlaying && (
-                    <motion.div
-                        initial={{ y: 20, opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        exit={{ y: 20, opacity: 0 }}
-                        className="max-w-2xl mx-auto bg-slate-900/40 backdrop-blur-2xl border border-white/10 rounded-full h-14 px-5 shadow-[0_20px_50px_rgba(0,0,0,0.3)] pointer-events-auto flex items-center gap-4 relative overflow-hidden"
+            {isPlaying && (
+                <div
+                    className="pointer-events-auto flex items-center gap-2.5 bg-slate-900/70 backdrop-blur-md border border-white/10 rounded-2xl px-3 py-2 shadow-lg"
+                    style={{ minWidth: 0, maxWidth: '260px' }}
+                >
+                    {/* Progress bar — top edge */}
+                    <div className="absolute top-0 left-0 right-0 h-[2px] bg-white/5 rounded-full overflow-hidden">
+                        <div
+                            className="h-full bg-emerald-400 transition-none"
+                            style={{ width: `${progress}%` }}
+                        />
+                    </div>
+
+                    {/* Play/Pause */}
+                    <button
+                        onClick={() => setIsPaused(p => !p)}
+                        className="flex-shrink-0 w-7 h-7 flex items-center justify-center text-white/80 hover:text-white transition-colors"
                     >
-                        {/* Subtle Top Progress Bar */}
+                        {isPaused
+                            ? <Play size={14} fill="currentColor" />
+                            : <Pause size={14} fill="currentColor" />
+                        }
+                    </button>
+
+                    {/* Title + time */}
+                    <div className="flex-1 min-w-0">
+                        <p className={`text-[10px] font-semibold leading-tight truncate ${loadError ? 'text-red-400' : 'text-white/80'}`}>
+                            {loadError ? `Err: ${loadError}` : currentTitle}
+                        </p>
                         {!loadError && (
-                            <div className="absolute top-0 left-0 right-0 h-[2px] bg-white/5">
-                                <motion.div
-                                    className="h-full bg-emerald-400"
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
-                                    transition={{ ease: "linear", duration: 0.1 }}
-                                />
-                            </div>
+                            <p className="text-[9px] font-mono text-white/30 mt-0.5 tabular-nums">
+                                {formatTime(currentTime)} / {formatTime(duration)}
+                            </p>
                         )}
+                    </div>
 
-                        {/* 1. Play/Pause Toggle */}
-                        <button
-                            onClick={() => setIsPaused(!isPaused)}
-                            className="flex-shrink-0 text-white/80 hover:text-white transition-colors"
-                        >
-                            {isPaused ? <Play size={20} fill="currentColor" /> : <Pause size={20} fill="currentColor" />}
-                        </button>
-
-                        {/* 2. Track Title */}
-                        <div className="flex-1 min-w-0">
-                            <h3 className={`text-xs font-semibold truncate tracking-wide ${loadError ? 'text-red-400' : 'text-white/80'}`}>
-                                {loadError ? `Gagal: ${loadError}` : currentTitle}
-                            </h3>
-                        </div>
-
-                        {/* 3. Time Display */}
-                        {!loadError && (
-                            <span className="text-[10px] font-mono text-white/30 tabular-nums">
-                                {formatTime(currentTime)}
-                            </span>
-                        )}
-
-                        {/* 4. Controls */}
-                        <div className="flex items-center gap-1 border-l border-white/5 pl-4">
-                            {playlist && (
-                                <>
-                                    <button
-                                        onClick={handlePrev}
-                                        disabled={currentTrackIndex === 0}
-                                        className="p-1.5 text-white/40 hover:text-white disabled:opacity-10 transition-colors"
-                                    >
-                                        <SkipBack size={16} fill="currentColor" />
-                                    </button>
-                                    <button
-                                        onClick={handleNext}
-                                        disabled={currentTrackIndex >= playlist.tracks.length - 1}
-                                        className="p-1.5 text-white/40 hover:text-white disabled:opacity-10 transition-colors"
-                                    >
-                                        <SkipForward size={16} fill="currentColor" />
-                                    </button>
-                                </>
-                            )}
-
+                    {/* Prev / Next (only for playlist) */}
+                    {playlist && (
+                        <>
                             <button
-                                onClick={() => onStop?.()}
-                                className="p-1.5 text-red-400/60 hover:text-red-400 transition-colors ml-1"
+                                onClick={handlePrev}
+                                disabled={currentTrackIndex === 0}
+                                className="flex-shrink-0 text-white/40 hover:text-white disabled:opacity-10 transition-colors"
                             >
-                                <Square size={16} fill="currentColor" stroke="none" />
+                                <SkipBack size={12} fill="currentColor" />
                             </button>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                            <button
+                                onClick={handleNext}
+                                disabled={currentTrackIndex >= playlist.tracks.length - 1}
+                                className="flex-shrink-0 text-white/40 hover:text-white disabled:opacity-10 transition-colors"
+                            >
+                                <SkipForward size={12} fill="currentColor" />
+                            </button>
+                        </>
+                    )}
+
+                    {/* Stop */}
+                    <button
+                        onClick={() => onStop?.()}
+                        className="flex-shrink-0 text-red-400/50 hover:text-red-400 transition-colors"
+                    >
+                        <Square size={12} fill="currentColor" stroke="none" />
+                    </button>
+                </div>
+            )}
         </div>
     );
 };

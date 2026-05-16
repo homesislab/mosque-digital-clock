@@ -2,8 +2,8 @@ import { MosqueConfig } from '@mosque-digital-clock/shared-types';
 
 export const DEFAULT_CONFIG: MosqueConfig = {
     mosqueInfo: {
-        name: 'Masjid Al-Falah',
-        address: 'Jl. Ahmad Yani No. 123, Surabaya',
+        name: 'Mosque',
+        address: '',
     },
     display: {
         theme: 'dark',
@@ -45,8 +45,10 @@ export const DEFAULT_CONFIG: MosqueConfig = {
         duration: 10, // Default 10 minutes for Sholat
     },
     sliderImages: [
-        'https://images.unsplash.com/photo-1542204625-ca960ca44635?q=80&w=2670', // Mosque interior
-        'https://images.unsplash.com/photo-1596492789643-2cb06f50c766?q=80&w=2669', // Quran
+        'https://images.unsplash.com/photo-1564769662533-4f00a87b4056?q=80&w=2670',
+        'https://images.unsplash.com/photo-1542224566-6e85f2e6772f?q=80&w=2670',
+        'https://images.unsplash.com/photo-1584551246679-0daf3d275d0f?q=80&w=2670',
+        'https://images.unsplash.com/photo-1528360983277-13d401cdc186?q=80&w=2670',
     ],
     runningText: [
         'Mohon luruskan dan rapatkan shaf.',
@@ -79,21 +81,45 @@ export const DEFAULT_CONFIG: MosqueConfig = {
         enabled: false,
         targetNumber: 'status@broadcast',
         messageTemplate: 'Waktu sholat {sholat} telah tiba. Segera tunaikan sholat.',
-    }
+    },
+    version: 0,
 };
 
 export function getApiBaseUrl(): string {
-    if (typeof window !== 'undefined') {
-        let storedUrl = localStorage.getItem('serverUrl');
-        if (storedUrl && storedUrl.includes('localhost')) {
-            storedUrl = storedUrl.replace('localhost', '127.0.0.1');
-            localStorage.setItem('serverUrl', storedUrl);
-        }
-        if (storedUrl) return storedUrl;
-    }
     const envUrl = process.env.NEXT_PUBLIC_API_URL;
-    const defaultUrl = 'http://127.0.0.1:3001';
+    const defaultUrl = 'https://mosque.homesislab.my.id';
     return envUrl || defaultUrl;
+}
+
+/** Sleep helper for retry delays */
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * Fetch with exponential backoff retry.
+ * Retries up to `maxRetries` times with doubling delay on network errors.
+ * Non-network errors are re-thrown immediately without retry.
+ */
+async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
+    let lastError: Error | null = null;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+            return await fetch(url, options);
+        } catch (error: any) {
+            lastError = error;
+            const isNetworkError = error?.name === 'TypeError' ||
+                (error?.message || '').toLowerCase().includes('fetch') ||
+                (error?.message || '').includes('network');
+
+            if (!isNetworkError) throw error; // Re-throw non-network errors immediately
+
+            if (attempt < maxRetries - 1) {
+                const delay = Math.pow(2, attempt) * 1000; // 1s → 2s → 4s
+                console.warn(`[fetchConfig] Attempt ${attempt + 1} failed. Retrying in ${delay}ms...`);
+                await sleep(delay);
+            }
+        }
+    }
+    throw lastError;
 }
 
 export async function fetchConfig(): Promise<MosqueConfig> {
@@ -111,14 +137,17 @@ export async function fetchConfig(): Promise<MosqueConfig> {
             localStorage.setItem('deviceId', deviceId);
         }
 
-        const res = await fetch(apiConfigUrl, {
+        const fetchOptions: RequestInit = {
             cache: 'no-store',
             mode: 'cors',
             headers: {
                 'x-clock-client': 'true',
                 'x-device-id': deviceId
             }
-        });
+        };
+
+        // Use retry logic for resilience against temporary network hiccups
+        const res = await fetchWithRetry(apiConfigUrl, fetchOptions, 3);
 
         if (res.status === 401 || res.status === 403) {
             try {
@@ -138,7 +167,25 @@ export async function fetchConfig(): Promise<MosqueConfig> {
 
         const config = await res.json();
 
-        // Background registration/heartbeat
+        // ── Version-based audio cache invalidation ─────────────────────────
+        // When config.version changes (admin saved new changes), clear audio-cache
+        // so updated/new audio files are re-fetched from server.
+        if (typeof config.version === 'number') {
+            const cachedVersion = localStorage.getItem('configVersion');
+            const newVersion = String(config.version);
+            if (cachedVersion !== null && cachedVersion !== newVersion) {
+                // Config changed — purge stale audio cache
+                if ('caches' in window) {
+                    caches.delete('audio-cache').then(() => {
+                        console.info(`[Cache] Config v${cachedVersion}→v${newVersion}: audio-cache cleared`);
+                    }).catch(() => {});
+                }
+            }
+            localStorage.setItem('configVersion', newVersion);
+        }
+        // ───────────────────────────────────────────────────────────────────
+
+        // Background registration/heartbeat (fire and forget)
         fetch(`${baseUrl}/api/devices`, {
             method: 'POST',
             headers: {
@@ -157,19 +204,17 @@ export async function fetchConfig(): Promise<MosqueConfig> {
             console.warn('Heartbeat network error:', err);
         });
 
-        if (config) return config;
         return config;
     } catch (error: any) {
-        // DETECT NETWORK ERROR (CORS, DNS, SERVER DOWN)
+        // DETECT NETWORK ERROR (CORS, DNS, SERVER DOWN) - after all retries exhausted
         const msg = error?.message || String(error);
         const isNetworkError = msg.toLowerCase().includes('fetch') ||
             error?.name === 'TypeError' ||
             msg.includes('network');
 
         if (isNetworkError) {
-            // SILENTLY HANDLE NETWORK FAILURES
-            // Logging with console.error here can trigger the Next.js dev overlay crash
-            console.warn('Network unreachable, keeping last state');
+            // SILENTLY HANDLE NETWORK FAILURES after retries
+            console.warn('[fetchConfig] Network unreachable after retries, keeping last state');
             return 'OFFLINE' as any;
         }
 

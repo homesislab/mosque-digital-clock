@@ -6,6 +6,9 @@ export interface User {
     email: string;
     passwordHash: string;
     mosqueKeys: string[];
+    googleId?: string;
+    googleName?: string;
+    googlePicture?: string;
 }
 
 export async function getUsers(): Promise<User[]> {

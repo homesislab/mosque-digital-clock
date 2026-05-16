@@ -1,22 +1,38 @@
 export const dynamic = 'force-dynamic';
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { cookies } from 'next/headers';
+import bcrypt from 'bcrypt';
+import { LoginSchema, formatZodErrors } from '@mosque-digital-clock/shared-types';
 import { findUserByEmail } from '../../../../lib/user-store';
+import { withRateLimit } from '../../../../lib/rate-limit';
 import { httpRequestsTotal, httpRequestDuration } from '../../../../lib/metrics';
 
-export async function POST(request: Request) {
+async function handleLogin(request: NextRequest) {
     const start = Date.now();
     try {
-        const { email, password, rememberMe } = await request.json();
+        const body = await request.json();
+
+        // Validate input with Zod schema
+        const validation = LoginSchema.safeParse(body);
+        if (!validation.success) {
+            const errorMessage = formatZodErrors(validation.error.issues as any);
+            return NextResponse.json(
+                { success: false, message: 'Validation error: ' + errorMessage },
+                { status: 400 }
+            );
+        }
+
+        const { email, password, rememberMe } = validation.data;
         const user = await findUserByEmail(email);
 
-        if (user && user.passwordHash === password) { // Note: Use hashing in real production
+        // Securely compare password using bcrypt
+        if (user && await bcrypt.compare(password, user.passwordHash)) {
             const cookieStore = await cookies();
 
             const cookieOptions: any = {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
-                sameSite: 'strict',
+                sameSite: 'lax',
                 path: '/',
             };
 
@@ -49,4 +65,8 @@ export async function POST(request: Request) {
         httpRequestDuration.observe({ method: 'POST', route: '/api/auth/login', status: 'all' }, duration);
         httpRequestsTotal.inc({ method: 'POST', route: '/api/auth/login', status: 'all' });
     }
+}
+
+export async function POST(request: NextRequest) {
+    return withRateLimit('/api/auth/login', request, () => handleLogin(request));
 }

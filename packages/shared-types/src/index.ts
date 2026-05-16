@@ -110,7 +110,9 @@ export interface MosqueConfig {
         role: string;
         name: string;
     }[];
+    officersEnabled?: boolean;
     finance: {
+        enabled?: boolean;
         totalBalance: number;
         lastUpdated: string; // Date string
         accounts: {
@@ -136,6 +138,7 @@ export interface MosqueConfig {
         imam: string;
         muadzin: string;
     }[];
+    jumatEnabled?: boolean;
     ramadhan?: {
         enabled: boolean;
         imsakOffset: number; // minutes before subuh
@@ -165,16 +168,25 @@ export interface MosqueConfig {
         customCss?: string;
         headerOpacity?: number; // 0.1 to 1.0
         prayerTimesOpacity?: number; // 0.1 to 1.0
+        headerBlur?: number; // Blur in px
+        prayerTimesBlur?: number; // Blur in px
+        runningTextSpeed?: number; // Velocity or duration factor
+        clockWeight?: 'light' | 'normal' | 'bold';
+        showNextPrayerCountdown?: boolean;
 
         // Custom Colors (Hex codes preferred)
         headerTextColor?: string;
         dateTextColor?: string;
         clockTextColor?: string;
+        glowColor?: string; // For clock
         runningTextColor?: string;
         runningTextBgColor?: string;
         prayerTimesTextColor?: string;
         prayerTimesBgColor?: string;
         prayerTimesActiveColor?: string;
+        prayerTimesActiveBgColor?: string;
+        prayerTimesActiveTextColor?: string;
+        slideshowOverlayColor?: string;
     };
     wabot?: {
         enabled: boolean;
@@ -195,7 +207,20 @@ export interface MosqueConfig {
             }
         };
     };
+    videoStreaming?: {
+        enabled: boolean;
+        url: string; // YouTube embed URL
+        showInSlideshow: boolean; // Include in rotation
+        durationMinutes: number; // Duration specific to this stream slide
+        muted?: boolean;
+        paused?: boolean;
+    };
+    version: number; // For SSE and sync tracking
 }
+
+export type SyncEvent = 
+    | { type: 'CONFIG_UPDATED'; newVersion: number }
+    | { type: 'HEARTBEAT' };
 
 export interface LogEntry {
     id: string;
@@ -215,3 +240,29 @@ export interface AudioActiveStatus {
     duration: number;
     updatedAt: number; // timestamp
 }
+
+// Export validation schemas and utilities
+export {
+    // Auth validators
+    LoginSchema,
+    RegisterSchema,
+    PasswordResetSchema,
+    // Config validators
+    MosqueConfigSchema,
+    UpdateConfigSchema,
+    // File upload validators
+    FileUploadSchema,
+    // Prayer times validators
+    PrayerTimesConfigSchema,
+    // Utility functions
+    validateData,
+    formatZodErrors,
+    // Types
+    type LoginInput,
+    type RegisterInput,
+    type PasswordResetInput,
+    type MosqueConfigInput,
+    type UpdateConfigInput,
+    type FileUploadInput,
+    type PrayerTimesConfigInput,
+} from './validators';

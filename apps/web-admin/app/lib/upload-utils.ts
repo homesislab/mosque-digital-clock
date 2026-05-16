@@ -32,12 +32,14 @@ export async function uploadFileChunked(
         });
 
         if (!res.ok) {
-            throw new Error(`Upload failed at chunk ${i + 1}/${totalChunks}`);
+            let errorBody = '';
+            try { errorBody = await res.text(); } catch {}
+            throw new Error(`Upload chunk ${i + 1}/${totalChunks} failed (HTTP ${res.status}): ${errorBody}`);
         }
 
         const data = await res.json();
         if (!data.success) {
-            throw new Error(data.message || `Upload failed at chunk ${i + 1}`);
+            throw new Error(`Server error at chunk ${i + 1}: ${data.message || JSON.stringify(data)}`);
         }
 
         if (i === totalChunks - 1) {

@@ -12,7 +12,11 @@ services:
       - ADMIN_PASSWORD=admin123
       - NEXTAUTH_URL=https://mosque.homesislab.my.id
       - NEXT_PUBLIC_APP_URL=https://mosque.homesislab.my.id
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - TZ=Asia/Jakarta
+      - REDIS_HOST=redis_server
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
     volumes:
       - /home/gie/workspace/mosque-digital-clock/apps/web-admin/public/uploads:/app/apps/web-admin/public/uploads
       - /home/gie/workspace/mosque-digital-clock/apps/web-admin/wa_auth_info:/app/apps/web-admin/wa_auth_info
@@ -23,25 +27,17 @@ services:
     build:
       context: .
       target: client
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
     image: mosque-digital-clock-client:${IMAGE_TAG:-latest}
     ports:
       - "3012:3000"
     restart: always
     environment:
-      - NEXT_PUBLIC_API_URL=https://mosque.homesislab.my.id
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
       - TZ=Asia/Jakarta
     networks:
       - shared_apps
-  # prometheus:
-  #   image: prom/prometheus:latest
-  #   ports:
-  #     - "9090:9090"
-  #   volumes:
-  #     - ./prometheus.yml:/etc/prometheus/prometheus.yml
-  #   restart: always
-  #   networks:
-  #     - shared_apps
-
 networks:
   shared_apps:
     external: true

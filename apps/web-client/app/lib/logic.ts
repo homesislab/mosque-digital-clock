@@ -33,10 +33,7 @@ export function calculateAppState(
         const simStartTime = sim.startTime || Date.now();
 
         // --- Simulation: Populate Audio URL if applicable ---
-        if (simState === 'ADZAN' && config.adzan?.audioEnabled && config.adzan.audioUrl) {
-            activeAudioUrl = config.adzan.audioUrl;
-            shouldPlayAudio = true;
-        } else if (simState === 'IQAMAH' && config.iqamah?.audioEnabled && config.iqamah.audioUrl) {
+        if (simState === 'IQAMAH' && config.iqamah?.audioEnabled && config.iqamah.audioUrl) {
             activeAudioUrl = config.iqamah.audioUrl;
             shouldPlayAudio = true;
         } else if (simState === 'PLAYLIST' && sim.activePlaylistId) {

@@ -1,11 +1,36 @@
 export const dynamic = 'force-dynamic';
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { MosqueConfig } from '@mosque-digital-clock/shared-types';
 import { cookies } from 'next/headers';
 import { findUserById } from '../../../lib/user-store';
 import pool from '../../../lib/db';
 import { logger } from '../../lib/logger-server';
 import { waService } from '@/lib/wa-service';
+import { withRateLimit } from '../../../lib/rate-limit';
+import { z } from 'zod';
+import { broadcaster } from '../../../lib/events';
+
+// Basic sanitization: strip tags from string values (prevent XSS)
+function sanitizeString(value: string): string {
+    return value.replace(/<[^>]*>/g, '').trim();
+}
+
+function sanitizeObject(obj: any, depth = 0): any {
+    if (depth > 10) return obj; // Prevent infinite recursion
+    if (typeof obj === 'string') return sanitizeString(obj);
+    if (Array.isArray(obj)) return obj.map(item => sanitizeObject(item, depth + 1));
+    if (obj !== null && typeof obj === 'object') {
+        const sanitized: any = {};
+        for (const key of Object.keys(obj)) {
+            sanitized[key] = sanitizeObject(obj[key], depth + 1);
+        }
+        return sanitized;
+    }
+    return obj;
+}
+
+// Validate POST body is a valid JSON object (not an array or primitive)
+const ConfigBodySchema = z.record(z.string(), z.any());
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -16,8 +41,8 @@ const corsHeaders = {
 // Default Config (Fallback)
 const defaultConfig: MosqueConfig = {
     mosqueInfo: {
-        name: 'Masjid Al-Falah',
-        address: 'Jl. Ahmad Yani No. 123, Surabaya',
+        name: 'Mosque',
+        address: '',
     },
     display: {
         theme: 'dark',
@@ -58,8 +83,10 @@ const defaultConfig: MosqueConfig = {
         duration: 10,
     },
     sliderImages: [
-        'https://images.unsplash.com/photo-1542204625-ca960ca44635?q=80&w=2670',
-        'https://images.unsplash.com/photo-1596492789643-2cb06f50c766?q=80&w=2669',
+        'https://mosque.homesislab.my.id/defaults/makkah.png',
+        'https://mosque.homesislab.my.id/defaults/madinah.png',
+        'https://mosque.homesislab.my.id/defaults/interior.png',
+        'https://mosque.homesislab.my.id/defaults/quran.png',
     ],
     runningText: [
         'Mohon luruskan dan rapatkan shaf.',
@@ -79,13 +106,19 @@ const defaultConfig: MosqueConfig = {
         { role: "Bilal", name: "Sdr. Budi" }
     ],
     finance: {
-        totalBalance: 15000000,
+        totalBalance: 0,
         lastUpdated: new Date().toISOString().split('T')[0],
         accounts: [
-            { name: 'Kas Utama', balance: 15000000, income: 2500000, expense: 1000000 }
+            { name: 'Kas Utama', balance: 0, income: 0, expense: 0 }
         ]
     },
-    gallery: []
+    gallery: [
+        'https://mosque.homesislab.my.id/defaults/makkah.png',
+        'https://mosque.homesislab.my.id/defaults/madinah.png',
+        'https://mosque.homesislab.my.id/defaults/interior.png',
+        'https://mosque.homesislab.my.id/defaults/quran.png',
+    ],
+    version: 0,
 };
 
 async function validateAccess(request: Request, key: string) {
@@ -191,7 +224,7 @@ export async function GET(request: Request) {
     });
 }
 
-export async function POST(request: Request) {
+async function handlePost(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const key = searchParams.get('key') || 'default';
 
@@ -200,10 +233,31 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: access.status, headers: corsHeaders });
     }
 
-    const body = await request.json();
+    // Validate body is a proper JSON object
+    let body: any;
+    try {
+        body = await request.json();
+    } catch {
+        return NextResponse.json({ success: false, message: 'Invalid JSON body' }, { status: 400, headers: corsHeaders });
+    }
+
+    const validation = ConfigBodySchema.safeParse(body);
+    if (!validation.success) {
+        return NextResponse.json(
+            { success: false, message: 'Invalid request body: must be a JSON object' },
+            { status: 400, headers: corsHeaders }
+        );
+    }
+
+    // Sanitize all string values to prevent XSS
+    const sanitizedBody = sanitizeObject(body);
+
     const currentConfig = await getConfig(key);
-    const newConfig = { ...currentConfig, ...body };
+    const newConfig = { ...currentConfig, ...sanitizedBody, version: Date.now() };
     await saveConfig(key, newConfig);
+
+    // Broadcast change to all connected clients for this mosque
+    broadcaster.broadcast(key, { type: 'CONFIG_UPDATED', newVersion: newConfig.version });
 
     logger.success(`Configuration updated for key: ${key}`, { key, updatedBy: access.userId });
 
@@ -223,8 +277,13 @@ export async function POST(request: Request) {
     });
 }
 
+export async function POST(request: NextRequest) {
+    return withRateLimit('/api/config', request, () => handlePost(request));
+}
+
 export async function OPTIONS() {
     return NextResponse.json({}, {
         headers: corsHeaders,
     });
 }
+

@@ -1,261 +1,317 @@
 'use client';
 
 import { MosqueConfig } from '@mosque-digital-clock/shared-types';
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { resolveUrl } from '../lib/constants';
 
 interface InfoSliderProps {
     config: MosqueConfig;
+    isMuted?: boolean;
 }
 
-type SlideType = { type: 'IMAGE'; url: string } | { type: 'JUMAT'; data: any } | { type: 'OFFICERS' } | { type: 'FINANCE' } | { type: 'KAJIAN' };
+type SlideType = 
+    | { type: 'IMAGE'; url: string } 
+    | { type: 'JUMAT'; data: any } 
+    | { type: 'OFFICERS' } 
+    | { type: 'FINANCE' } 
+    | { type: 'KAJIAN' } 
+    | { type: 'STREAM' };
 
-export const InfoSlider = ({ config }: InfoSliderProps) => {
+export const InfoSlider = ({ config, isMuted = false }: InfoSliderProps) => {
     const [currentIndex, setCurrentIndex] = useState(0);
+    const adv = config.advancedDisplay;
 
-    // Find the most relevant Friday schedule (Today or upcoming)
+    // Helper: Convert YouTube URL to Embed format
+    const getYouTubeEmbedUrl = (url: string) => {
+        if (!url) return '';
+        if (url.includes('youtube.com/embed/')) return url;
+        let videoId = '';
+        const watchMatch = url.match(/[?&]v=([^&]+)/);
+        if (watchMatch) videoId = watchMatch[1];
+        else {
+            const shortMatch = url.match(/youtu\.be\/([^?&]+)/);
+            if (shortMatch) videoId = shortMatch[1];
+        }
+        if (videoId) {
+            return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=${isMuted ? 1 : 0}&playlist=${videoId}&loop=1&controls=0&rel=0&modestbranding=1&enablejsapi=1`;
+        }
+        return url;
+    };
+
+    // Friday schedule logic
     const getActiveJumat = () => {
         if (!config.jumat || config.jumat.length === 0) return null;
         const now = new Date();
         const todayStr = now.toISOString().split('T')[0];
-
-        // Sort by date to be sure
         const sorted = [...config.jumat].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-
-        // Find first entry that is today or in the future
         const upcoming = sorted.find(j => (j.date || '') >= todayStr);
-        return upcoming || sorted[sorted.length - 1]; // Fallback to last one if all in past
+        return upcoming || sorted[sorted.length - 1];
     };
 
     const activeJumat = getActiveJumat();
 
-
     // Generate Playlist
-    const playlist: SlideType[] = [
-        ...(config.sliderImages || []).map(url => ({ type: 'IMAGE' as const, url })),
-    ];
+    const isStreamingEnabled = config.videoStreaming?.enabled && config.videoStreaming?.url;
+    const isStreamingOnly = isStreamingEnabled && !config.videoStreaming?.showInSlideshow;
 
-    if (activeJumat) {
-        playlist.push({ type: 'JUMAT', data: activeJumat });
+    let playlist: SlideType[] = [];
+
+    if (isStreamingOnly) {
+        playlist.push({ type: 'STREAM' });
+    } else {
+        playlist = [
+            ...(config.sliderImages || []).map(url => ({ type: 'IMAGE' as const, url })),
+        ];
+
+        if (activeJumat && config.jumatEnabled !== false) {
+            playlist.push({ type: 'JUMAT', data: activeJumat });
+        }
+
+        if (config.kajian?.enabled && config.kajian?.schedule?.length > 0) {
+            playlist.push({ type: 'KAJIAN' });
+            (config.kajian.schedule || []).forEach((k: any) => {
+                if (k.imageUrl) playlist.push({ type: 'IMAGE', url: k.imageUrl });
+            });
+        }
+
+        if (config.officers && config.officers.length > 0 && config.officersEnabled !== false) {
+            playlist.push({ type: 'OFFICERS' });
+        }
+
+        if (config.finance && config.finance.enabled !== false) {
+            playlist.push({ type: 'FINANCE' });
+        }
+
+        if (isStreamingEnabled && config.videoStreaming?.showInSlideshow) {
+            playlist.push({ type: 'STREAM' });
+        }
     }
 
-    // Add Kajian Slide if enabled and has data
-    if (config.kajian?.enabled && config.kajian?.schedule?.length > 0) {
-        playlist.push({ type: 'KAJIAN' });
+    const [bgImage, setBgImage] = useState<string>(config.sliderImages?.[0] || '');
+    const iframeRef = useRef<HTMLIFrameElement>(null);
 
-        // Add Kajian Posters immediately after the schedule list
-        (config.kajian.schedule || []).forEach((k: any) => {
-            if (k.imageUrl) {
-                playlist.push({ type: 'IMAGE', url: k.imageUrl });
+    // YouTube JS API Control
+    useEffect(() => {
+        if (currentSlide?.type !== 'STREAM' || !iframeRef.current) return;
+        
+        const manualMuted = config.videoStreaming?.muted ?? false;
+        const manualPaused = config.videoStreaming?.paused ?? false;
+        const finalMuted = isMuted || manualMuted;
+
+        // Send commands via postMessage (YouTube IFrame API)
+        const sendCommand = (func: string, args: any[] = []) => {
+            if (iframeRef.current?.contentWindow) {
+                iframeRef.current.contentWindow.postMessage(JSON.stringify({
+                    event: 'command',
+                    func: func,
+                    args: args
+                }), '*');
             }
-        });
-    }
+        };
 
-    if (config.officers && config.officers.length > 0) {
-        playlist.push({ type: 'OFFICERS' });
-    }
-    if (config.finance) {
-        playlist.push({ type: 'FINANCE' });
-    }
+        if (finalMuted) sendCommand('mute'); else sendCommand('unMute');
+        if (manualPaused) sendCommand('pauseVideo'); else sendCommand('playVideo');
+
+    }, [isMuted, config.videoStreaming?.muted, config.videoStreaming?.paused, currentIndex]);
 
     useEffect(() => {
         if (playlist.length === 0) return;
 
+        const currentSlide = playlist[currentIndex];
+        if (currentSlide.type === 'IMAGE') {
+            setBgImage(currentSlide.url);
+        }
+
+        const isStream = currentSlide.type === 'STREAM';
+        const duration = isStream 
+            ? (config.videoStreaming?.durationMinutes || 2) * 60000 
+            : 15000;
+
         const timer = setInterval(() => {
             setCurrentIndex((prev) => (prev + 1) % playlist.length);
-        }, 15000); // Increased to 15s for better readability
+        }, duration);
 
         return () => clearInterval(timer);
-    }, [playlist.length]);
+    }, [playlist.length, currentIndex, config.videoStreaming?.durationMinutes, config.sliderImages]);
 
     if (playlist.length === 0) return null;
 
     const currentSlide = playlist[currentIndex];
+    const isInfoSlide = currentSlide.type !== 'IMAGE' && currentSlide.type !== 'STREAM';
 
     return (
-        <div className="w-full h-full relative overflow-hidden bg-black">
-            <AnimatePresence mode="wait">
-                {currentSlide.type === 'IMAGE' && (
+        <div className="w-full h-full relative overflow-hidden bg-zinc-950">
+            {/* Background Layer */}
+            <div className="absolute inset-0 z-0">
+                <AnimatePresence mode="wait">
                     <motion.div
-                        key={`img-${currentIndex}`}
+                        key={bgImage}
                         className="absolute inset-0 w-full h-full"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        transition={{ duration: 1 }}
+                        transition={{ duration: 0.5 }}
                     >
-                        <motion.img
-                            src={resolveUrl(currentSlide.url)}
-                            alt="Slide"
-                            className="w-full h-full object-cover"
-                            initial={{ scale: 1.1 }}
-                            animate={{ scale: 1 }}
-                            transition={{ duration: 15, ease: "linear" }}
+                        {bgImage ? (
+                            <img
+                                src={resolveUrl(bgImage)}
+                                className="w-full h-full object-cover"
+                                alt="Background"
+                            />
+                        ) : (
+                            <div className="w-full h-full bg-slate-900" />
+                        )}
+                        {/* Dynamic Overlay Color */}
+                        <div className="absolute inset-0 transition-all duration-1000" 
+                             style={{ 
+                                 backgroundColor: isInfoSlide 
+                                    ? (adv?.slideshowOverlayColor || 'rgba(0,0,0,0.8)') 
+                                    : 'transparent',
+                                 filter: isInfoSlide ? 'blur(2px)' : 'none'
+                             }} 
                         />
                     </motion.div>
-                )}
+                </AnimatePresence>
+            </div>
 
-                {currentSlide.type === 'JUMAT' && (
-                    <motion.div
-                        key="jumat"
-                        className="absolute inset-0 w-full h-full flex flex-col items-center justify-center p-8 bg-zinc-950/80 text-white backdrop-blur-sm"
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 1.05 }}
-                        transition={{ duration: 0.8 }}
-                    >
-                        <div className="text-emerald-500 text-xs lg:text-xl font-bold mb-2 tracking-[0.2em] lg:tracking-[0.3em] uppercase opacity-80">
-                            Jadwal Sholat Jumat
-                        </div>
-                        <h3 className="text-2xl sm:text-4xl lg:text-6xl font-black mb-8 lg:mb-12 text-white border-b-2 lg:border-b-4 border-emerald-500 pb-2 lg:pb-6 tracking-tight drop-shadow-2xl text-center">
-                            {currentSlide.data.date ? new Date(currentSlide.data.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Petugas Pekan Ini'}
-                        </h3>
-                        <div className="w-full max-w-5xl grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-8">
-                            {[
-                                { role: 'Khotib', name: currentSlide.data.khotib },
-                                { role: 'Imam', name: currentSlide.data.imam },
-                                { role: 'Muadzin', name: currentSlide.data.muadzin }
-                            ].map((off, idx) => (
-                                <div key={idx} className="flex flex-col bg-white/5 border border-white/10 p-4 lg:p-8 rounded-2xl lg:rounded-3xl backdrop-blur-md shadow-2xl items-center text-center">
-                                    <span className="text-emerald-400 text-xs lg:text-lg font-bold mb-1 lg:mb-4 uppercase tracking-widest">{off.role}</span>
-                                    <span className="text-xl lg:text-4xl font-extrabold text-white leading-tight">{off.name || '-'}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </motion.div>
-                )}
-
-                {currentSlide.type === 'KAJIAN' && (
-                    <motion.div
-                        key="kajian"
-                        className="absolute inset-0 w-full h-full flex flex-col items-center justify-center p-8 bg-zinc-950/80 text-white backdrop-blur-sm"
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        transition={{ duration: 0.8 }}
-                    >
-                        <h3 className="text-2xl lg:text-5xl font-bold mb-8 lg:mb-12 text-cyan-400 border-b-2 border-cyan-500/30 pb-2 lg:pb-6 tracking-wide drop-shadow-lg uppercase text-center flex items-center gap-4">
-                            <span>✨</span> Jadwal Kajian Rutin <span>✨</span>
-                        </h3>
-                        <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 overflow-y-auto max-h-[70vh] px-4">
-                            {(config.kajian?.schedule || []).map((kj: any, idx: number) => (
-                                <div key={idx} className="bg-gradient-to-r from-cyan-950/30 to-blue-950/30 border border-cyan-500/20 p-6 rounded-2xl backdrop-blur-md flex gap-6 items-center shadow-lg group hover:border-cyan-400/50 transition-all">
-                                    <div className="flex flex-col items-center justify-center bg-cyan-900/20 w-24 h-24 rounded-xl border border-cyan-500/30 text-cyan-300">
-                                        <span className="text-xs font-bold uppercase tracking-widest mb-1">Hari</span>
-                                        <span className="text-xl font-black">{kj.day}</span>
-                                        <span className="text-[10px] bg-cyan-500/20 px-2 py-0.5 rounded-full mt-1 border border-cyan-500/20">{kj.time}</span>
+            {/* Content Layer */}
+            <div className="absolute inset-0 z-10 flex items-center justify-center">
+                <AnimatePresence mode="wait">
+                    {currentSlide.type === 'JUMAT' && (
+                        <motion.div
+                            key="jumat"
+                            className="w-full max-w-5xl flex flex-col items-center"
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 1.1 }}
+                            transition={{ duration: 0.5 }}
+                        >
+                            <span className="text-emerald-400 text-xl font-bold uppercase tracking-[0.3em] mb-4">Jadwal Jumat</span>
+                            <h2 className="text-6xl font-black text-white mb-12 border-b-4 border-emerald-500 pb-4">
+                                {currentSlide.data.date ? new Date(currentSlide.data.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}
+                            </h2>
+                            <div className="grid grid-cols-3 gap-8 w-full">
+                                {[
+                                    { label: 'Khotib', val: currentSlide.data.khotib },
+                                    { label: 'Imam', val: currentSlide.data.imam },
+                                    { label: 'Muadzin', val: currentSlide.data.muadzin },
+                                ].map((item, idx) => (
+                                    <div key={idx} className="bg-white/10 backdrop-blur-xl border border-white/20 p-8 rounded-3xl text-center shadow-2xl">
+                                        <p className="text-emerald-300 text-sm font-bold uppercase mb-2 tracking-widest">{item.label}</p>
+                                        <p className="text-3xl font-black text-white">{item.val || '-'}</p>
                                     </div>
-                                    <div className="flex-1">
-                                        <h4 className="text-xl lg:text-2xl font-bold text-white mb-1 group-hover:text-cyan-300 transition-colors line-clamp-2">{kj.title}</h4>
-                                        <div className="flex items-center gap-2 text-cyan-100/60 text-sm lg:text-lg font-medium">
-                                            <span className="bg-white/10 px-2 py-0.5 rounded text-xs uppercase tracking-wider">Pemateri</span>
-                                            {kj.speaker}
+                                ))}
+                            </div>
+                        </motion.div>
+                    )}
+
+                    {currentSlide.type === 'KAJIAN' && (
+                        <motion.div
+                            key="kajian"
+                            className="w-full max-w-6xl flex flex-col items-center"
+                            initial={{ opacity: 0, y: 30 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -30 }}
+                            transition={{ duration: 0.5 }}
+                        >
+                            <h3 className="text-4xl font-black text-white mb-10 uppercase tracking-widest drop-shadow-lg">✨ Jadwal Kajian Rutin ✨</h3>
+                            <div className="grid grid-cols-2 gap-6 w-full max-h-[70vh] overflow-y-auto px-4">
+                                {(config.kajian?.schedule || []).map((kj: any, idx: number) => (
+                                    <div key={idx} className="bg-black/30 backdrop-blur-xl border border-white/10 p-6 rounded-3xl flex gap-6 items-center shadow-xl">
+                                        <div className="bg-emerald-500/20 w-24 h-24 rounded-2xl flex flex-col items-center justify-center text-emerald-300">
+                                            <span className="text-xs font-bold uppercase">{kj.day}</span>
+                                            <span className="text-lg font-black">{kj.time}</span>
+                                        </div>
+                                        <div>
+                                            <h4 className="text-2xl font-black text-white">{kj.title}</h4>
+                                            <p className="text-emerald-400 font-bold">Ustadz {kj.speaker}</p>
                                         </div>
                                     </div>
-                                </div>
-                            ))}
-                        </div>
-                    </motion.div>
-                )}
+                                ))}
+                            </div>
+                        </motion.div>
+                    )}
 
-                {currentSlide.type === 'OFFICERS' && (
-                    <motion.div
-                        key="officers"
-                        className="absolute inset-0 w-full h-full flex flex-col items-center justify-center p-8 bg-zinc-950/80 text-white backdrop-blur-sm"
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        transition={{ duration: 0.8 }}
-                    >
-                        <h3 className="text-2xl lg:text-5xl font-bold mb-8 lg:mb-12 text-emerald-500 border-b-2 border-emerald-500/30 pb-2 lg:pb-6 tracking-wide drop-shadow-lg uppercase text-center">
-                            Petugas & Pengurus Masjid
-                        </h3>
-                        <div className="w-full max-w-4xl grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-8">
-                            {config.officers.map((officer, idx) => (
-                                <div key={idx} className="flex flex-col bg-gradient-to-br from-white/5 to-white/[0.02] p-4 lg:p-6 rounded-xl lg:rounded-2xl border border-white/10 backdrop-blur-md shadow-2xl group hover:border-emerald-500/50 transition-colors">
-                                    <span className="text-xs lg:text-xl text-emerald-200/80 font-medium mb-1 lg:mb-2 uppercase tracking-widest">{officer.role}</span>
-                                    <span className="text-xl lg:text-4xl font-bold text-white tracking-tight">{officer.name}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </motion.div>
-                )}
+                    {currentSlide.type === 'OFFICERS' && (
+                        <motion.div
+                            key="officers"
+                            className="w-full max-w-5xl flex flex-col items-center"
+                            initial={{ opacity: 0, y: 30 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -30 }}
+                            transition={{ duration: 0.5 }}
+                        >
+                            <h3 className="text-4xl font-black text-emerald-400 mb-10 uppercase tracking-widest">Petugas Masjid</h3>
+                            <div className="grid grid-cols-2 gap-6 w-full">
+                                {config.officers.map((off, idx) => (
+                                    <div key={idx} className="bg-black/30 backdrop-blur-xl border border-white/10 p-6 rounded-3xl flex flex-col shadow-xl">
+                                        <span className="text-xs text-emerald-300 font-bold uppercase tracking-widest opacity-70">{off.role}</span>
+                                        <span className="text-3xl font-black text-white">{off.name}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </motion.div>
+                    )}
 
-                {currentSlide.type === 'FINANCE' && (
-                    <motion.div
-                        key="finance"
-                        className="absolute inset-0 w-full h-full flex flex-col items-center justify-center p-8 bg-zinc-950/80 text-white backdrop-blur-sm"
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        transition={{ duration: 0.8 }}
-                    >
-                        <h3 className="text-2xl lg:text-5xl font-bold mb-6 lg:mb-10 text-emerald-500 border-b-2 border-emerald-500/30 pb-2 lg:pb-4 tracking-wide drop-shadow-lg uppercase text-center">
-                            Laporan Keuangan Masjid
-                        </h3>
-
-                        <div className="w-full max-w-6xl grid grid-cols-12 gap-6 lg:gap-10 items-start overflow-y-auto">
-                            {/* Summary Section */}
-                            <div className="col-span-12 lg:col-span-5 space-y-4 lg:space-y-6">
-                                <div className="bg-gradient-to-br from-emerald-700/40 to-black/60 p-6 lg:p-10 rounded-2xl lg:rounded-3xl border border-emerald-500/30 shadow-[0_0_50px_rgba(16,185,129,0.1)] backdrop-blur-md">
-                                    <p className="text-emerald-100/60 text-sm lg:text-lg font-medium mb-1 uppercase tracking-widest text-center">Total Seluruh Saldo</p>
-                                    <p className="text-4xl lg:text-7xl font-black text-emerald-400 tracking-tighter drop-shadow-[0_0_35px_rgba(16,185,129,0.3)] text-center">
-                                        Rp {(config.finance.totalBalance || (config.finance as any).balance || 0).toLocaleString('id-ID')}
-                                    </p>
-                                    <div className="mt-4 lg:mt-8 pt-4 lg:pt-8 border-t border-white/10 flex items-center justify-between text-zinc-400 text-[10px] lg:text-sm italic">
-                                        <span>Update: {config.finance.lastUpdated}</span>
-                                        <span className="bg-emerald-500/20 text-emerald-400 px-2 lg:px-3 py-1 rounded-full text-[8px] lg:text-[10px] font-bold uppercase not-italic border border-emerald-500/30 tracking-widest">
-                                            Laporan Resmi
-                                        </span>
+                    {currentSlide.type === 'FINANCE' && (
+                        <motion.div
+                            key="finance"
+                            className="w-full max-w-6xl"
+                            initial={{ opacity: 0, scale: 1.1 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            transition={{ duration: 0.5 }}
+                        >
+                            <div className="grid grid-cols-12 gap-10 items-center">
+                                <div className="col-span-12 lg:col-span-5 text-center">
+                                    <div className="bg-emerald-600/30 backdrop-blur-2xl p-12 rounded-[3.5rem] border border-emerald-400/30 shadow-2xl">
+                                        <p className="text-emerald-200 text-sm font-bold uppercase tracking-widest mb-2">Total Saldo Kas</p>
+                                        <p className="text-6xl font-black text-white tracking-tighter">
+                                            Rp {(config.finance.totalBalance || 0).toLocaleString('id-ID')}
+                                        </p>
+                                        <p className="mt-8 text-xs text-white/50 italic">Update terakhir: {config.finance.lastUpdated}</p>
                                     </div>
                                 </div>
-                                <div className="p-4 text-center space-y-2">
-                                    <p className="text-amber-200/50 text-base italic leading-relaxed">
-                                        "Infakkanlah sebagian dari harta yang Kami rizkikan kepadamu sebelum datang kematian."
-                                    </p>
-                                    <p className="text-zinc-500 text-sm uppercase tracking-widest font-bold font-mono">QS. Al-Munafiqun: 10</p>
-                                </div>
-                            </div>
-
-                            {/* Details List */}
-                            <div className="col-span-12 lg:col-span-7 space-y-4">
-                                {config.finance.accounts?.length ? (
-                                    config.finance.accounts.slice(0, 4).map((acc: any, idx: number) => (
-                                        <div key={idx} className="bg-white/5 border border-white/10 p-6 rounded-2xl backdrop-blur-md flex justify-between items-center group hover:bg-white/10 transition-all shadow-xl">
-                                            <div className="flex-1">
-                                                <h4 className="text-lg lg:text-2xl font-bold text-white mb-1 lg:mb-2 group-hover:text-emerald-400 transition-colors">{acc.name || 'Akun/Dana'}</h4>
-                                                <div className="flex flex-col sm:flex-row sm:gap-6 text-[8px] lg:text-[10px] font-bold uppercase tracking-[0.2em]">
-                                                    <span className="text-emerald-400 flex items-center gap-1.5">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                                                        Masuk: Rp {(acc.income || 0).toLocaleString('id-ID')}
-                                                    </span>
-                                                    <span className="text-rose-400 flex items-center gap-1.5">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
-                                                        Keluar: Rp {(acc.expense || 0).toLocaleString('id-ID')}
-                                                    </span>
-                                                </div>
+                                <div className="col-span-12 lg:col-span-7 space-y-4">
+                                    {config.finance.accounts?.slice(0, 4).map((acc: any, idx: number) => (
+                                        <div key={idx} className="bg-black/30 backdrop-blur-xl border border-white/10 p-6 rounded-3xl flex justify-between items-center">
+                                            <div>
+                                                <h4 className="text-2xl font-black text-white uppercase">{acc.name}</h4>
+                                                <p className="text-xs text-emerald-400 font-bold tracking-widest">SALDO AKHIR</p>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-zinc-500 text-[8px] lg:text-[10px] mb-0 lg:mb-1 uppercase tracking-widest font-bold">Saldo Akhir</p>
-                                                <p className="text-xl lg:text-4xl font-black text-emerald-500 tracking-tight">
-                                                    Rp {(acc.balance || 0).toLocaleString('id-ID')}
-                                                </p>
+                                                <p className="text-3xl font-black text-white">Rp {(acc.balance || 0).toLocaleString('id-ID')}</p>
                                             </div>
                                         </div>
-                                    ))
-                                ) : (
-                                    <div className="h-full flex flex-col items-center justify-center py-20 bg-white/5 rounded-3xl border border-dashed border-white/20 opacity-30">
-                                        <p className="text-2xl font-bold">Tidak ada rincian akun</p>
-                                        <p className="text-sm">Silakan tambahkan akun di panel admin</p>
-                                    </div>
-                                )}
+                                    ))}
+                                </div>
                             </div>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                        </motion.div>
+                    )}
+
+                    {currentSlide.type === 'STREAM' && (
+                        <motion.div
+                            key="stream"
+                            className="absolute inset-0 w-full h-full bg-black"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.5 }}
+                        >
+                            <iframe
+                                ref={iframeRef}
+                                src={getYouTubeEmbedUrl(config.videoStreaming?.url || '')}
+                                frameBorder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                                className="w-full h-full"
+                                title="Live Stream"
+                            />
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </div>
         </div>
     );
 };

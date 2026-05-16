@@ -6,6 +6,9 @@ CREATE TABLE IF NOT EXISTS users (
     id VARCHAR(255) PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
+    google_id VARCHAR(255) UNIQUE,
+    google_name VARCHAR(255),
+    google_picture VARCHAR(512),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

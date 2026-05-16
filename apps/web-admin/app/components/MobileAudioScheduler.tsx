@@ -207,7 +207,7 @@ export default function MobileAudioScheduler() {
             <div className="px-5 pb-5">
               <div className="p-4 bg-emerald-50/50 border border-emerald-100 rounded-2xl flex flex-col items-center">
                 <div className="flex items-center gap-2 mb-1">
-                  <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                   <p className="text-xs font-bold text-slate-700">
                     Iqamah {activeTab}: <span className="text-emerald-600">15 Menit</span>
                   </p>

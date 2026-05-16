@@ -16,6 +16,10 @@ export const AdzanOverlay = ({ isVisible, prayerName }: AdzanOverlayProps) => {
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     className="absolute inset-0 z-50 bg-black/95 flex flex-col items-center justify-center"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label={`Waktu Adzan ${prayerName}`}
+                    aria-live="assertive"
                 >
                     <div className="text-center space-y-6">
                         <motion.h2

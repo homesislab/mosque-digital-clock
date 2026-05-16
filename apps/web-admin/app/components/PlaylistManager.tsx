@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { MosqueConfig, Playlist, AudioTrack } from '@mosque-digital-clock/shared-types';
-import { Plus, Trash2, Music, Disc, ChevronRight, UploadCloud, Library, X, AlertCircle, Shuffle, Calendar, Monitor, Tv, Play, Pause } from 'lucide-react';
+import { Plus, Trash2, Music, Disc, ChevronRight, UploadCloud, Library, X, Shuffle, Calendar, Monitor, Tv, Play, Pause, Download, Globe } from 'lucide-react';
 import { useRef } from 'react';
 import ScheduleManager from './ScheduleManager';
+import { QuranBrowser } from '@/components/QuranBrowser';
 
 interface PlaylistManagerProps {
     config: MosqueConfig;
@@ -17,8 +18,10 @@ export default function PlaylistManager({ config, setConfig, mosqueKey, onPickTr
     const [activePlaylistId, setActivePlaylistId] = useState<string | null>(null);
     const [uploading, setUploading] = useState(false);
     const [processingDurations, setProcessingDurations] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+    const [isCdnModalOpen, setIsCdnModalOpen] = useState(false);
     const [devices, setDevices] = useState<{ device_id: string; device_name: string }[]>([]);
     
     // Audio Preview State
@@ -157,10 +160,18 @@ export default function PlaylistManager({ config, setConfig, mosqueKey, onPickTr
     const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>, playlistId: string) => {
         const file = e.target.files?.[0];
         if (!file) return;
+
+        if (!mosqueKey) {
+            alert('Error: mosqueKey kosong! Coba refresh halaman.');
+            return;
+        }
+
         setUploading(true);
         try {
             const { uploadFileChunked } = await import('../lib/upload-utils');
-            const url = await uploadFileChunked(file, mosqueKey);
+            const url = await uploadFileChunked(file, mosqueKey, (progress) => {
+                console.log(`[Upload] ${file.name}: ${progress}%`);
+            });
             if (url) {
                 await handleAddTrack(playlistId, url, file.name.replace(/\.[^/.]+$/, ''));
                 if (!config.gallery?.includes(url)) {
@@ -168,9 +179,12 @@ export default function PlaylistManager({ config, setConfig, mosqueKey, onPickTr
                 }
             }
         } catch (err: any) {
-            alert(`Upload error: ${err.message}`);
+            console.error('[PlaylistManager Upload Error]', err);
+            alert(`Upload gagal:\n${err.message}\n\nFile: ${file.name}\nSize: ${(file.size/1024/1024).toFixed(2)} MB\nKey: ${mosqueKey}`);
         } finally {
             setUploading(false);
+            // Reset file input so same file can be re-uploaded
+            if (fileInputRef.current) fileInputRef.current.value = '';
         }
     };
 
@@ -189,7 +203,7 @@ export default function PlaylistManager({ config, setConfig, mosqueKey, onPickTr
                     </div>
                     <button
                         onClick={handleCreatePlaylist}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold transition-colors"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-xs font-bold transition-colors"
                         title="Buat Playlist Baru"
                     >
                         <Plus size={14} />
@@ -214,18 +228,18 @@ export default function PlaylistManager({ config, setConfig, mosqueKey, onPickTr
                                 onClick={() => setActivePlaylistId(playlist.id)}
                                 className={`w-full text-left px-3 py-3 rounded-lg flex items-center gap-3 mb-1 transition-colors group ${
                                     isActive
-                                        ? 'bg-amber-500 text-white'
+                                        ? 'bg-emerald-500 text-white'
                                         : 'hover:bg-white text-slate-600 border border-transparent hover:border-slate-200'
                                 }`}
                             >
                                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                                    isActive ? 'bg-white/20' : 'bg-slate-200 group-hover:bg-amber-50'
+                                    isActive ? 'bg-white/20' : 'bg-slate-200 group-hover:bg-emerald-50'
                                 }`}>
                                     <Music size={14} className={isActive ? 'text-white' : 'text-slate-500'} />
                                 </div>
                                 <div className="min-w-0 flex-1">
                                     <div className={`font-semibold text-sm truncate ${isActive ? 'text-white' : ''}`}>{playlist.name}</div>
-                                    <div className={`text-[10px] font-mono mt-0.5 ${isActive ? 'text-amber-100' : 'text-slate-400'}`}>
+                                    <div className={`text-[10px] font-mono mt-0.5 ${isActive ? 'text-emerald-100' : 'text-slate-400'}`}>
                                         {playlist.tracks.length} track • {getPlaylistDuration(playlist)}
                                     </div>
                                 </div>
@@ -256,58 +270,84 @@ export default function PlaylistManager({ config, setConfig, mosqueKey, onPickTr
                                             {activePlaylist.tracks.length} track • Total: {getPlaylistDuration(activePlaylist)}
                                         </span>
                                         {processingDurations && (
-                                            <span className="text-[10px] text-amber-500 font-semibold animate-pulse">Menghitung durasi...</span>
+                                            <span className="text-[10px] text-emerald-500 font-semibold animate-pulse">Menghitung durasi...</span>
                                         )}
                                     </div>
                                 </div>
-
-                                <div className="flex items-center gap-2 shrink-0">
-                                    {/* Jadwal Button */}
-                                    <button
-                                        onClick={() => setIsScheduleModalOpen(true)}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors bg-white border-slate-200 text-slate-600 hover:border-amber-300 hover:text-amber-600 shadow-sm"
-                                        title="Atur Jadwal Putar"
-                                    >
-                                        <Calendar size={13} />
-                                        Jadwal
-                                    </button>
-                                    
-                                    {/* Shuffle Toggle */}
-                                    <button
-                                        onClick={() => handleUpdatePlaylist(activePlaylist.id, { shuffle: !activePlaylist.shuffle })}
-                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
-                                            activePlaylist.shuffle
-                                                ? 'bg-amber-50 border-amber-200 text-amber-600'
-                                                : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300'
-                                        }`}
-                                        title="Toggle Shuffle"
-                                    >
-                                        <Shuffle size={13} />
-                                        {activePlaylist.shuffle ? 'Acak' : 'Urut'}
-                                    </button>
-                                    <button
-                                        onClick={() => handleDeletePlaylist(activePlaylist.id)}
-                                        className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition border border-transparent hover:border-red-100"
-                                        title="Hapus Playlist"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
-                                </div>
                             </div>
 
-                            {/* Add Track Buttons */}
-                            <div className="flex flex-wrap gap-2 mt-4">
-                                <label className={`flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-amber-300 bg-amber-50 text-amber-700 text-xs font-bold cursor-pointer hover:bg-amber-100 transition-colors ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
-                                    <UploadCloud size={14} />
-                                    {uploading ? 'Mengupload...' : 'Upload Audio MP3'}
-                                    <input type="file" hidden accept="audio/*" onChange={(e) => handleUpload(e, activePlaylist.id)} disabled={uploading} />
-                                </label>
+                            {/* ── Action Toolbar ── */}
+                            <div className="flex flex-wrap items-center gap-1.5 mt-4">
+                                {/* Upload */}
+                                <button
+                                    type="button"
+                                    disabled={uploading}
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                                        uploading
+                                            ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
+                                            : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
+                                    }`}
+                                >
+                                    <UploadCloud size={13} />
+                                    <span>{uploading ? 'Upload...' : 'Upload'}</span>
+                                </button>
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    className="hidden"
+                                    accept="audio/*,.mp3,.m4a,.aac,.ogg,.wav,.flac,.opus,.wma"
+                                    onChange={(e) => handleUpload(e, activePlaylist.id)}
+                                    disabled={uploading}
+                                />
+
+                                {/* Dari Galeri */}
                                 <button
                                     onClick={() => onPickTrack(activePlaylist.id)}
-                                    className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 text-xs font-bold hover:bg-slate-50 transition-colors"
+                                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200 transition-all"
                                 >
-                                    <Library size={14} />
-                                    Pilih dari Galeri
+                                    <Library size={13} />
+                                    <span>Galeri</span>
+                                </button>
+
+                                {/* Download CDN */}
+                                <button
+                                    onClick={() => setIsCdnModalOpen(true)}
+                                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 transition-all"
+                                >
+                                    <Globe size={13} />
+                                    <span>CDN</span>
+                                </button>
+
+                                {/* Jadwal */}
+                                <button
+                                    onClick={() => setIsScheduleModalOpen(true)}
+                                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 transition-all"
+                                >
+                                    <Calendar size={13} />
+                                    <span>Jadwal</span>
+                                </button>
+
+                                {/* Acak / Urut */}
+                                <button
+                                    onClick={() => handleUpdatePlaylist(activePlaylist.id, { shuffle: !activePlaylist.shuffle })}
+                                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                                        activePlaylist.shuffle
+                                            ? 'bg-emerald-500 text-white border-emerald-500'
+                                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border-slate-200'
+                                    }`}
+                                >
+                                    <Shuffle size={13} />
+                                    <span>{activePlaylist.shuffle ? 'Acak' : 'Urut'}</span>
+                                </button>
+
+                                {/* Hapus — pushed to right */}
+                                <button
+                                    onClick={() => handleDeletePlaylist(activePlaylist.id)}
+                                    className="ml-auto flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-50 text-slate-400 hover:bg-red-50 hover:text-red-500 border border-slate-200 hover:border-red-200 transition-all"
+                                    title="Hapus Playlist"
+                                >
+                                    <Trash2 size={13} />
                                 </button>
                             </div>
 
@@ -342,7 +382,7 @@ export default function PlaylistManager({ config, setConfig, mosqueKey, onPickTr
                                                     }}
                                                     className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-bold transition-all flex items-center gap-1.5 ${
                                                         isTargeted
-                                                            ? 'bg-amber-500 border-amber-600 text-white shadow-sm'
+                                                            ? 'bg-emerald-500 border-emerald-600 text-white shadow-sm'
                                                             : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-300'
                                                     }`}
                                                 >
@@ -384,8 +424,8 @@ export default function PlaylistManager({ config, setConfig, mosqueKey, onPickTr
                                                             onClick={() => handleTogglePreview(track.id, track.url)}
                                                             className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all ${
                                                                 playingTrackId === track.id 
-                                                                    ? 'bg-amber-500 text-white shadow-md' 
-                                                                    : 'bg-slate-100 group-hover:bg-amber-50 text-slate-400 group-hover:text-amber-500'
+                                                                    ? 'bg-emerald-500 text-white shadow-md' 
+                                                                    : 'bg-slate-100 group-hover:bg-emerald-50 text-slate-400 group-hover:text-emerald-500'
                                                             }`}
                                                             title={playingTrackId === track.id ? 'Stop Pratinjau' : 'Putar Pratinjau'}
                                                         >
@@ -422,7 +462,7 @@ export default function PlaylistManager({ config, setConfig, mosqueKey, onPickTr
                                     <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
                                         <div>
                                             <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                                                <Calendar size={20} className="text-amber-500" />
+                                                <Calendar size={20} className="text-emerald-500" />
                                                 Jadwal Putar: {activePlaylist.name}
                                             </h3>
                                             <p className="text-xs text-slate-500 mt-1">Atur kapan playlist ini akan diputar otomatis</p>
@@ -433,6 +473,52 @@ export default function PlaylistManager({ config, setConfig, mosqueKey, onPickTr
                                     </div>
                                     <div className="p-6 overflow-y-auto">
                                         <ScheduleManager config={config} setConfig={setConfig} forcedPlaylistId={activePlaylist.id} />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Modal for CDN Quran Browser */}
+                        {isCdnModalOpen && (
+                            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm">
+                                <div className="bg-slate-900 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl border border-slate-700">
+                                    {/* Modal Header */}
+                                    <div className="px-6 py-4 border-b border-slate-700 flex items-center justify-between">
+                                        <div>
+                                            <h3 className="text-base font-bold text-white flex items-center gap-2">
+                                                <Globe size={18} className="text-indigo-400" />
+                                                Download Murrotal dari CDN
+                                            </h3>
+                                            <p className="text-xs text-slate-400 mt-0.5">
+                                                Pilih reciter &amp; surah → download lokal → tambah ke playlist <span className="text-indigo-300 font-semibold">"{activePlaylist?.name}"</span>
+                                            </p>
+                                        </div>
+                                        <button
+                                            onClick={() => setIsCdnModalOpen(false)}
+                                            className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
+                                        >
+                                            <X size={20} />
+                                        </button>
+                                    </div>
+
+                                    {/* Modal Body */}
+                                    <div className="p-6 overflow-y-auto flex-1">
+                                        <QuranBrowser
+                                            mosqueKey={mosqueKey}
+                                            onAddToPlaylist={(tracks) => {
+                                                if (!activePlaylist) return;
+                                                const newTracks = tracks.map(t => ({
+                                                    id: t.id,
+                                                    title: t.title,
+                                                    url: t.url,
+                                                    duration: undefined as any,
+                                                }));
+                                                handleUpdatePlaylist(activePlaylist.id, {
+                                                    tracks: [...activePlaylist.tracks, ...newTracks],
+                                                });
+                                                setIsCdnModalOpen(false);
+                                            }}
+                                        />
                                     </div>
                                 </div>
                             </div>

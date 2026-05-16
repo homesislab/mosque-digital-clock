@@ -1,25 +1,24 @@
 'use client';
 
 import { useState } from 'react';
-import { Key, Monitor, CheckCircle2 } from 'lucide-react';
+import { Key, Monitor, CheckCircle2, Server } from 'lucide-react';
 
 interface SetupOverlayProps {
     onComplete: (key: string) => void;
 }
 
+const SERVER_URL = process.env.NEXT_PUBLIC_API_URL || 'https://mosque.homesislab.my.id';
+
 export function SetupOverlay({ onComplete }: SetupOverlayProps) {
     const [key, setKey] = useState('');
-    const [serverUrl, setServerUrl] = useState('http://127.0.0.1:3001');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (key.trim().length >= 4 && serverUrl.trim().length > 5) {
+        if (key.trim().length >= 4) {
             setIsSubmitting(true);
-            // Give some visual feedback
             setTimeout(() => {
                 localStorage.setItem('mosqueKey', key.trim());
-                localStorage.setItem('serverUrl', serverUrl.trim().replace(/\/$/, '')); // Clear trailing slash
                 onComplete(key.trim());
             }, 1000);
         }
@@ -43,18 +42,12 @@ export function SetupOverlay({ onComplete }: SetupOverlayProps) {
                     </p>
 
                     <form onSubmit={handleSubmit} className="w-full space-y-4 text-left">
-                        <div className="space-y-1">
-                            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Server URL</label>
-                            <div className="relative">
-                                <Monitor className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                                <input
-                                    type="text"
-                                    value={serverUrl}
-                                    onChange={(e) => setServerUrl(e.target.value)}
-                                    placeholder="http://127.0.0.1:3001"
-                                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-emerald-500 focus:ring-0 transition-all font-mono text-sm text-slate-900"
-                                    disabled={isSubmitting}
-                                />
+                        {/* Server info (read-only) */}
+                        <div className="flex items-center gap-3 bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3">
+                            <Server className="w-5 h-5 text-emerald-500 shrink-0" />
+                            <div className="min-w-0">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Server</p>
+                                <p className="font-mono text-sm text-slate-600 truncate">{SERVER_URL}</p>
                             </div>
                         </div>
 
@@ -69,13 +62,14 @@ export function SetupOverlay({ onComplete }: SetupOverlayProps) {
                                     placeholder="Contoh: masjid-al-falah"
                                     className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-emerald-500 focus:ring-0 transition-all font-mono text-sm text-slate-900"
                                     disabled={isSubmitting}
+                                    autoFocus
                                 />
                             </div>
                         </div>
 
                         <button
                             type="submit"
-                            disabled={isSubmitting || key.trim().length < 4 || serverUrl.trim().length < 5}
+                            disabled={isSubmitting || key.trim().length < 4}
                             className="w-full mt-2 flex items-center justify-center gap-2 bg-slate-900 text-white py-4 rounded-2xl font-bold text-lg hover:bg-slate-800 active:scale-95 transition-all disabled:opacity-70 disabled:active:scale-100"
                         >
                             {isSubmitting ? (
@@ -84,7 +78,7 @@ export function SetupOverlay({ onComplete }: SetupOverlayProps) {
                                     Menghubungkan...
                                 </>
                             ) : (
-                                'Simpan & Hubungkan'
+                                'Hubungkan'
                             )}
                         </button>
                     </form>

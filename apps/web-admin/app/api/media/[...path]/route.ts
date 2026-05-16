@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-// import mime from 'mime'; // You might need to install 'mime' or 'mime-types', or just simple lookup
+import { getUploadsDir } from '@/lib/uploads-path';
 
 export async function GET(
     request: NextRequest,
@@ -11,11 +11,10 @@ export async function GET(
     const { path: pathSegments } = await params;
 
     // Construct file path
-    // We know uploads are in public/uploads
-    const filePath = path.join(process.cwd(), 'public', 'uploads', ...pathSegments);
+    const filePath = path.join(getUploadsDir(), ...pathSegments);
 
     // Security check: Ensure we don't escape public/uploads
-    const uploadsRoot = path.join(process.cwd(), 'public', 'uploads');
+    const uploadsRoot = getUploadsDir();
     if (!filePath.startsWith(uploadsRoot)) {
         return new NextResponse('Access Denied', { status: 403 });
     }
@@ -29,9 +28,6 @@ export async function GET(
         return new NextResponse('Not a File', { status: 400 });
     }
 
-    const fileBuffer = fs.readFileSync(filePath);
-
-    // Simple mime type detection (manual for now to avoid dependency if possible, or use one if installed)
     const ext = path.extname(filePath).toLowerCase();
     let contentType = 'application/octet-stream';
     if (ext === '.jpg' || ext === '.jpeg') contentType = 'image/jpeg';
@@ -40,11 +36,47 @@ export async function GET(
     else if (ext === '.svg') contentType = 'image/svg+xml';
     else if (ext === '.webp') contentType = 'image/webp';
     else if (ext === '.mp4') contentType = 'video/mp4';
+    else if (ext === '.mp3') contentType = 'audio/mpeg';
+    else if (ext === '.ogg') contentType = 'audio/ogg';
+    else if (ext === '.wav') contentType = 'audio/wav';
+    else if (ext === '.aac') contentType = 'audio/aac';
 
+    // Support HTTP Range requests for audio streaming / seeking
+    const rangeHeader = request.headers.get('range');
+    if (rangeHeader && (contentType.startsWith('audio/') || contentType.startsWith('video/'))) {
+        const fileSize = stat.size;
+        const parts = rangeHeader.replace(/bytes=/, '').split('-');
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+        const chunkSize = end - start + 1;
+
+        const fileStream = fs.createReadStream(filePath, { start, end });
+        const readable = new ReadableStream({
+            start(controller) {
+                fileStream.on('data', (chunk) => controller.enqueue(chunk));
+                fileStream.on('end', () => controller.close());
+                fileStream.on('error', (err) => controller.error(err));
+            },
+        });
+
+        return new NextResponse(readable, {
+            status: 206,
+            headers: {
+                'Content-Type': contentType,
+                'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+                'Accept-Ranges': 'bytes',
+                'Content-Length': chunkSize.toString(),
+                'Cache-Control': 'public, max-age=31536000, immutable',
+            },
+        });
+    }
+
+    const fileBuffer = fs.readFileSync(filePath);
     return new NextResponse(fileBuffer, {
         headers: {
             'Content-Type': contentType,
             'Content-Length': stat.size.toString(),
+            'Accept-Ranges': 'bytes',
             'Cache-Control': 'public, max-age=31536000, immutable',
         },
     });

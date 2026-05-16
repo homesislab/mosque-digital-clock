@@ -1,11 +1,32 @@
 import { Coordinates, CalculationMethod, PrayerTimes as AdhanPrayerTimes } from 'adhan';
 import { MosqueConfig } from '@mosque-digital-clock/shared-types';
 
+/**
+ * Validates geographic coordinates.
+ * Latitude: -90 to +90, Longitude: -180 to +180
+ * Returns false if coordinates are invalid or NaN.
+ */
+function isValidCoordinates(lat: number, lng: number): boolean {
+    return (
+        typeof lat === 'number' && isFinite(lat) &&
+        typeof lng === 'number' && isFinite(lng) &&
+        lat >= -90 && lat <= 90 &&
+        lng >= -180 && lng <= 180
+    );
+}
+
 export function getPrayerTimes(config: MosqueConfig, date: Date = new Date()) {
     if (!config.prayerTimes?.coordinates) {
         return null;
     }
     const { lat, lng } = config.prayerTimes.coordinates;
+
+    // Validate coordinates before passing to adhan library
+    if (!isValidCoordinates(lat, lng)) {
+        console.error(`[prayer-times] Invalid coordinates: lat=${lat}, lng=${lng}. Must be within valid ranges.`);
+        return null;
+    }
+
     const coordinates = new Coordinates(lat, lng);
 
     // Select method

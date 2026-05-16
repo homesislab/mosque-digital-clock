@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { TimeDisplay } from './components/TimeDisplay';
 import { PrayerTimes } from './components/PrayerTimes';
 import { RunningText } from './components/RunningText';
-import { fetchConfig, DEFAULT_CONFIG, resolveUrl, getApiBaseUrl } from './lib/constants';
+import { resolveUrl, getApiBaseUrl } from './lib/constants';
+import { useConfig } from './lib/useConfig';
 import { MosqueConfig } from '@mosque-digital-clock/shared-types';
 import { getPrayerTimes } from './lib/prayer-times';
 import { calculateAppState, AppState } from './lib/logic';
@@ -20,14 +21,15 @@ import { sendWabotNotification } from './lib/wabot';
 import { useLogger } from './lib/useLogger';
 import { AudioUnlockOverlay } from './components/AudioUnlockOverlay';
 import { LogoutConfirmation } from './components/LogoutConfirmation';
-import { LogOut, Download } from 'lucide-react';
+import { LogOut, Download, WifiOff } from 'lucide-react';
 import { usePWAInstall } from './lib/usePWAInstall';
+import { useSyncAssets } from './lib/useSyncAssets';
+import { RefreshCw } from 'lucide-react';
 
 
 
 export default function Home() {
   const [mosqueKey, setMosqueKey] = useState<string | null>(null);
-  const [config, setConfig] = useState<MosqueConfig>(DEFAULT_CONFIG);
   const [appState, setAppState] = useState<AppState>('NORMAL');
   const [nextEvent, setNextEvent] = useState({ name: '', seconds: 0, activeAudioUrl: '', activePlaylistId: '', shouldPlayAudio: false, eventTime: undefined as Date | undefined });
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -39,7 +41,6 @@ export default function Home() {
   const logger = useLogger('client');
   const { isInstallable, install } = usePWAInstall();
 
-
   // Mounted state to prevent hydration mismatch for time-dependent rendering
   const [mounted, setMounted] = useState(false);
 
@@ -48,39 +49,28 @@ export default function Home() {
     setMosqueKey(localStorage.getItem('mosqueKey'));
   }, []);
 
-  // Load Config
-  const loadConfig = useCallback(async () => {
-    if (typeof window !== 'undefined' && localStorage.getItem('mosqueKey')) {
-      try {
-        const data = await fetchConfig();
+  // ── Config with caching (30s TTL, poll every 5s) ──────────────────────
+  const { config, isOffline, refresh } = useConfig(mosqueKey);
+  const { status: syncStatus, progress: syncProgress } = useSyncAssets(config);
 
-        // If offline, do nothing and keep last state
-        if (data as any === 'OFFLINE') {
-          console.warn("Connection to server failed, retrying in background...");
-          return;
-        }
-
-        if (!data) {
-          // Device unauthorized or key removed - FULL CLEAR
-          console.log("Unauthorized detected, clearing everything...");
-          localStorage.clear();
-          setMosqueKey(null);
-          return;
-        }
-        setConfig(data);
-      } catch (error) {
-        console.warn("Config load check failed (Normal if server is down/restarting)");
-      }
-    }
-  }, []);
-
+  // Listen for SSE external trigger to refresh config immediately
   useEffect(() => {
-    if (mosqueKey) {
-      loadConfig();
-      const configInterval = setInterval(loadConfig, 5000);
-      return () => clearInterval(configInterval);
+    const handleRefresh = () => {
+      console.log('[Page] SSE: Triggering immediate config refresh');
+      refresh();
+    };
+    window.addEventListener('config-refresh-needed', handleRefresh);
+    return () => window.removeEventListener('config-refresh-needed', handleRefresh);
+  }, [refresh]);
+
+  // Handle unauthorized / key cleared
+  useEffect(() => {
+    if (mosqueKey && config === null) {
+      console.log('Unauthorized detected, clearing everything...');
+      localStorage.clear();
+      setMosqueKey(null);
     }
-  }, [mosqueKey, loadConfig]);
+  }, [config, mosqueKey]);
 
   const hasLoggedStart = useRef(false);
 
@@ -112,13 +102,23 @@ export default function Home() {
         return result.state;
       });
 
-      setNextEvent({
-        name: result.nextPrayerName,
-        seconds: result.secondsRemaining,
-        activeAudioUrl: result.activeAudioUrl,
-        activePlaylistId: result.activePlaylistId || '',
-        shouldPlayAudio: result.shouldPlayAudio,
-        eventTime: result.eventTime
+      setNextEvent(prev => {
+        // Only update if values actually changed — prevents unnecessary re-renders every second
+        if (
+          prev.name === result.nextPrayerName &&
+          prev.seconds === result.secondsRemaining &&
+          prev.activeAudioUrl === result.activeAudioUrl &&
+          prev.activePlaylistId === (result.activePlaylistId || '') &&
+          prev.shouldPlayAudio === result.shouldPlayAudio
+        ) return prev; // same reference = no re-render
+        return {
+          name: result.nextPrayerName,
+          seconds: result.secondsRemaining,
+          activeAudioUrl: result.activeAudioUrl,
+          activePlaylistId: result.activePlaylistId || '',
+          shouldPlayAudio: result.shouldPlayAudio,
+          eventTime: result.eventTime
+        };
       });
     };
 
@@ -223,177 +223,166 @@ export default function Home() {
   }
 
 
-
   return (
     <main
-      className="w-screen h-screen relative bg-zinc-100 overflow-hidden font-sans text-slate-900 selection:bg-orange-500/30"
+      className="w-screen h-screen relative bg-zinc-900 overflow-hidden font-sans text-white selection:bg-emerald-500/30"
+      role="application"
+      aria-label="Mosque Digital Clock Display"
     >
-      <div className="bg-noise fixed inset-0 pointer-events-none z-50 opacity-50 mix-blend-overlay"></div>
+      <div className="bg-noise fixed inset-0 pointer-events-none z-50 opacity-30 mix-blend-overlay"></div>
 
+      {/* Offline indicator */}
+      {isOffline && (
+        <div
+          className="fixed top-6 right-6 z-[100] flex items-center gap-2 bg-rose-600/90 backdrop-blur-md text-white text-xs font-bold px-3 py-2 rounded-full shadow-2xl"
+          role="status"
+          aria-live="polite"
+        >
+          <WifiOff size={14} />
+          Offline
+        </div>
+      )}
 
-      <IqamahOverlay
-        isVisible={appState === 'IQAMAH'}
-        prayerName={nextEvent.name}
-        secondsRemaining={nextEvent.seconds}
-      />
-      <AdzanOverlay
-        isVisible={appState === 'ADZAN'}
-        prayerName={nextEvent.name}
-      />
-      <ImsakOverlay
-        isVisible={appState === 'IMSAK'}
-        secondsRemaining={nextEvent.seconds}
-      />
+      {/* Sync Status indicator */}
+      {syncStatus !== 'sync' && (
+        <div
+          className="fixed top-20 right-6 z-[100] flex items-center gap-2 bg-emerald-600/90 backdrop-blur-md text-white text-[10px] font-bold px-3 py-2 rounded-full shadow-2xl transition-all duration-500"
+          role="status"
+        >
+          <RefreshCw size={12} className="animate-spin" />
+          {syncStatus === 'syncing' ? `Menyingkronkan (${syncProgress}%)` : 'Perlu Sinkronisasi'}
+        </div>
+      )}
+
+      <IqamahOverlay isVisible={appState === 'IQAMAH'} prayerName={nextEvent.name} secondsRemaining={nextEvent.seconds} />
+      <AdzanOverlay isVisible={appState === 'ADZAN'} prayerName={nextEvent.name} />
+      <ImsakOverlay isVisible={appState === 'IMSAK'} secondsRemaining={nextEvent.seconds} />
       <SholatOverlay isVisible={appState === 'SHOLAT'} />
 
-      {/* Layer 1: Background Slider */}
-      <div className="absolute inset-0 z-0">
-        <InfoSlider config={config} />
-        {/* Light Overlay for readability */}
-        <div className="absolute inset-0 bg-white/10 z-10" />
+      {/* Layer 1: Background Assets (Minimalis Premium) */}
+      <div className="absolute inset-0 z-0 bg-black">
+        {/* Fallback Premium Makkah Image (Always there, sets the mood) */}
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat w-full h-full opacity-60 scale-105 transition-all duration-1000"
+          style={{ backgroundImage: "url('/bg-makkah.jpg')" }}
+        />
+        {/* Fullscreen Slider sits on top seamlessly! */}
+        <div className="absolute inset-0 z-10 transition-opacity">
+          <InfoSlider 
+            config={config} 
+            isMuted={appState !== 'NORMAL' || (nextEvent.shouldPlayAudio && !isManualStopped)} 
+          />
+        </div>
+        {/* Heavy Vignette & Gradient to ensure text readability from Bottom */}
+        <div className="absolute inset-0 bg-radial-gradient from-transparent via-black/20 to-black/80 z-20 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/90 z-20 pointer-events-none" />
       </div>
 
-      {/* Layer 2: Content Grid */}
-      <div className="absolute inset-0 z-20 flex flex-col justify-between p-0">
+      {/* Layer 2: Main UI Content Grid */}
+      <div className="absolute inset-0 z-30 flex flex-col justify-between p-0 pointer-events-none">
 
-        {/* HEADER ZONE (Light Glass Theme) */}
-        {/* Full width white bar with rounded bottom corners */}
-        <div
-          className="w-full bg-white/90 backdrop-blur-xl shadow-lg rounded-b-[2rem] px-2 lg:px-8 border-b-4 border-orange-500/20 mx-auto max-w-[98%] lg:max-w-[95%] mt-0 relative z-30"
-          style={{ opacity: adv?.headerOpacity ?? 1 }}
-        >
-          <div className="flex w-full items-center justify-between h-16 lg:h-20 px-1">
-            {adv?.customCss && <style>{adv.customCss}</style>}
+        {/* TOP AREA: Hidden Navigation/Control Bar */}
+        <div className="w-full flex-none flex justify-between p-6 absolute top-0 inset-x-0 opacity-0 hover:opacity-100 focus-within:opacity-100 transition-opacity duration-300 z-50">
+          <button onClick={() => setShowLogoutConfirm(true)} className="p-3 bg-black/40 backdrop-blur-md rounded-full text-white hover:text-emerald-400 border border-white/10 shadow-lg pointer-events-auto">
+            <LogOut size={24} />
+          </button>
+          {isInstallable && (
+            <button onClick={install} className="p-3 bg-emerald-600/80 backdrop-blur-md rounded-full text-white hover:bg-emerald-500 shadow-lg animate-pulse pointer-events-auto">
+              <Download size={24} />
+            </button>
+          )}
+        </div>
 
-            {/* 1. Clock (Left) */}
+        {/* TOP HEADER AREA: Floating Light Bar */}
+        <div className="w-full flex-none pt-2 lg:pt-4 px-4 sm:px-8 lg:px-12 flex flex-col items-center justify-start z-40 relative pointer-events-none">
+
+          {/* 1. Header Bar Mengapung (Slate-50) */}
+          <div
+            className="w-full max-w-[1700px] flex flex-col sm:flex-row items-center justify-between text-slate-900 backdrop-blur-xl border border-white/60 shadow-2xl rounded-3xl px-8 py-5 pointer-events-auto transform transition-all"
+            style={{ 
+              backgroundColor: `rgba(248, 250, 252, ${adv?.headerOpacity ?? 0.95})`,
+              backdropFilter: adv?.headerBlur ? `blur(${adv.headerBlur}px)` : 'blur(12px)'
+            }}
+            onClick={() => {
+// ... existing logic
+// Note: I will only replace the div style part to be safe, but since I'm using replace_file_content with a range, I'll be careful.
+              logoClickRef.current += 1;
+              if (logoClickRef.current >= 5) {
+                setShowLogoutConfirm(true);
+                logoClickRef.current = 0;
+              }
+              setTimeout(() => { logoClickRef.current = 0; }, 2000);
+            }}
+          >
+            {/* LEFT: Giant Clock */}
             {adv?.showClock !== false && (
-              <div className="w-[25%] flex justify-center items-center h-full sm:pr-2 lg:pr-6 whitespace-nowrap relative group">
-                <button
-                  onClick={() => setShowLogoutConfirm(true)}
-                  className="absolute left-0 p-2 text-slate-300 hover:text-rose-500 transition-colors"
-                  title="Logout"
-                >
-                  <LogOut size={20} />
-                </button>
-
-                {isInstallable && (
-                  <button
-                    onClick={install}
-                    className="absolute left-10 p-2 text-emerald-500 hover:text-emerald-600 transition-colors animate-pulse"
-                    title="Install App"
-                  >
-                    <Download size={22} />
-                  </button>
-                )}
-
+              <div className="flex-1 w-full pl-2 lg:pl-6 flex justify-start mb-4 sm:mb-0">
                 <TimeDisplay
                   time={currentTime}
-                  className="text-2xl sm:text-4xl lg:text-6xl font-bold tracking-tighter text-slate-900 font-mono tabular-nums leading-none drop-shadow-sm"
-                  style={{ color: adv?.clockTextColor }}
+                  clockWeight={adv?.clockWeight}
+                  glowColor={adv?.glowColor}
+                  className="text-[3.5rem] lg:text-[4.5rem] font-bold tracking-tight font-mono tabular-nums leading-none text-slate-900 drop-shadow-sm"
+                  style={{ color: adv?.clockTextColor ? adv.clockTextColor : undefined }}
                 />
               </div>
             )}
 
-            {/* Separator - Desktop Only */}
-            <div className="hidden lg:block h-10 w-[2px] bg-gradient-to-b from-transparent via-amber-400 to-transparent mx-auto flex-shrink-0"></div>
-
-            {/* 2. Mosque Info (Center) */}
-            {/* 2. Mosque Info (Center) */}
-            <div
-              className="flex-1 flex flex-row justify-center items-center h-full px-1 gap-3 lg:gap-4 overflow-hidden cursor-pointer active:scale-95 transition-transform"
-              onClick={() => {
-                logoClickRef.current += 1;
-                if (logoClickRef.current >= 5) {
-                  setShowLogoutConfirm(true);
-                  logoClickRef.current = 0;
-                }
-                // Reset click count after 2 seconds of inactivity
-                setTimeout(() => { logoClickRef.current = 0; }, 2000);
-              }}
-            >
+            {/* CENTER: Mosque Identity (Clean) */}
+            <div className="flex-1 w-full flex flex-col sm:flex-row items-center justify-center gap-4 mb-4 sm:mb-0">
               {adv?.showLogo !== false && (config.mosqueInfo.logoUrl ? (
-                <img
-                  src={resolveUrl(config.mosqueInfo.logoUrl)}
-                  alt="Logo"
-                  className="h-[50px] sm:h-[8vh] w-auto object-contain drop-shadow-md"
-                />
+                <img src={resolveUrl(config.mosqueInfo.logoUrl)} className="h-10 sm:h-14 w-auto drop-shadow-sm transition-transform duration-300 hover:scale-105" alt="Mosque Logo" />
               ) : (
-                <span className="text-2xl lg:text-4xl">🕌</span>
+                <span className="text-3xl sm:text-5xl drop-shadow-sm">🕌</span>
               ))}
-
-
-              <div className="flex flex-col items-start justify-center text-left min-w-0">
-                <h1
-                  className="text-sm sm:text-lg lg:text-2xl font-bold uppercase tracking-tight lg:tracking-wide text-slate-800 line-clamp-1 leading-tight truncate"
-                  style={{ color: adv?.headerTextColor }}
-                >
+              <div className="flex flex-col text-center sm:text-left">
+                <h1 className="text-xl sm:text-2xl font-sans font-bold tracking-tight text-slate-900" style={{ color: adv?.headerTextColor ? adv.headerTextColor : undefined }}>
                   {name}
                 </h1>
-                <p
-                  className="block text-[10px] sm:text-xs lg:text-sm text-slate-600 font-medium tracking-wide line-clamp-1 mt-0.5 truncate"
-                  style={{ color: adv?.headerTextColor ? adv?.headerTextColor + 'cc' : undefined }}
-                >
+                <p className="text-[10px] sm:text-[13px] font-medium text-slate-500 uppercase tracking-widest mt-0.5">
                   {address}
                 </p>
               </div>
             </div>
 
-            {/* Separator - Desktop Only */}
-            <div className="hidden lg:block h-10 w-[2px] bg-gradient-to-b from-transparent via-amber-400 to-transparent mx-auto flex-shrink-0"></div>
-
-            {/* 3. Date (Right) */}
+            {/* RIGHT: Minimalist Date */}
             {adv?.showDate !== false && (
-              <div className="w-[25%] flex flex-col items-end justify-center h-full pr-1 lg:pr-4">
-                <div
-                  className="text-[10px] sm:text-base lg:text-3xl font-bold text-slate-800 font-mono mb-1 leading-none tracking-tight whitespace-nowrap"
-                  style={{ color: adv?.dateTextColor }}
-                >
+              <div className="flex-1 w-full pr-2 lg:pr-6 flex flex-col items-end justify-center mt-1 sm:mt-0">
+                <div className="text-sm sm:text-base lg:text-lg font-bold text-slate-700 font-sans tracking-wide mb-1" style={{ color: adv?.dateTextColor ? adv.dateTextColor : undefined }}>
                   {hijriStr}
                 </div>
-                <div
-                  className="text-[8px] sm:text-xs lg:text-lg text-slate-500 font-semibold uppercase tracking-widest whitespace-nowrap"
-                  style={{ color: adv?.dateTextColor ? adv?.dateTextColor + 'cc' : undefined }}
-                >
-                  {dateStr.replace(/\s+,/, ',')} {/* Fix potential space before comma */}
+                <div className="text-[10px] sm:text-xs lg:text-[13px] font-semibold text-slate-500 uppercase tracking-widest" style={{ color: adv?.headerTextColor ? adv.headerTextColor : undefined }}>
+                  {dateStr.replace(/\s+,/, ',')}
                 </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* FOOTER ZONE (Light Glass Theme) */}
-        <div className="w-full flex flex-col relative z-30 mt-auto">
+        {/* MIDDLE AREA: Empty flexible space so Fullscreen Slideshow behind shines through! */}
+        <div className="flex-1 w-full pointer-events-none" />
 
+        {/* BOTTOM AREA: Prayer Cards & Thin Status Bar */}
+        <div className="w-full flex flex-col relative z-30 pb-4 sm:pb-6 px-4 sm:px-8 gap-4 sm:gap-6">
 
-          {/* Prayer Times Strip - Floating White Card Look */}
+          {/* Modern Prayer Times Grid */}
           {adv?.showPrayerTimes !== false && (
-            <div className="w-[98%] mx-auto bg-white/90 backdrop-blur-xl rounded-t-[1.5rem] shadow-[0_-10px_30px_rgba(0,0,0,0.1)] overflow-hidden border-t-4 border-orange-500/20 h-auto lg:h-24">
-              <PrayerTimes
-                config={config}
-                nextPrayer={nextEvent.name}
-                secondsRemaining={nextEvent.seconds}
-              />
+            <div className="w-full h-auto">
+              <PrayerTimes config={config} nextPrayer={nextEvent.name} secondsRemaining={nextEvent.seconds} />
             </div>
           )}
 
-          {/* Running Text - Bottom Bar */}
-          {/* Can be black for high contrast or stay white. Let's try dark for contrast as typical in these designs */}
+          {/* Minimalist Translucent Running Text */}
           {adv?.showRunningText !== false && (
-            <div className="w-full bg-slate-900 text-white h-12 flex items-center shadow-inner relative z-40">
-              <div className="bg-orange-600 h-full px-8 flex items-center justify-center text-white font-bold uppercase tracking-widest text-sm shadow-md z-50 skew-x-6 -ml-4 pl-8">
-                <span className="-skew-x-6">Info Terkini</span>
+            <div className="w-[98%] mx-auto mb-2 bg-black/40 backdrop-blur-md rounded-xl overflow-hidden border border-white/5 flex items-center h-10 sm:h-12 shadow-2xl">
+              <div className="bg-emerald-600/90 h-full px-5 flex items-center justify-center text-white font-semibold uppercase tracking-[0.25em] text-[10px] sm:text-xs min-w-max">
+                INFO TERKINI
               </div>
-              <div className="flex-1 relative h-full overflow-hidden">
-                <RunningText
-                  texts={config.runningText}
-                  color={adv?.runningTextColor}
-                  bgColor={adv?.runningTextBgColor}
-                />
+              <div className="flex-1 relative h-full">
+                <RunningText texts={config.runningText} color={adv?.runningTextColor} speed={adv?.runningTextSpeed} bgColor="transparent" />
               </div>
             </div>
           )}
         </div>
-
       </div>
 
       <AudioPlayer
@@ -404,23 +393,12 @@ export default function Home() {
         onBlocked={(blocked) => setIsAudioBlocked(blocked)}
         playbackState={config.audio?.playbackState}
         onCommand={(cmd) => {
-          if (cmd === 'logout') {
-            handleLogout();
-          }
+          if (cmd === 'logout') handleLogout();
         }}
       />
 
-      <AudioUnlockOverlay
-        isVisible={isAudioBlocked}
-        onUnlock={handleUnlockAudio}
-      />
-
-      {showLogoutConfirm && (
-        <LogoutConfirmation
-          onConfirm={handleLogout}
-          onCancel={() => setShowLogoutConfirm(false)}
-        />
-      )}
+      <AudioUnlockOverlay isVisible={isAudioBlocked} onUnlock={handleUnlockAudio} />
+      {showLogoutConfirm && <LogoutConfirmation onConfirm={handleLogout} onCancel={() => setShowLogoutConfirm(false)} />}
 
     </main>
   );
