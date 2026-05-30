@@ -1,7 +1,5 @@
 'use client';
 
-import { motion } from 'framer-motion';
-
 interface RunningTextProps {
     texts?: string[];
     color?: string;
@@ -10,7 +8,6 @@ interface RunningTextProps {
 }
 
 export const RunningText = ({ texts = [], color, bgColor, speed = 10 }: RunningTextProps) => {
-    // If no text, show default or empty
     const content = texts.length > 0
         ? texts.join(' | ')
         : "Mohon luruskan dan rapatkan shaf. | Matikan alat komunikasi.";
@@ -27,20 +24,16 @@ export const RunningText = ({ texts = [], color, bgColor, speed = 10 }: RunningT
             role="marquee"
             aria-label={`Pengumuman masjid: ${content}`}
         >
-            <motion.div
-                className="inline-block"
-                initial={{ x: '100%' }}
-                animate={{ x: '-100%' }}
-                transition={{
-                    repeat: Infinity,
-                    ease: 'linear',
-                    duration: duration,
+            <div
+                className="inline-block will-change-transform"
+                style={{
+                    animation: `marquee-scroll ${duration}s linear infinite`,
                 }}
             >
                 <span className="text-xl font-bold px-4 tracking-wider uppercase">
                     {content}
                 </span>
-            </motion.div>
+            </div>
         </div>
     );
 };

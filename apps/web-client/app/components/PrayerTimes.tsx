@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo } from 'react';
 import { getPrayerTimes, formatTime } from '../lib/prayer-times';
 import { MosqueConfig } from '@mosque-digital-clock/shared-types';
 
@@ -10,7 +10,7 @@ interface PrayerTimesProps {
     secondsRemaining?: number;
 }
 
-export const PrayerTimes = ({ config, nextPrayer, secondsRemaining }: PrayerTimesProps) => {
+export const PrayerTimes = memo(({ config, nextPrayer, secondsRemaining }: PrayerTimesProps) => {
     const [times, setTimes] = useState<any>(null);
 
     useEffect(() => {
@@ -104,4 +104,6 @@ export const PrayerTimes = ({ config, nextPrayer, secondsRemaining }: PrayerTime
             })}
         </div>
     );
-};
+});
+
+PrayerTimes.displayName = 'PrayerTimes';

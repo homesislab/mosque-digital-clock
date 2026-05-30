@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { TimeDisplay } from './components/TimeDisplay';
 import { PrayerTimes } from './components/PrayerTimes';
 import { RunningText } from './components/RunningText';
@@ -103,14 +103,21 @@ export default function Home() {
       });
 
       setNextEvent(prev => {
-        // Only update if values actually changed — prevents unnecessary re-renders every second
+        // Only update if audio-relevant fields changed.
+        // NOTE: secondsRemaining intentionally EXCLUDED — it changes every second
+        // and would cause AudioPlayer to re-render/restart audio unnecessarily.
         if (
           prev.name === result.nextPrayerName &&
-          prev.seconds === result.secondsRemaining &&
           prev.activeAudioUrl === result.activeAudioUrl &&
           prev.activePlaylistId === (result.activePlaylistId || '') &&
           prev.shouldPlayAudio === result.shouldPlayAudio
-        ) return prev; // same reference = no re-render
+        ) {
+          // Only update seconds without creating a new object — avoids AudioPlayer re-render
+          if (prev.seconds !== result.secondsRemaining) {
+            return { ...prev, seconds: result.secondsRemaining };
+          }
+          return prev; // same reference = no re-render
+        }
         return {
           name: result.nextPrayerName,
           seconds: result.secondsRemaining,
@@ -190,6 +197,32 @@ export default function Home() {
   }, []);
 
 
+  // ── Stable memoized props for child components ──────────────────────
+  // Prevents InfoSlider / PrayerTimes / AudioPlayer re-rendering every second
+  // due to the 1s clock tick or nextEvent.seconds update.
+  const infoSliderMuted = useMemo(
+    () => appState !== 'NORMAL' || (nextEvent.shouldPlayAudio && !isManualStopped),
+    [appState, nextEvent.shouldPlayAudio, isManualStopped]
+  );
+
+  const activePlaylist = useMemo(
+    () => config.audio?.playlists?.find(p => p.id === nextEvent.activePlaylistId),
+    [config.audio?.playlists, nextEvent.activePlaylistId]
+  );
+
+  const audioUrl = useMemo(
+    () => resolveUrl(nextEvent.activeAudioUrl),
+    [nextEvent.activeAudioUrl]
+  );
+
+  const audioIsPlaying = nextEvent.shouldPlayAudio && !isManualStopped;
+
+  const handleAudioStop = useCallback(() => setIsManualStopped(true), []);
+  const handleAudioBlocked = useCallback((blocked: boolean) => setIsAudioBlocked(blocked), []);
+  const handleAudioCommand = useCallback((cmd: string) => {
+    if (cmd === 'logout') handleLogout();
+  }, [handleLogout]);
+
   if (!mounted) return <div className="bg-slate-900 w-screen h-screen"></div>;
 
   if (!mosqueKey) {
@@ -268,9 +301,9 @@ export default function Home() {
         />
         {/* Fullscreen Slider sits on top seamlessly! */}
         <div className="absolute inset-0 z-10 transition-opacity">
-          <InfoSlider 
-            config={config} 
-            isMuted={appState !== 'NORMAL' || (nextEvent.shouldPlayAudio && !isManualStopped)} 
+          <InfoSlider
+            config={config}
+            isMuted={infoSliderMuted}
           />
         </div>
         {/* Heavy Vignette & Gradient to ensure text readability from Bottom */}
@@ -386,15 +419,13 @@ export default function Home() {
       </div>
 
       <AudioPlayer
-        url={resolveUrl(nextEvent.activeAudioUrl)}
-        playlist={config.audio?.playlists?.find(p => p.id === nextEvent.activePlaylistId)}
-        isPlaying={nextEvent.shouldPlayAudio && !isManualStopped}
-        onStop={() => setIsManualStopped(true)}
-        onBlocked={(blocked) => setIsAudioBlocked(blocked)}
+        url={audioUrl}
+        playlist={activePlaylist}
+        isPlaying={audioIsPlaying}
+        onStop={handleAudioStop}
+        onBlocked={handleAudioBlocked}
         playbackState={config.audio?.playbackState}
-        onCommand={(cmd) => {
-          if (cmd === 'logout') handleLogout();
-        }}
+        onCommand={handleAudioCommand}
       />
 
       <AudioUnlockOverlay isVisible={isAudioBlocked} onUnlock={handleUnlockAudio} />

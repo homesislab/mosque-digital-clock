@@ -1,7 +1,7 @@
 'use client';
 
 import { MosqueConfig } from '@mosque-digital-clock/shared-types';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { resolveUrl } from '../lib/constants';
 
@@ -18,9 +18,10 @@ type SlideType =
     | { type: 'KAJIAN' } 
     | { type: 'STREAM' };
 
-export const InfoSlider = ({ config, isMuted = false }: InfoSliderProps) => {
+export const InfoSlider = memo(({ config, isMuted = false }: InfoSliderProps) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const adv = config.advancedDisplay;
+    const iframeRef = useRef<HTMLIFrameElement>(null);
 
     // Helper: Convert YouTube URL to Embed format
     const getYouTubeEmbedUrl = (url: string) => {
@@ -39,73 +40,82 @@ export const InfoSlider = ({ config, isMuted = false }: InfoSliderProps) => {
         return url;
     };
 
-    // Friday schedule logic
-    const getActiveJumat = () => {
+    // Friday schedule logic — memoized to avoid sort on every render
+    const activeJumat = useMemo(() => {
         if (!config.jumat || config.jumat.length === 0) return null;
-        const now = new Date();
-        const todayStr = now.toISOString().split('T')[0];
+        const todayStr = new Date().toISOString().split('T')[0];
         const sorted = [...config.jumat].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
         const upcoming = sorted.find(j => (j.date || '') >= todayStr);
         return upcoming || sorted[sorted.length - 1];
-    };
+    }, [config.jumat]);
 
-    const activeJumat = getActiveJumat();
-
-    // Generate Playlist
+    // Streaming flags
     const isStreamingEnabled = config.videoStreaming?.enabled && config.videoStreaming?.url;
     const isStreamingOnly = isStreamingEnabled && !config.videoStreaming?.showInSlideshow;
 
-    let playlist: SlideType[] = [];
+    // Build playlist — memoized, only rebuilds when config content changes
+    const playlist = useMemo<SlideType[]>(() => {
+        if (isStreamingOnly) return [{ type: 'STREAM' }];
 
-    if (isStreamingOnly) {
-        playlist.push({ type: 'STREAM' });
-    } else {
-        playlist = [
+        const list: SlideType[] = [
             ...(config.sliderImages || []).map(url => ({ type: 'IMAGE' as const, url })),
         ];
 
         if (activeJumat && config.jumatEnabled !== false) {
-            playlist.push({ type: 'JUMAT', data: activeJumat });
+            list.push({ type: 'JUMAT', data: activeJumat });
         }
 
         if (config.kajian?.enabled && config.kajian?.schedule?.length > 0) {
-            playlist.push({ type: 'KAJIAN' });
+            list.push({ type: 'KAJIAN' });
             (config.kajian.schedule || []).forEach((k: any) => {
-                if (k.imageUrl) playlist.push({ type: 'IMAGE', url: k.imageUrl });
+                if (k.imageUrl) list.push({ type: 'IMAGE', url: k.imageUrl });
             });
         }
 
         if (config.officers && config.officers.length > 0 && config.officersEnabled !== false) {
-            playlist.push({ type: 'OFFICERS' });
+            list.push({ type: 'OFFICERS' });
         }
 
         if (config.finance && config.finance.enabled !== false) {
-            playlist.push({ type: 'FINANCE' });
+            list.push({ type: 'FINANCE' });
         }
 
         if (isStreamingEnabled && config.videoStreaming?.showInSlideshow) {
-            playlist.push({ type: 'STREAM' });
+            list.push({ type: 'STREAM' });
         }
-    }
+
+        return list;
+    }, [
+        config.sliderImages,
+        config.jumat,
+        config.jumatEnabled,
+        config.kajian,
+        config.officers,
+        config.officersEnabled,
+        config.finance,
+        config.videoStreaming,
+        activeJumat,
+        isStreamingEnabled,
+        isStreamingOnly,
+    ]);
 
     const [bgImage, setBgImage] = useState<string>(config.sliderImages?.[0] || '');
-    const iframeRef = useRef<HTMLIFrameElement>(null);
 
     // YouTube JS API Control
     useEffect(() => {
+        const currentSlide = playlist[currentIndex];
         if (currentSlide?.type !== 'STREAM' || !iframeRef.current) return;
         
         const manualMuted = config.videoStreaming?.muted ?? false;
         const manualPaused = config.videoStreaming?.paused ?? false;
         const finalMuted = isMuted || manualMuted;
 
-        // Send commands via postMessage (YouTube IFrame API)
         const sendCommand = (func: string, args: any[] = []) => {
             if (iframeRef.current?.contentWindow) {
                 iframeRef.current.contentWindow.postMessage(JSON.stringify({
                     event: 'command',
-                    func: func,
-                    args: args
+                    func,
+                    args
                 }), '*');
             }
         };
@@ -113,7 +123,7 @@ export const InfoSlider = ({ config, isMuted = false }: InfoSliderProps) => {
         if (finalMuted) sendCommand('mute'); else sendCommand('unMute');
         if (manualPaused) sendCommand('pauseVideo'); else sendCommand('playVideo');
 
-    }, [isMuted, config.videoStreaming?.muted, config.videoStreaming?.paused, currentIndex]);
+    }, [isMuted, config.videoStreaming?.muted, config.videoStreaming?.paused, currentIndex, playlist]);
 
     useEffect(() => {
         if (playlist.length === 0) return;
@@ -133,7 +143,7 @@ export const InfoSlider = ({ config, isMuted = false }: InfoSliderProps) => {
         }, duration);
 
         return () => clearInterval(timer);
-    }, [playlist.length, currentIndex, config.videoStreaming?.durationMinutes, config.sliderImages]);
+    }, [playlist, currentIndex, config.videoStreaming?.durationMinutes]);
 
     if (playlist.length === 0) return null;
 
@@ -142,40 +152,41 @@ export const InfoSlider = ({ config, isMuted = false }: InfoSliderProps) => {
 
     return (
         <div className="w-full h-full relative overflow-hidden bg-zinc-950">
-            {/* Background Layer */}
-            <div className="absolute inset-0 z-0">
-                <AnimatePresence mode="wait">
-                    <motion.div
-                        key={bgImage}
-                        className="absolute inset-0 w-full h-full"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.5 }}
-                    >
-                        {bgImage ? (
-                            <img
-                                src={resolveUrl(bgImage)}
-                                className="w-full h-full object-cover"
-                                alt="Background"
-                            />
-                        ) : (
-                            <div className="w-full h-full bg-slate-900" />
-                        )}
-                        {/* Dynamic Overlay Color */}
-                        <div className="absolute inset-0 transition-all duration-1000" 
-                             style={{ 
-                                 backgroundColor: isInfoSlide 
-                                    ? (adv?.slideshowOverlayColor || 'rgba(0,0,0,0.8)') 
-                                    : 'transparent',
-                                 filter: isInfoSlide ? 'blur(2px)' : 'none'
-                             }} 
+            {/* Background Layer — single AnimatePresence, no heavy blur */}
+            <AnimatePresence mode="wait">
+                <motion.div
+                    key={bgImage}
+                    className="absolute inset-0 w-full h-full"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.5 }}
+                >
+                    {bgImage ? (
+                        <img
+                            src={resolveUrl(bgImage)}
+                            className="w-full h-full object-cover"
+                            alt="Background"
+                            loading="eager"
+                            decoding="async"
+                            fetchPriority="high"
                         />
-                    </motion.div>
-                </AnimatePresence>
-            </div>
+                    ) : (
+                        <div className="w-full h-full bg-slate-900" />
+                    )}
+                    {/* Overlay — use background-color only (no blur) for GPU savings */}
+                    <div
+                        className="absolute inset-0 transition-all duration-1000"
+                        style={{
+                            backgroundColor: isInfoSlide
+                                ? (adv?.slideshowOverlayColor || 'rgba(0,0,0,0.8)')
+                                : 'transparent',
+                        }}
+                    />
+                </motion.div>
+            </AnimatePresence>
 
-            {/* Content Layer */}
+            {/* Content Layer — only animate slide content, not the background again */}
             <div className="absolute inset-0 z-10 flex items-center justify-center">
                 <AnimatePresence mode="wait">
                     {currentSlide.type === 'JUMAT' && (
@@ -197,7 +208,7 @@ export const InfoSlider = ({ config, isMuted = false }: InfoSliderProps) => {
                                     { label: 'Imam', val: currentSlide.data.imam },
                                     { label: 'Muadzin', val: currentSlide.data.muadzin },
                                 ].map((item, idx) => (
-                                    <div key={idx} className="bg-white/10 backdrop-blur-xl border border-white/20 p-8 rounded-3xl text-center shadow-2xl">
+                                    <div key={idx} className="bg-white/10 backdrop-blur-sm border border-white/20 p-8 rounded-3xl text-center shadow-2xl">
                                         <p className="text-emerald-300 text-sm font-bold uppercase mb-2 tracking-widest">{item.label}</p>
                                         <p className="text-3xl font-black text-white">{item.val || '-'}</p>
                                     </div>
@@ -218,7 +229,7 @@ export const InfoSlider = ({ config, isMuted = false }: InfoSliderProps) => {
                             <h3 className="text-4xl font-black text-white mb-10 uppercase tracking-widest drop-shadow-lg">✨ Jadwal Kajian Rutin ✨</h3>
                             <div className="grid grid-cols-2 gap-6 w-full max-h-[70vh] overflow-y-auto px-4">
                                 {(config.kajian?.schedule || []).map((kj: any, idx: number) => (
-                                    <div key={idx} className="bg-black/30 backdrop-blur-xl border border-white/10 p-6 rounded-3xl flex gap-6 items-center shadow-xl">
+                                    <div key={idx} className="bg-black/30 backdrop-blur-sm border border-white/10 p-6 rounded-3xl flex gap-6 items-center shadow-xl">
                                         <div className="bg-emerald-500/20 w-24 h-24 rounded-2xl flex flex-col items-center justify-center text-emerald-300">
                                             <span className="text-xs font-bold uppercase">{kj.day}</span>
                                             <span className="text-lg font-black">{kj.time}</span>
@@ -245,7 +256,7 @@ export const InfoSlider = ({ config, isMuted = false }: InfoSliderProps) => {
                             <h3 className="text-4xl font-black text-emerald-400 mb-10 uppercase tracking-widest">Petugas Masjid</h3>
                             <div className="grid grid-cols-2 gap-6 w-full">
                                 {config.officers.map((off, idx) => (
-                                    <div key={idx} className="bg-black/30 backdrop-blur-xl border border-white/10 p-6 rounded-3xl flex flex-col shadow-xl">
+                                    <div key={idx} className="bg-black/30 backdrop-blur-sm border border-white/10 p-6 rounded-3xl flex flex-col shadow-xl">
                                         <span className="text-xs text-emerald-300 font-bold uppercase tracking-widest opacity-70">{off.role}</span>
                                         <span className="text-3xl font-black text-white">{off.name}</span>
                                     </div>
@@ -265,7 +276,7 @@ export const InfoSlider = ({ config, isMuted = false }: InfoSliderProps) => {
                         >
                             <div className="grid grid-cols-12 gap-10 items-center">
                                 <div className="col-span-12 lg:col-span-5 text-center">
-                                    <div className="bg-emerald-600/30 backdrop-blur-2xl p-12 rounded-[3.5rem] border border-emerald-400/30 shadow-2xl">
+                                    <div className="bg-emerald-600/30 backdrop-blur-sm p-12 rounded-[3.5rem] border border-emerald-400/30 shadow-2xl">
                                         <p className="text-emerald-200 text-sm font-bold uppercase tracking-widest mb-2">Total Saldo Kas</p>
                                         <p className="text-6xl font-black text-white tracking-tighter">
                                             Rp {(config.finance.totalBalance || 0).toLocaleString('id-ID')}
@@ -275,7 +286,7 @@ export const InfoSlider = ({ config, isMuted = false }: InfoSliderProps) => {
                                 </div>
                                 <div className="col-span-12 lg:col-span-7 space-y-4">
                                     {config.finance.accounts?.slice(0, 4).map((acc: any, idx: number) => (
-                                        <div key={idx} className="bg-black/30 backdrop-blur-xl border border-white/10 p-6 rounded-3xl flex justify-between items-center">
+                                        <div key={idx} className="bg-black/30 backdrop-blur-sm border border-white/10 p-6 rounded-3xl flex justify-between items-center">
                                             <div>
                                                 <h4 className="text-2xl font-black text-white uppercase">{acc.name}</h4>
                                                 <p className="text-xs text-emerald-400 font-bold tracking-widest">SALDO AKHIR</p>
@@ -314,4 +325,6 @@ export const InfoSlider = ({ config, isMuted = false }: InfoSliderProps) => {
             </div>
         </div>
     );
-};
+});
+
+InfoSlider.displayName = 'InfoSlider';

@@ -22,7 +22,12 @@ export const AudioPlayer = ({ url, playlist, isPlaying, onStop, onBlocked, playb
     const [isPaused, setIsPaused] = useState(false);
     const [loadError, setLoadError] = useState<string | null>(null);
     const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
-    const lastTimeRef = useRef(0); // throttle timeupdate
+    const lastTimeRef = useRef(0);
+
+    // Internal refs to track actual audio state without triggering re-renders
+    const isPlayingRef = useRef(false);
+    const isPausedRef = useRef(false);
+    const currentSrcRef = useRef('');
 
     // Remote Control Effect
     useEffect(() => {
@@ -52,27 +57,81 @@ export const AudioPlayer = ({ url, playlist, isPlaying, onStop, onBlocked, playb
     }, [playlist?.id, playlist?.targetDevices]);
 
     const effectiveIsPlaying = isPlaying && isTargetDevice;
-    useEffect(() => { setIsPaused(!effectiveIsPlaying); }, [effectiveIsPlaying]);
-    useEffect(() => { setLoadError(null); }, [effectiveUrl, effectiveIsPlaying]);
 
-    // Playback control
+    // Sync isPaused state when effectiveIsPlaying changes
     useEffect(() => {
-        if (!audioRef.current || !effectiveUrl) return;
+        if (!effectiveIsPlaying) {
+            setIsPaused(true);
+        }
+        // Don't auto-resume paused state when effectiveIsPlaying becomes true —
+        // that is handled by the playback control effect below.
+    }, [effectiveIsPlaying]);
+
+    // Clear error when src changes
+    useEffect(() => { setLoadError(null); }, [effectiveUrl]);
+
+    // ─── CORE PLAYBACK CONTROL ───────────────────────────────────────────────
+    // This effect ONLY runs when the audio source (URL/track) changes.
+    // It loads the new src and immediately plays if we should be playing.
+    useEffect(() => {
+        const audio = audioRef.current;
+        if (!audio || !effectiveUrl) return;
+
+        // Only reload if the src actually changed — prevents glitch on unrelated re-renders
+        if (currentSrcRef.current !== effectiveUrl) {
+            currentSrcRef.current = effectiveUrl;
+            audio.src = effectiveUrl;
+            audio.load();
+        }
+
+        // After loading, decide whether to play based on current state
         if (effectiveIsPlaying && !isPaused) {
-            const p = audioRef.current.play();
-            p?.then(() => onBlocked?.(false))
-              .catch(err => {
-                  if (err.name === 'NotAllowedError') onBlocked?.(true);
-                  else setLoadError(err.message);
-              });
+            const p = audio.play();
+            p?.then(() => {
+                isPlayingRef.current = true;
+                onBlocked?.(false);
+            }).catch(err => {
+                if (err.name === 'NotAllowedError') onBlocked?.(true);
+                else setLoadError(err.message);
+            });
         } else {
-            audioRef.current.pause();
+            audio.pause();
+            isPlayingRef.current = false;
             if (!isPlaying) {
                 if (playlist) setCurrentTrackIndex(0);
-                audioRef.current.currentTime = 0;
+                audio.currentTime = 0;
             }
         }
-    }, [isPlaying, isPaused, effectiveUrl, playlist]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [effectiveUrl]); // ← Only re-run when src changes. Play/pause handled separately below.
+
+    // ─── PLAY / PAUSE TOGGLE ─────────────────────────────────────────────────
+    // Separate effect that ONLY handles play/pause transitions without reloading src.
+    useEffect(() => {
+        const audio = audioRef.current;
+        if (!audio || !effectiveUrl) return;
+
+        const shouldPlay = effectiveIsPlaying && !isPaused;
+
+        if (shouldPlay && !isPlayingRef.current) {
+            const p = audio.play();
+            p?.then(() => {
+                isPlayingRef.current = true;
+                onBlocked?.(false);
+            }).catch(err => {
+                if (err.name === 'NotAllowedError') onBlocked?.(true);
+                else setLoadError(err.message);
+            });
+        } else if (!shouldPlay && isPlayingRef.current) {
+            audio.pause();
+            isPlayingRef.current = false;
+            if (!isPlaying) {
+                if (playlist) setCurrentTrackIndex(0);
+                audio.currentTime = 0;
+            }
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [effectiveIsPlaying, isPaused]); // ← Only re-run on play/pause state change.
 
     const handleNext = useCallback(() => {
         if (!playlist) return;
@@ -105,23 +164,34 @@ export const AudioPlayer = ({ url, playlist, isPlaying, onStop, onBlocked, playb
             const msgs: Record<number, string> = { 1: 'Aborted', 2: 'Network Error', 3: 'Decode Error', 4: 'Not Supported' };
             setLoadError(`[${err.code}] ${msgs[err.code] || 'Unknown'}`);
         };
+        // Track when browser actually starts/stops playing
+        const handlePlay = () => { isPlayingRef.current = true; };
+        const handlePause = () => { isPlayingRef.current = false; };
 
         audio.addEventListener('timeupdate', handleTimeUpdate);
         audio.addEventListener('durationchange', handleDuration);
         audio.addEventListener('ended', handleEnded);
         audio.addEventListener('error', handleError);
+        audio.addEventListener('play', handlePlay);
+        audio.addEventListener('pause', handlePause);
         return () => {
             audio.removeEventListener('timeupdate', handleTimeUpdate);
             audio.removeEventListener('durationchange', handleDuration);
             audio.removeEventListener('ended', handleEnded);
             audio.removeEventListener('error', handleError);
+            audio.removeEventListener('play', handlePlay);
+            audio.removeEventListener('pause', handlePause);
         };
-    }, [onStop, effectiveUrl, playlist, handleNext]);
+    }, [onStop, playlist, handleNext]);
 
-    // Heartbeat — increased to 10s to reduce API load
+    // Heartbeat — 10s interval
     useEffect(() => {
         if (!isPlaying) return;
         const key = new URLSearchParams(window.location.search).get('key') || 'default';
+
+        // Use refs for currentTime/duration inside interval to avoid re-registering every second
+        const currentTimeRef = { current: currentTime };
+        const durationRef = { current: duration };
 
         const report = () => {
             fetch(`/api/audio/active-status?key=${key}`, {
@@ -130,15 +200,15 @@ export const AudioPlayer = ({ url, playlist, isPlaying, onStop, onBlocked, playb
                 body: JSON.stringify({
                     isPlaying: true,
                     title: currentTitle,
-                    currentTime,
-                    duration,
+                    currentTime: currentTimeRef.current,
+                    duration: durationRef.current,
                     playlistId: playlist?.id,
                 }),
             }).then(r => r.json()).then(d => { if (d.command) onCommand?.(d.command); }).catch(() => {});
         };
 
         report();
-        const interval = setInterval(report, 10000); // was 5s → now 10s
+        const interval = setInterval(report, 10000);
         return () => {
             clearInterval(interval);
             fetch(`/api/audio/active-status?key=${key}`, {
@@ -147,7 +217,13 @@ export const AudioPlayer = ({ url, playlist, isPlaying, onStop, onBlocked, playb
                 body: JSON.stringify({ isPlaying: false, currentTime: 0, duration: 0 }),
             }).catch(() => {});
         };
-    }, [isPlaying, currentTitle, playlist?.id]); // removed currentTime/duration from deps → no re-register every second
+    }, [isPlaying, currentTitle, playlist?.id]); // currentTime/duration intentionally excluded
+
+    // Keep ref in sync for heartbeat (without re-registering the interval)
+    const currentTimeForHeartbeat = useRef(currentTime);
+    const durationForHeartbeat = useRef(duration);
+    useEffect(() => { currentTimeForHeartbeat.current = currentTime; }, [currentTime]);
+    useEffect(() => { durationForHeartbeat.current = duration; }, [duration]);
 
     // Keyboard shortcuts
     useEffect(() => {
@@ -169,7 +245,8 @@ export const AudioPlayer = ({ url, playlist, isPlaying, onStop, onBlocked, playb
 
     return (
         <div className="fixed bottom-10 left-6 z-[100] pointer-events-none">
-            <audio ref={audioRef} src={effectiveUrl} preload="auto" />
+            {/* Audio element: src is now managed imperatively via ref, not as a reactive prop */}
+            <audio ref={audioRef} preload="auto" />
 
             {isPlaying && (
                 <div

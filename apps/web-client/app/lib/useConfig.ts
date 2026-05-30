@@ -70,9 +70,10 @@ interface UseConfigResult {
  * useConfig: Fetches and caches mosque config with automatic background refresh.
  *
  * - Cache TTL: 30 seconds (HTTP request fired only on stale cache)
- * - Poll interval: 5 seconds (cheap cache check)
+ * - Poll interval: 30 seconds (matches cache TTL)
  * - De-duplicates concurrent fetches
- * - Returns lastUpdated timestamp for display
+ * - Guards setConfig & localStorage write behind version check to prevent
+ *   unnecessary re-renders and I/O when config hasn't changed
  */
 export function useConfig(mosqueKey: string | null): UseConfigResult {
     const [config, setConfig] = useState<MosqueConfig>(DEFAULT_CONFIG);
@@ -81,6 +82,8 @@ export function useConfig(mosqueKey: string | null): UseConfigResult {
     const [lastUpdated, setLastUpdated] = useState<number | null>(null);
 
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    // Track last applied version to avoid redundant setConfig calls
+    const appliedVersionRef = useRef<number | null>(null);
 
     // Initialize config from localStorage immediately on mount
     useEffect(() => {
@@ -90,7 +93,7 @@ export function useConfig(mosqueKey: string | null): UseConfigResult {
             if (cachedStr) {
                 const cachedConfig = JSON.parse(cachedStr);
                 setConfig(cachedConfig);
-                // We don't set isOffline=true here yet, we wait for the first network attempt
+                appliedVersionRef.current = cachedConfig.version ?? null;
             }
         } catch (e) {
             console.warn('Failed to parse offline config from localStorage', e);
@@ -117,13 +120,23 @@ export function useConfig(mosqueKey: string | null): UseConfigResult {
                 return;
             }
 
-            // Save to localStorage for offline usage
+            // ── Version guard: skip setConfig & localStorage write if nothing changed ──
+            const incomingVersion = data.version ?? null;
+            if (!forceRefresh && incomingVersion !== null && incomingVersion === appliedVersionRef.current) {
+                // Config hasn't changed — update offline indicator only
+                setIsOffline(false);
+                setIsLoading(false);
+                return;
+            }
+
+            // Save to localStorage for offline usage (only when version changes)
             try {
                 localStorage.setItem(`offlineConfig_${mosqueKey}`, JSON.stringify(data));
             } catch (e) {
                 console.warn('Failed to save offline config to localStorage', e);
             }
 
+            appliedVersionRef.current = incomingVersion;
             setConfig(data);
             setIsOffline(false);
             setLastUpdated(Date.now());
