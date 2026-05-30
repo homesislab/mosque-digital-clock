@@ -161,6 +161,28 @@ export function useConfig(mosqueKey: string | null): UseConfigResult {
         };
     }, [mosqueKey, load]);
 
+    // Auto-refresh config when network comes back online
+    useEffect(() => {
+        if (!mosqueKey) return;
+
+        const handleOnline = () => {
+            console.log('[useConfig] Network restored — forcing config refresh...');
+            load(true); // Force-refresh: bypass cache, fetch fresh data immediately
+        };
+
+        const handleOffline = () => {
+            console.log('[useConfig] Network lost — pausing config polling.');
+            setIsOffline(true);
+        };
+
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, [mosqueKey, load]);
+
     return {
         config,
         isLoading,

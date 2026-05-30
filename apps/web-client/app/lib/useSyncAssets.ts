@@ -120,43 +120,77 @@ export function useSyncAssets(config: MosqueConfig | null) {
         }
     }, [config, syncAssets]);
 
-    // SSE Real-time Listener
+    // SSE Real-time Listener — with exponential backoff & offline awareness
     useEffect(() => {
         const baseUrl = getApiBaseUrl();
         const mosqueKey = localStorage.getItem('mosqueKey') || 'default';
         const deviceId = localStorage.getItem('deviceId') || 'unknown';
         const sseUrl = `${baseUrl}/api/events?key=${mosqueKey}&deviceId=${deviceId}`;
 
+        let retryDelay = 5_000;          // Start at 5s
+        const MAX_DELAY = 60_000;        // Cap at 60s
+        let isDestroyed = false;
+
+        const scheduleReconnect = () => {
+            if (isDestroyed) return;
+
+            // If offline, don't hammer — wait for the browser online event instead
+            if (!navigator.onLine) {
+                console.log('[SSE] Offline detected — waiting for network before reconnect...');
+                window.addEventListener('online', connectOnce, { once: true });
+                return;
+            }
+
+            console.log(`[SSE] Reconnecting in ${retryDelay / 1000}s...`);
+            reconnectTimeoutRef.current = setTimeout(() => {
+                retryDelay = Math.min(retryDelay * 2, MAX_DELAY); // exponential backoff
+                connect();
+            }, retryDelay);
+        };
+
         const connect = () => {
+            if (isDestroyed) return;
             if (eventSourceRef.current) eventSourceRef.current.close();
-            
+
             console.log('[SSE] Connecting to', sseUrl);
             const es = new EventSource(sseUrl);
             eventSourceRef.current = es;
+
+            es.onopen = () => {
+                retryDelay = 5_000; // Reset backoff on successful connection
+                console.log('[SSE] Connected.');
+            };
 
             es.onmessage = (event) => {
                 try {
                     const data: SyncEvent = JSON.parse(event.data);
                     if (data.type === 'CONFIG_UPDATED') {
-                        console.log('[SSE] Update detected. Refreshing config...');
+                        console.log('[SSE] Config update detected. Refreshing...');
                         window.dispatchEvent(new CustomEvent('config-refresh-needed'));
                     }
                 } catch (e) {}
             };
 
             es.onerror = () => {
-                console.warn('[SSE] EventSource failed. Reconnecting in 5s...');
                 es.close();
                 if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
-                reconnectTimeoutRef.current = setTimeout(connect, 5000);
+                scheduleReconnect();
             };
+        };
+
+        // Wrapper for the online event listener (used once when back online)
+        const connectOnce = () => {
+            retryDelay = 5_000; // Reset backoff when coming back online
+            connect();
         };
 
         connect();
 
         return () => {
+            isDestroyed = true;
             if (eventSourceRef.current) eventSourceRef.current.close();
             if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+            window.removeEventListener('online', connectOnce);
         };
     }, []);
 
