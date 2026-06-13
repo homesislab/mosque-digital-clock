@@ -1939,6 +1939,7 @@ function MediaPickerModal({
 function GallerySection({ config, setConfig, updateConfig, mosqueKey }: any) {
   const gallery = config.gallery || [];
   const [uploading, setUploading] = useState(false);
+  const [uploadItems, setUploadItems] = useState<{ name: string; progress: number; status: 'pending' | 'uploading' | 'done' | 'error' }[]>([]);
   const [playingUrl, setPlayingUrl] = useState<string | null>(null);
   const [previewAudio, setPreviewAudio] = useState<HTMLAudioElement | null>(null);
 
@@ -1973,14 +1974,25 @@ function GallerySection({ config, setConfig, updateConfig, mosqueKey }: any) {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
+    const fileArr = Array.from(files) as File[];
     setUploading(true);
+    setUploadItems(fileArr.map((f) => ({ name: f.name, progress: 0, status: 'pending' as const })));
     try {
       const { uploadFileChunked } = await import('./lib/upload-utils');
       const newUrls: string[] = [];
 
-      for (let i = 0; i < files.length; i++) {
-        const url = await uploadFileChunked(files[i], mosqueKey);
-        if (url) newUrls.push(url);
+      for (let i = 0; i < fileArr.length; i++) {
+        setUploadItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, status: 'uploading' } : it)));
+        try {
+          const url = await uploadFileChunked(fileArr[i], mosqueKey, (progress) => {
+            setUploadItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, progress } : it)));
+          });
+          if (url) newUrls.push(url);
+          setUploadItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, progress: 100, status: 'done' } : it)));
+        } catch (itemErr: any) {
+          setUploadItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, status: 'error' } : it)));
+          throw itemErr;
+        }
       }
 
       if (newUrls.length > 0) {
@@ -1994,6 +2006,8 @@ function GallerySection({ config, setConfig, updateConfig, mosqueKey }: any) {
     } finally {
       setUploading(false);
       e.target.value = '';
+      // Biarkan status 100%/Gagal terlihat sejenak, lalu bersihkan daftar.
+      setTimeout(() => setUploadItems([]), 2000);
     }
   };
 
@@ -2010,6 +2024,28 @@ function GallerySection({ config, setConfig, updateConfig, mosqueKey }: any) {
             <span className="text-sm font-bold uppercase tracking-widest">{uploading ? 'Sedang Mengunggah...' : 'Klik untuk Upload Gambar / Audio Baru'}</span>
             <input type="file" hidden accept="image/*,audio/*,.mp3,.m4a,.aac,.ogg,.wav,.flac,.opus,.wma" onChange={handleUpload} disabled={uploading} multiple />
           </label>
+
+          {/* Per-item upload progress */}
+          {uploadItems.length > 0 && (
+            <div className="mt-4 space-y-2">
+              {uploadItems.map((it, idx) => (
+                <div key={idx} className="bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <span className="text-xs font-medium text-slate-600 dark:text-slate-300 truncate">{it.name}</span>
+                    <span className={`text-[11px] font-mono tabular-nums shrink-0 ${it.status === 'error' ? 'text-red-500' : it.status === 'done' ? 'text-emerald-600' : 'text-slate-400'}`}>
+                      {it.status === 'error' ? 'Gagal' : it.status === 'done' ? 'Selesai' : it.status === 'pending' ? 'Menunggu' : `${it.progress}%`}
+                    </span>
+                  </div>
+                  <div className="h-1.5 w-full rounded-full bg-slate-200 dark:bg-white/10 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${it.status === 'error' ? 'bg-red-500' : 'bg-emerald-500'}`}
+                      style={{ width: `${it.progress}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* IMAGE GALLERY */}
