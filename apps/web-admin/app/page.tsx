@@ -10,7 +10,7 @@ import {
   Clock, Image as ImageIcon, MessageSquare, Users,
   Wallet, Settings, Settings2, ChevronRight, UploadCloud,
   Music, Library, Plus, Moon, Sun, Menu, X, Play, Pause, Square, PlayCircle, XCircle, AlarmCheck, Sliders, Smartphone, Activity, Calendar,
-  LogIn, Send, LayoutGrid, List, Power, Monitor, Video, Volume2, VolumeX
+  LogIn, Send, LayoutGrid, List, Power, Monitor, Video, Volume2, VolumeX, Search, Check
 } from 'lucide-react';
 import { useLogger } from './hooks/useLogger';
 import { PrayerTimesCard } from '@/components/PrayerTimesCard';
@@ -791,6 +791,42 @@ function PlaybackRemoteControl({ config, setConfig, onSave, status, className = 
 function DashboardOverview({ config, setActiveTab, updateConfig, onSave, status }: { config: MosqueConfig, setActiveTab: (tab: Tab) => void, updateConfig: any, onSave: any, status?: AudioActiveStatus | null }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Health Bar — ringkasan status (flat, klik untuk lompat ke menu) */}
+      <div className="md:col-span-2 bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-slate-100">
+          <button onClick={() => setActiveTab('media')} className="flex items-center gap-3 p-4 text-left hover:bg-slate-50 transition">
+            <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${status?.isPlaying ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+              <Activity size={18} />
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Audio</div>
+              <div className={`text-sm font-bold ${status?.isPlaying ? 'text-emerald-600' : 'text-slate-600'}`}>{status?.isPlaying ? 'LIVE' : 'IDLE'}</div>
+            </div>
+          </button>
+          <button onClick={() => setActiveTab('prayer')} className="flex items-center gap-3 p-4 text-left hover:bg-slate-50 transition">
+            <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center"><MapPin size={18} /></div>
+            <div className="min-w-0">
+              <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Kota Jadwal</div>
+              <div className="text-sm font-bold text-slate-700 truncate">{config?.prayerTimes?.cityName || config?.prayerTimes?.cityId || '—'}</div>
+            </div>
+          </button>
+          <button onClick={() => setActiveTab('media')} className="flex items-center gap-3 p-4 text-left hover:bg-slate-50 transition">
+            <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-500 flex items-center justify-center"><ImageIcon size={18} /></div>
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Slide Aktif</div>
+              <div className="text-sm font-bold text-slate-700">{(config?.sliderImages?.length || 0)}</div>
+            </div>
+          </button>
+          <button onClick={() => setActiveTab('gallery')} className="flex items-center gap-3 p-4 text-left hover:bg-slate-50 transition">
+            <div className="w-9 h-9 rounded-lg bg-purple-50 text-purple-500 flex items-center justify-center"><Library size={18} /></div>
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Item Galeri</div>
+              <div className="text-sm font-bold text-slate-700">{(config?.gallery?.length || 0)}</div>
+            </div>
+          </button>
+        </div>
+      </div>
+
       {/* Mosque Info Card */}
       <div
         onClick={() => setActiveTab('identity')}
@@ -989,6 +1025,157 @@ function IdentitySection({ config, setConfig, updateConfig, onPickLogo, mosqueKe
 }
 
 
+function CityPicker({ config, setConfig, onSave }: any) {
+  const MYQURAN_BASE = 'https://api.myquran.com/v2';
+  const [keyword, setKeyword] = useState('');
+  const [results, setResults] = useState<{ id: string; lokasi: string }[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchErr, setSearchErr] = useState('');
+  const [jadwal, setJadwal] = useState<any | null>(null);
+  const [loadingJadwal, setLoadingJadwal] = useState(false);
+  const [jadwalErr, setJadwalErr] = useState('');
+
+  const cityId = config?.prayerTimes?.cityId || '';
+  const cityName = config?.prayerTimes?.cityName || '';
+
+  const searchCity = async () => {
+    const kw = keyword.trim();
+    if (kw.length < 3) { setSearchErr('Ketik minimal 3 huruf nama kota.'); return; }
+    setSearching(true); setSearchErr(''); setResults([]);
+    try {
+      const res = await fetch(`${MYQURAN_BASE}/sholat/kota/cari/${encodeURIComponent(kw)}`);
+      const json = await res.json();
+      const data = Array.isArray(json?.data) ? json.data : [];
+      setResults(data);
+      if (data.length === 0) setSearchErr('Kota tidak ditemukan. Coba kata kunci lain.');
+    } catch {
+      setSearchErr('Gagal memuat daftar kota. Periksa koneksi internet perangkat ini.');
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const selectCity = (c: { id: string; lokasi: string }) => {
+    const next = { ...config, prayerTimes: { ...config.prayerTimes, cityId: c.id, cityName: c.lokasi } };
+    setConfig(next);
+    onSave?.(next);
+    setResults([]);
+    setKeyword('');
+    setJadwal(null);
+  };
+
+  const loadPreview = async () => {
+    if (!cityId) { setJadwalErr('Pilih kota terlebih dahulu.'); return; }
+    setLoadingJadwal(true); setJadwalErr(''); setJadwal(null);
+    try {
+      const d = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const url = `${MYQURAN_BASE}/sholat/jadwal/${cityId}/${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())}`;
+      const res = await fetch(url);
+      const json = await res.json();
+      const j = json?.data?.jadwal;
+      if (!j) { setJadwalErr('Jadwal tidak tersedia untuk kota ini.'); return; }
+      setJadwal(j);
+    } catch {
+      setJadwalErr('Gagal memuat jadwal. Periksa koneksi internet perangkat ini.');
+    } finally {
+      setLoadingJadwal(false);
+    }
+  };
+
+  const jadwalRows: [string, string][] = jadwal ? [
+    ['Imsak', jadwal.imsak], ['Subuh', jadwal.subuh], ['Terbit', jadwal.terbit],
+    ['Dzuhur', jadwal.dzuhur], ['Ashar', jadwal.ashar], ['Maghrib', jadwal.maghrib], ['Isya', jadwal.isya],
+  ] : [];
+
+  return (
+    <SectionCard title="Kota Jadwal Sholat (Sumber Pusat / myQuran)">
+      <div className="space-y-5">
+        <div className="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-100 rounded-lg">
+          <MapPin size={16} className="text-emerald-600 shrink-0" />
+          <div className="text-sm">
+            <span className="text-slate-500">Kota aktif: </span>
+            <b className="text-emerald-700">{cityName || 'Belum dipilih'}</b>
+            {cityId && <span className="text-slate-400 font-mono ml-2">#{cityId}</span>}
+          </div>
+        </div>
+
+        <div>
+          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">Cari Kota / Kabupaten</label>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') searchCity(); }}
+                placeholder="Contoh: Jakarta, Bandung, Surabaya..."
+                className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-emerald-400"
+              />
+            </div>
+            <button
+              onClick={searchCity}
+              disabled={searching}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm font-semibold disabled:opacity-50"
+            >
+              {searching ? <RefreshCw size={16} className="animate-spin" /> : <Search size={16} />}
+              Cari
+            </button>
+          </div>
+          {searchErr && <p className="text-xs text-rose-500 mt-2">{searchErr}</p>}
+        </div>
+
+        {results.length > 0 && (
+          <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-60 overflow-auto">
+            {results.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => selectCity(c)}
+                className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-sm text-left hover:bg-emerald-50 transition"
+              >
+                <span className="flex items-center gap-2 text-slate-700">
+                  <MapPin size={14} className="text-emerald-500" /> {c.lokasi}
+                </span>
+                {config?.prayerTimes?.cityId === c.id
+                  ? <Check size={16} className="text-emerald-600" />
+                  : <ChevronRight size={16} className="text-slate-300" />}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="pt-4 border-t border-slate-100">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+              <Calendar size={12} /> Preview Jadwal Hari Ini
+            </p>
+            <button
+              onClick={loadPreview}
+              disabled={loadingJadwal || !cityId}
+              className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition text-xs font-semibold disabled:opacity-50"
+            >
+              <RefreshCw size={14} className={loadingJadwal ? 'animate-spin' : ''} />
+              Muat Jadwal
+            </button>
+          </div>
+          {jadwalErr && <p className="text-xs text-rose-500">{jadwalErr}</p>}
+          {jadwalRows.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {jadwalRows.map(([label, time]) => (
+                <div key={label} className="bg-slate-50 border border-slate-100 rounded-lg px-3 py-2 text-center">
+                  <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">{label}</div>
+                  <div className="text-sm font-bold text-slate-700 tabular-nums">{time || '--:--'}</div>
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="text-[10px] text-slate-400 italic mt-2">Sumber: api.myquran.com (jadwal Kemenag). Pemilihan kota & preview butuh internet pada perangkat admin.</p>
+        </div>
+      </div>
+    </SectionCard>
+  );
+}
+
 function PrayerSection({ config, setConfig, onOpenPicker, onSave }: any) {
   return (
     <div className="space-y-6">
@@ -997,6 +1184,8 @@ function PrayerSection({ config, setConfig, onOpenPicker, onSave }: any) {
           <MapPin size={16} /> Lokasi masjid telah diatur di menu <b>Identitas & Lokasi</b>.
         </div>
       </SectionCard>
+
+      <CityPicker config={config} setConfig={setConfig} onSave={onSave} />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <SectionCard title="Koreksi Jam Global (Detik)">
@@ -1942,6 +2131,7 @@ function GallerySection({ config, setConfig, updateConfig, mosqueKey }: any) {
   const [uploadItems, setUploadItems] = useState<{ name: string; progress: number; status: 'pending' | 'uploading' | 'done' | 'error' }[]>([]);
   const [playingUrl, setPlayingUrl] = useState<string | null>(null);
   const [previewAudio, setPreviewAudio] = useState<HTMLAudioElement | null>(null);
+  const [dragOver, setDragOver] = useState(false);
 
   const AUDIO_EXTENSIONS = ['.mp3', '.m4a', '.aac', '.ogg', '.wav', '.flac', '.opus', '.wma'];
   const isAudio = (url: string) => AUDIO_EXTENSIONS.some(ext => url.toLowerCase().endsWith(ext));
@@ -1970,11 +2160,8 @@ function GallerySection({ config, setConfig, updateConfig, mosqueKey }: any) {
     }
   };
 
-  const handleUpload = async (e: any) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    const fileArr = Array.from(files) as File[];
+  const processFiles = async (fileArr: File[]) => {
+    if (!fileArr || fileArr.length === 0) return;
     setUploading(true);
     setUploadItems(fileArr.map((f) => ({ name: f.name, progress: 0, status: 'pending' as const })));
     try {
@@ -2005,9 +2192,25 @@ function GallerySection({ config, setConfig, updateConfig, mosqueKey }: any) {
       alert(`Gagal mengunggah: ${err.message}`);
     } finally {
       setUploading(false);
-      e.target.value = '';
       // Biarkan status 100%/Gagal terlihat sejenak, lalu bersihkan daftar.
       setTimeout(() => setUploadItems([]), 2000);
+    }
+  };
+
+  const handleUpload = async (e: any) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    await processFiles(Array.from(files) as File[]);
+    e.target.value = '';
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    if (uploading) return;
+    const dropped = e.dataTransfer?.files;
+    if (dropped && dropped.length > 0) {
+      processFiles(Array.from(dropped) as File[]);
     }
   };
 
@@ -2016,12 +2219,17 @@ function GallerySection({ config, setConfig, updateConfig, mosqueKey }: any) {
       <SectionCard title="Manajemen Galeri Media">
         {/* Upload Action */}
         <div className="mb-8">
-          <label className={`
-            w-full border-2 border-dashed border-slate-300 rounded-xl py-8 flex flex-col items-center justify-center text-slate-400 hover:text-emerald-600 hover:border-emerald-400 hover:bg-emerald-50 transition-all cursor-pointer group gap-2
+          <label
+            onDragOver={(e) => { e.preventDefault(); if (!uploading) setDragOver(true); }}
+            onDragLeave={(e) => { e.preventDefault(); setDragOver(false); }}
+            onDrop={handleDrop}
+            className={`
+            w-full border-2 border-dashed rounded-xl py-8 flex flex-col items-center justify-center transition-all cursor-pointer group gap-2
+            ${dragOver ? 'border-emerald-500 bg-emerald-50 text-emerald-600' : 'border-slate-300 text-slate-400 hover:text-emerald-600 hover:border-emerald-400 hover:bg-emerald-50'}
             ${uploading ? 'opacity-50 cursor-wait' : ''}
           `}>
-            {uploading ? <RefreshCw size={40} className="animate-spin" /> : <UploadCloud size={40} className="group-hover:scale-110 transition-transform" />}
-            <span className="text-sm font-bold uppercase tracking-widest">{uploading ? 'Sedang Mengunggah...' : 'Klik untuk Upload Gambar / Audio Baru'}</span>
+            {uploading ? <RefreshCw size={40} className="animate-spin" /> : <UploadCloud size={40} className={`transition-transform ${dragOver ? 'scale-110' : 'group-hover:scale-110'}`} />}
+            <span className="text-sm font-bold uppercase tracking-widest text-center px-2">{uploading ? 'Sedang Mengunggah...' : dragOver ? 'Lepaskan file untuk mengunggah' : 'Klik atau tarik & lepas file ke sini'}</span>
             <input type="file" hidden accept="image/*,audio/*,.mp3,.m4a,.aac,.ogg,.wav,.flac,.opus,.wma" onChange={handleUpload} disabled={uploading} multiple />
           </label>
 
