@@ -29,7 +29,11 @@ Thumbs.db
 apps/android-tv/java_pid*.hprof
 # Config and Uploads (Keep as template if needed, but ignore actual data for safety)
 # apps/web-admin/data/config.json
-# apps/web-admin/public/uploads/
+apps/web-admin/public/uploads/
 
 # WhatsApp session data (sensitive credentials — never commit)
 apps/web-admin/wa_auth_info/
+
+# Archives and Bundles
+*.zip
+*.bundle
