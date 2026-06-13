@@ -8,12 +8,21 @@ async function debugWabot() {
     const dbUrl = process.env.DATABASE_URL;
     console.log('DATABASE_URL:', dbUrl ? 'Found' : 'Missing');
 
-    const pool = mysql.createPool(dbUrl || {
-        host: 'mariadb_server', // Default inside docker network
-        user: 'mosque_user',
-        password: 'Moalnyaho135',
-        database: 'mosque-digitaldb',
-    });
+    // SECURITY: never keep fallback hardcoded credentials in source.
+    // Require DATABASE_URL (recommended) or explicit env vars.
+    if (!dbUrl && !process.env.DB_PASSWORD) {
+        throw new Error('Missing DATABASE_URL or DB_PASSWORD env var');
+    }
+
+    const pool = mysql.createPool(
+        dbUrl || {
+            host: process.env.DB_HOST || 'mariadb_server', // Default inside docker network
+            port: parseInt(process.env.DB_PORT || '3306', 10),
+            user: process.env.DB_USER || 'mosque_user',
+            password: process.env.DB_PASSWORD,
+            database: process.env.DB_NAME || 'mosque-digitaldb',
+        }
+    );
 
     try {
         const [rows] = await pool.query('SELECT mosque_key, config_json FROM mosque_configs');

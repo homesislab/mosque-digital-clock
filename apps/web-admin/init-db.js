@@ -6,10 +6,17 @@ async function initDb() {
     const dbUrl = process.env.DATABASE_URL;
     console.log('DATABASE_URL is', dbUrl ? 'DEFINED' : 'UNDEFINED');
 
+    // SECURITY: never keep fallback hardcoded credentials in source.
+    // Require DATABASE_URL (recommended) or explicit env vars.
+    if (!dbUrl && !process.env.DB_PASSWORD) {
+        throw new Error('Missing DATABASE_URL or DB_PASSWORD env var');
+    }
+
     const connectionConfig = dbUrl || {
-        host: 'localhost',
-        user: 'mosque_user',
-        password: 'Moalnyaho135',
+        host: process.env.DB_HOST || 'localhost',
+        port: parseInt(process.env.DB_PORT || '3306', 10),
+        user: process.env.DB_USER || 'mosque_user',
+        password: process.env.DB_PASSWORD,
     };
 
     const connection = await mysql.createConnection({

@@ -2,7 +2,9 @@
 const mysql = require('mysql2/promise');
 
 async function checkWabotUserTable() {
-    const connection = await mysql.createConnection('mysql://sisia_user:Moalnyaho135@localhost:3306/sisiadb');
+    const dbUrl = process.env.WABOT_DATABASE_URL || process.env.DATABASE_URL;
+    if (!dbUrl) throw new Error('Missing WABOT_DATABASE_URL (or DATABASE_URL) env var');
+    const connection = await mysql.createConnection(dbUrl);
     try {
         const [rows] = await connection.query('DESCRIBE User');
         console.log("User Table Description:");

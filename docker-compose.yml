@@ -8,7 +8,8 @@ services:
       - "3011:3001"
     restart: always
     environment:
-      - DATABASE_URL=mysql://mosque_user:Moalnyaho135@mariadb_server:3306/mosque-digitaldb
+      # SECURITY: never commit credentials. Provide DATABASE_URL via .env or shell.
+      - DATABASE_URL=${DATABASE_URL}
       - ADMIN_PASSWORD=admin123
       - NEXTAUTH_URL=https://mosque.homesislab.my.id
       - NEXT_PUBLIC_APP_URL=https://mosque.homesislab.my.id

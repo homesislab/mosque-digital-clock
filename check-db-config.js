@@ -1,7 +1,8 @@
 const mysql = require('mysql2/promise');
 
 async function checkConfig() {
-    const dbUrl = 'mysql://mosque_user:Moalnyaho135@mariadb_server:3306/mosque-digitaldb';
+    const dbUrl = process.env.DATABASE_URL;
+    if (!dbUrl) throw new Error('Missing DATABASE_URL env var');
     try {
         const connection = await mysql.createConnection(dbUrl);
         const [rows] = await connection.execute('SELECT config_json FROM mosque_configs LIMIT 1');

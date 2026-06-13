@@ -2,7 +2,10 @@ const mysql = require('mysql2/promise');
 // require('dotenv').config();
 
 async function fixDb() {
-    const dbUrl = process.env.DATABASE_URL || 'mysql://mosque_user:Moalnyaho135@localhost:3306/mosque-digitaldb';
+    const dbUrl = process.env.DATABASE_URL;
+    if (!dbUrl) {
+        throw new Error('Missing DATABASE_URL env var');
+    }
     console.log('Connecting to database...');
 
     const connection = await mysql.createConnection(dbUrl);

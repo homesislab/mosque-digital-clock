@@ -2,12 +2,9 @@
 const mysql = require('mysql2/promise');
 
 async function testConfig() {
-    const pool = mysql.createPool({
-        host: 'localhost',
-        user: 'mosque_user',
-        password: 'Moalnyaho135',
-        database: 'mosque-digitaldb',
-    });
+    const dbUrl = process.env.DATABASE_URL;
+    if (!dbUrl) throw new Error('Missing DATABASE_URL env var');
+    const pool = mysql.createPool(dbUrl);
 
     try {
         const [rows] = await pool.query('SELECT * FROM mosque_configs');

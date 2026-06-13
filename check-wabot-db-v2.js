@@ -3,7 +3,9 @@ const mysql = require('mysql2/promise');
 
 async function checkWabotUserTable() {
     // Using the container IP found via docker network inspect
-    const connection = await mysql.createConnection('mysql://sisia_user:Moalnyaho135@172.26.0.12:3306/sisiadb');
+    const dbUrl = process.env.WABOT_DATABASE_URL || process.env.DATABASE_URL;
+    if (!dbUrl) throw new Error('Missing WABOT_DATABASE_URL (or DATABASE_URL) env var');
+    const connection = await mysql.createConnection(dbUrl);
     try {
         const [rows] = await connection.query('DESCRIBE User');
         console.log("User Table Description:");
