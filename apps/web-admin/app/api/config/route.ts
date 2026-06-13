@@ -9,6 +9,7 @@ import { waService } from '@/lib/wa-service';
 import { withRateLimit } from '../../../lib/rate-limit';
 import { z } from 'zod';
 import { broadcaster } from '../../../lib/events';
+import { hydrateConfigWithNormalizedData, persistNormalizedData } from './db-helpers';
 
 // Basic sanitization: strip tags from string values (prevent XSS)
 function sanitizeString(value: string): string {
@@ -142,7 +143,8 @@ async function getConfig(key: string): Promise<MosqueConfig> {
             [key]
         );
         if (rows.length > 0) {
-            return JSON.parse(rows[0].config_json);
+            const baseConfig = JSON.parse(rows[0].config_json);
+            return await hydrateConfigWithNormalizedData(key, baseConfig);
         }
 
         // If not found, create with default
@@ -158,13 +160,31 @@ async function getConfig(key: string): Promise<MosqueConfig> {
 }
 
 async function saveConfig(key: string, config: MosqueConfig) {
+    const connection = await pool.getConnection();
     try {
-        await pool.query(
+        await connection.beginTransaction();
+
+        // Strip normalized data before saving to JSON blob
+        const jsonConfig = JSON.parse(JSON.stringify(config));
+        if (jsonConfig.finance) jsonConfig.finance.accounts = [];
+        jsonConfig.runningText = [];
+        jsonConfig.sliderImages = [];
+        jsonConfig.gallery = [];
+
+        await connection.query(
             'INSERT INTO mosque_configs (mosque_key, config_json) VALUES (?, ?) ON DUPLICATE KEY UPDATE config_json = VALUES(config_json)',
-            [key, JSON.stringify(config)]
+            [key, JSON.stringify(jsonConfig)]
         );
+
+        await persistNormalizedData(key, config, connection);
+
+        await connection.commit();
     } catch (error) {
+        await connection.rollback();
         console.error(`Error saving config for ${key}:`, error);
+        throw error;
+    } finally {
+        connection.release();
     }
 }
 
