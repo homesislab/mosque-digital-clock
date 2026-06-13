@@ -32,7 +32,10 @@ export function getPrayerTimes(config: MosqueConfig, date: Date = new Date()) {
     // Select method
     let method = CalculationMethod.Singapore(); // Default close to Indonesia
     if (config.prayerTimes.calculationMethod === 'Kemenag') {
-        method = CalculationMethod.Singapore();
+        const customMethod = CalculationMethod.Other();
+        customMethod.fajrAngle = 20;
+        customMethod.ishaAngle = 18;
+        method = customMethod;
     }
 
     const prayerTimes = new AdhanPrayerTimes(coordinates, date, method);
@@ -49,13 +52,15 @@ export function getPrayerTimes(config: MosqueConfig, date: Date = new Date()) {
     const imsakTime = addMin(subuhAdjusted, -imsakOffset);
 
     const isFriday = date.getDay() === 5;
-    const dhuhrAdjusted = addMin(prayerTimes.dhuhr, isFriday ? (adj.jumat ?? adj.dzuhur) : adj.dzuhur);
+    const dhuhrAdjusted = addMin(prayerTimes.dhuhr, adj.dzuhur);
+    const jumatAdjusted = addMin(prayerTimes.dhuhr, adj.jumat ?? adj.dzuhur);
 
     return {
         imsak: imsakTime,
         subuh: subuhAdjusted,
         syuruq: prayerTimes.sunrise,
-        [isFriday ? 'jumat' : 'dzuhur']: dhuhrAdjusted,
+        dzuhur: dhuhrAdjusted,
+        jumat: jumatAdjusted,
         ashar: addMin(prayerTimes.asr, adj.ashar),
         maghrib: addMin(prayerTimes.maghrib, adj.maghrib),
         isya: addMin(prayerTimes.isha, adj.isya),

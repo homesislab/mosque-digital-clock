@@ -9,7 +9,7 @@ export const DEFAULT_CONFIG: MosqueConfig = {
         theme: 'dark',
         showSeconds: true,
         showHijriDate: true,
-        timeOffset: 0,
+        timeOffset: 0, // in seconds
     },
     prayerTimes: {
         calculationMethod: 'Kemenag',
