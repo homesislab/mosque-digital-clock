@@ -13,6 +13,7 @@ export const DEFAULT_CONFIG: MosqueConfig = {
     },
     prayerTimes: {
         calculationMethod: 'Kemenag',
+        cityId: '1301', // DKI Jakarta (myQuran/Kemenag) — admin dapat ganti per kota
         coordinates: {
             lat: -6.2088, // Jakarta
             lng: 106.8456,
@@ -167,23 +168,10 @@ export async function fetchConfig(): Promise<MosqueConfig> {
 
         const config = await res.json();
 
-        // ── Version-based audio cache invalidation ─────────────────────────
-        // When config.version changes (admin saved new changes), clear audio-cache
-        // so updated/new audio files are re-fetched from server.
-        if (typeof config.version === 'number') {
-            const cachedVersion = localStorage.getItem('configVersion');
-            const newVersion = String(config.version);
-            if (cachedVersion !== null && cachedVersion !== newVersion) {
-                // Config changed — purge stale audio cache
-                if ('caches' in window) {
-                    caches.delete('audio-cache').then(() => {
-                        console.info(`[Cache] Config v${cachedVersion}→v${newVersion}: audio-cache cleared`);
-                    }).catch(() => {});
-                }
-            }
-            localStorage.setItem('configVersion', newVersion);
-        }
-        // ───────────────────────────────────────────────────────────────────
+        // NOTE: Cache audio/gambar dikelola sepenuhnya oleh useSyncAssets
+        // (sync + GC berbasis config.version). Hindari invalidasi ganda di sini
+        // supaya tidak ada jendela di mana audio terhapus sebelum sempat
+        // ter-download ulang (mis. saat waktu adzan & device sedang offline).
 
         // Background registration/heartbeat (fire and forget)
         fetch(`${baseUrl}/api/devices`, {
@@ -228,16 +216,33 @@ export async function fetchConfig(): Promise<MosqueConfig> {
 
 export function resolveUrl(url: string | undefined): string {
     if (!url) return '';
-    if (url.startsWith('http')) return url;
 
-    const key = typeof window !== 'undefined' ? localStorage.getItem('mosqueKey') : 'default';
+    // Sudah absolut (http/https/data/blob) — kembalikan apa adanya.
+    if (/^(https?:|data:|blob:)/i.test(url)) return url;
+
+    const key = (typeof window !== 'undefined' ? localStorage.getItem('mosqueKey') : null) || 'default';
     const origin = getApiBaseUrl();
 
-    let resolvedPath = url;
+    let path = url.startsWith('/') ? url : `/${url}`;
 
-    if (url.startsWith('/uploads/') && !url.startsWith(`/uploads/${key}/`)) {
-        resolvedPath = url.replace('/uploads/', `/uploads/${key}/`);
+    // Dukungan legacy: "/uploads/<file>" tanpa folder mosque-key -> sisipkan key.
+    // JANGAN sisipkan jika folder key sudah ada (mencegah /uploads/<key>/<key>/... -> 404).
+    if (path.startsWith('/uploads/')) {
+        const rest = path.slice('/uploads/'.length);
+        const firstSeg = rest.split('/')[0] || '';
+        // Heuristik: segmen pertama berupa nama file (mengandung titik/ekstensi)
+        // berarti path legacy tanpa key -> sisipkan mosque key saat ini.
+        if (firstSeg.includes('.')) {
+            path = `/uploads/${key}/${rest}`;
+        }
     }
 
-    return `${origin}${resolvedPath}`;
+    // Encode tiap segmen agar nama file dengan spasi, huruf Arab, '#', '&', '+',
+    // '%', '()' tetap resolve (bukan 404). Lewati segmen yang sudah ter-encode.
+    const encodedPath = path
+        .split('/')
+        .map((seg) => (seg && !/%[0-9A-Fa-f]{2}/.test(seg) ? encodeURIComponent(seg) : seg))
+        .join('/');
+
+    return `${origin}${encodedPath}`;
 }

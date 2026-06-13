@@ -56,6 +56,10 @@ export interface MosqueConfig {
     };
     prayerTimes: {
         calculationMethod: string;
+        /** myQuran (Kemenag) city id untuk jadwal solat harian dari pusat waktu shalat. */
+        cityId?: string;
+        /** Nama kota (informasi tampilan saja). */
+        cityName?: string;
         coordinates: {
             lat: number;
             lng: number;

@@ -9,7 +9,7 @@ import {
   Save, RefreshCw, LogOut, LayoutDashboard, MapPin,
   Clock, Image as ImageIcon, MessageSquare, Users,
   Wallet, Settings, Settings2, ChevronRight, UploadCloud,
-  Music, Library, Plus, Moon, Menu, X, Play, Pause, Square, PlayCircle, XCircle, AlarmCheck, Sliders, Smartphone, Activity, Calendar,
+  Music, Library, Plus, Moon, Sun, Menu, X, Play, Pause, Square, PlayCircle, XCircle, AlarmCheck, Sliders, Smartphone, Activity, Calendar,
   LogIn, Send, LayoutGrid, List, Power, Monitor, Video, Volume2, VolumeX
 } from 'lucide-react';
 import { useLogger } from './hooks/useLogger';
@@ -46,6 +46,24 @@ export default function AdminDashboard() {
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+
+  useEffect(() => {
+    try {
+      const saved = (localStorage.getItem('admin-theme') as 'light' | 'dark') || 'light';
+      setTheme(saved);
+      document.documentElement.setAttribute('data-theme', saved);
+    } catch { /* ignore */ }
+  }, []);
+
+  const toggleTheme = () => {
+    setTheme((prev) => {
+      const next = prev === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      try { localStorage.setItem('admin-theme', next); } catch { /* ignore */ }
+      return next;
+    });
+  };
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerType, setPickerType] = useState<'image' | 'audio' | 'any'>('any');
   const [pickerTarget, setPickerTarget] = useState<{ section: string, prayer?: string, playlistId?: string } | null>(null);
@@ -234,18 +252,18 @@ export default function AdminDashboard() {
 
       {/* Sidebar Navigation */}
       <aside className={`
-        fixed inset-y-0 left-0 w-64 bg-[#1a2744] flex flex-col z-50 transition-transform duration-300 transform
+        fixed inset-y-0 left-0 w-64 app-sidebar flex flex-col z-50 transition-transform duration-300 transform
         lg:relative lg:translate-x-0
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <div className="p-5 flex items-center justify-between border-b border-white/10">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 flex items-center justify-center">
-              <img src="/logo.svg?v=3" alt="Logo" className="w-8 h-8 rounded-lg" />
+            <div className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/10 brand-glow">
+              <img src="/logo.svg?v=3" alt="Logo" className="w-7 h-7 rounded-lg" />
             </div>
             <div>
-              <h1 className="font-bold text-white text-sm leading-tight">Smart Mosque</h1>
-              <p className="text-[10px] text-slate-400 font-medium">Digital Signage System</p>
+              <h1 className="font-extrabold text-white text-sm leading-tight tracking-tight">Smart Mosque</h1>
+              <p className="text-[10px] text-emerald-300/80 font-semibold uppercase tracking-widest">Digital Signage</p>
             </div>
           </div>
           <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-1.5 text-slate-400 hover:text-white rounded">
@@ -320,6 +338,14 @@ export default function AdminDashboard() {
           </div>
 
           <div className="flex items-center gap-2 lg:gap-4">
+            <button
+              onClick={toggleTheme}
+              className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200"
+              title={theme === 'dark' ? 'Mode Terang' : 'Mode Gelap'}
+              aria-label="Toggle theme"
+            >
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
             <div className="hidden md:flex flex-col items-end border-r border-slate-200 pr-4 mr-1">
               <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Status</span>
               <div className="flex items-center gap-1.5">
@@ -668,13 +694,13 @@ function SidebarItem({ icon: Icon, label, active, onClick }: { icon: any, label:
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors relative ${
+      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all relative ${
         active
-          ? 'bg-emerald-500/15 text-emerald-400 border-l-[3px] border-emerald-400 pl-[9px]'
-          : 'text-slate-400 hover:bg-white/10 hover:text-white border-l-[3px] border-transparent'
+          ? 'nav-active text-white border-l-[3px] border-emerald-300 pl-[9px]'
+          : 'text-slate-300/80 hover:bg-white/10 hover:text-white border-l-[3px] border-transparent'
       }`}
     >
-      <Icon size={18} className={`shrink-0 ${active ? 'text-emerald-400' : 'text-slate-500'}`} />
+      <Icon size={18} className={`shrink-0 ${active ? 'text-emerald-200' : 'text-emerald-300/60'}`} />
       <span className={active ? 'font-semibold' : ''}>{label}</span>
     </button>
   );
@@ -682,9 +708,9 @@ function SidebarItem({ icon: Icon, label, active, onClick }: { icon: any, label:
 
 function SectionCard({ title, children, className = '', headerAction }: { title: string, children: React.ReactNode, className?: string, headerAction?: React.ReactNode }) {
   return (
-    <div className={`bg-white rounded-xl border border-slate-200 p-5 md:p-6 mb-5 ${className}`}>
+    <div className={`bg-white rounded-2xl border border-slate-200 p-5 md:p-6 mb-5 shadow-sm ${className}`}>
       <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
-        <h3 className="text-base font-bold text-slate-800">
+        <h3 className="text-base font-bold text-slate-800 tracking-tight">
           {title}
         </h3>
         {headerAction}

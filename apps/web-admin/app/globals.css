@@ -1,18 +1,67 @@
 @import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
+/* =========================================================================
+   Smart Mosque Admin — "Emerald Modern" Design System
+   Premium light + dark theme. Toggle via <html data-theme="dark">.
+   ========================================================================= */
+
 :root {
-  --background: #f1f5f9;
-  --foreground: #1e293b;
-  --sidebar-bg: #1a2744;
-  --sidebar-text: #94a3b8;
-  --sidebar-active: #f59e0b;
+  /* Brand — emerald */
+  --brand-50:  #ecfdf5;
+  --brand-100: #d1fae5;
+  --brand-300: #6ee7b7;
+  --brand-400: #34d399;
+  --brand-500: #10b981;
+  --brand-600: #059669;
+  --brand-700: #047857;
+  --brand-800: #065f46;
+  --brand-900: #064e3b;
   --accent-gold: #f59e0b;
-  --accent-gold-light: #fef3c7;
-  --card-bg: #ffffff;
-  --card-border: #e2e8f0;
-  --success: #10b981;
-  --danger: #ef4444;
+
+  /* Surfaces & text (LIGHT) */
+  --background:   #eef2f1;
+  --surface:      #ffffff;
+  --surface-2:    #f3f6f5;
+  --surface-3:    #e9eeed;
+  --border:       #e2e8e6;
+  --border-strong:#d3dbd8;
+  --text-strong:  #0f1f1a;
+  --text:         #334a43;
+  --text-muted:   #64786f;
+  --text-faint:   #94a39b;
+
+  --foreground: var(--text);
+
+  /* Effects */
+  --shadow-sm: 0 1px 2px rgba(6, 78, 59, 0.06), 0 1px 3px rgba(6, 78, 59, 0.05);
+  --shadow-md: 0 4px 12px rgba(6, 78, 59, 0.08), 0 2px 4px rgba(6, 78, 59, 0.05);
+  --shadow-lg: 0 12px 32px rgba(6, 78, 59, 0.12), 0 4px 8px rgba(6, 78, 59, 0.06);
+  --radius: 16px;
+
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --background:   #07100d;
+  --surface:      #111b17;
+  --surface-2:    #0d1713;
+  --surface-3:    #182622;
+  --border:       #1f2d28;
+  --border-strong:#2a3a34;
+  --text-strong:  #f1f5f4;
+  --text:         #cdd8d3;
+  --text-muted:   #93a39c;
+  --text-faint:   #6c7d76;
+
+  --brand-500: #14c98e;
+  --brand-600: #10b981;
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
+  --shadow-md: 0 4px 14px rgba(0,0,0,0.45);
+  --shadow-lg: 0 16px 40px rgba(0,0,0,0.55);
+
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -24,26 +73,117 @@
 
 body {
   background: var(--background);
-  color: var(--foreground);
+  color: var(--text);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Flat scrollbar */
-::-webkit-scrollbar { width: 4px; height: 4px; }
+/* Smooth theme transition */
+body,
+.bg-white, .bg-slate-50, .bg-slate-100, .bg-slate-200,
+.border-slate-100, .border-slate-200, .border-slate-300,
+.text-slate-500, .text-slate-600, .text-slate-700, .text-slate-800, .text-slate-900 {
+  transition: background-color .25s ease, border-color .25s ease, color .25s ease;
+}
+
+/* Premium scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: var(--brand-500); }
 
-/* Clean form elements */
-input, select, textarea {
-  font-family: inherit;
+input, select, textarea { font-family: inherit; }
+
+/* =========================================================================
+   Shell: premium emerald sidebar (dark in both themes)
+   ========================================================================= */
+.app-sidebar {
+  background:
+    radial-gradient(120% 60% at 0% 0%, rgba(16,185,129,0.18), transparent 60%),
+    linear-gradient(180deg, #064e3b 0%, #053f30 50%, #022c22 100%);
+  border-right: 1px solid rgba(255,255,255,0.07);
+}
+[data-theme="dark"] .app-sidebar {
+  background:
+    radial-gradient(120% 60% at 0% 0%, rgba(16,185,129,0.12), transparent 60%),
+    linear-gradient(180deg, #07140f 0%, #08110d 55%, #050b08 100%);
+  border-right: 1px solid rgba(255,255,255,0.05);
 }
 
-/* Flat sidebar nav style */
+/* Active nav pill */
+.nav-active {
+  background: linear-gradient(90deg, rgba(16,185,129,0.32) 0%, rgba(16,185,129,0.10) 100%);
+  box-shadow: inset 0 0 0 1px rgba(110,231,183,0.18);
+}
+
+/* Brand mark glow */
+.brand-glow {
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.10), 0 6px 18px rgba(16,185,129,0.35);
+}
+
+/* Sidebar legacy helper (kept for compatibility) */
 .sidebar-item-active {
-  background-color: rgba(245, 158, 11, 0.12);
-  color: #f59e0b;
-  border-left: 3px solid #f59e0b;
+  background-color: rgba(16, 185, 129, 0.14);
+  color: var(--brand-400);
+  border-left: 3px solid var(--brand-400);
 }
+
+/* =========================================================================
+   DARK MODE — remap the Tailwind utilities used across every tab so the
+   full dashboard adapts without rewriting 2800+ lines of markup.
+   (Selector specificity 0,2,0 beats the base 0,1,0 utilities.)
+   ========================================================================= */
+[data-theme="dark"] .bg-white      { background-color: var(--surface) !important; }
+[data-theme="dark"] .bg-slate-50   { background-color: var(--surface-2) !important; }
+[data-theme="dark"] .bg-slate-100  { background-color: var(--surface-2) !important; }
+[data-theme="dark"] .bg-slate-200  { background-color: var(--surface-3) !important; }
+[data-theme="dark"] .bg-gray-50    { background-color: var(--surface-2) !important; }
+[data-theme="dark"] .bg-gray-100   { background-color: var(--surface-2) !important; }
+
+[data-theme="dark"] .border-slate-100 { border-color: var(--border) !important; }
+[data-theme="dark"] .border-slate-200 { border-color: var(--border) !important; }
+[data-theme="dark"] .border-slate-300 { border-color: var(--border-strong) !important; }
+[data-theme="dark"] .border-gray-200  { border-color: var(--border) !important; }
+[data-theme="dark"] .border-gray-300  { border-color: var(--border-strong) !important; }
+
+[data-theme="dark"] .text-slate-900 { color: var(--text-strong) !important; }
+[data-theme="dark"] .text-slate-800 { color: var(--text-strong) !important; }
+[data-theme="dark"] .text-slate-700 { color: var(--text) !important; }
+[data-theme="dark"] .text-slate-600 { color: var(--text) !important; }
+[data-theme="dark"] .text-slate-500 { color: var(--text-muted) !important; }
+[data-theme="dark"] .text-gray-700  { color: var(--text) !important; }
+[data-theme="dark"] .text-gray-600  { color: var(--text) !important; }
+[data-theme="dark"] .text-gray-500  { color: var(--text-muted) !important; }
+
+/* Soft emerald tints */
+[data-theme="dark"] .bg-emerald-50  { background-color: rgba(16,185,129,0.12) !important; }
+[data-theme="dark"] .bg-emerald-100 { background-color: rgba(16,185,129,0.16) !important; }
+[data-theme="dark"] .border-emerald-100 { border-color: rgba(16,185,129,0.28) !important; }
+[data-theme="dark"] .border-emerald-200 { border-color: rgba(16,185,129,0.32) !important; }
+[data-theme="dark"] .text-emerald-600 { color: var(--brand-400) !important; }
+[data-theme="dark"] .text-emerald-700 { color: var(--brand-400) !important; }
+[data-theme="dark"] .text-emerald-800 { color: var(--brand-300) !important; }
+
+/* Semantic soft backgrounds */
+[data-theme="dark"] .bg-red-50    { background-color: rgba(239,68,68,0.14) !important; }
+[data-theme="dark"] .border-red-100 { border-color: rgba(239,68,68,0.30) !important; }
+[data-theme="dark"] .bg-blue-50   { background-color: rgba(59,130,246,0.14) !important; }
+[data-theme="dark"] .bg-amber-50  { background-color: rgba(245,158,11,0.14) !important; }
+[data-theme="dark"] .bg-orange-50 { background-color: rgba(249,115,22,0.14) !important; }
+
+/* Hover utilities (need :hover specificity) */
+[data-theme="dark"] .hover\:bg-white:hover     { background-color: var(--surface-3) !important; }
+[data-theme="dark"] .hover\:bg-slate-50:hover  { background-color: var(--surface-3) !important; }
+[data-theme="dark"] .hover\:bg-slate-100:hover { background-color: var(--surface-3) !important; }
+[data-theme="dark"] .hover\:bg-slate-200:hover { background-color: var(--surface-3) !important; }
+[data-theme="dark"] .hover\:text-slate-700:hover { color: var(--text-strong) !important; }
+[data-theme="dark"] .hover\:text-slate-800:hover { color: var(--text-strong) !important; }
+[data-theme="dark"] .hover\:border-slate-300:hover { border-color: var(--border-strong) !important; }
+
+/* Placeholder + divider polish */
+[data-theme="dark"] ::placeholder { color: var(--text-faint) !important; }
+[data-theme="dark"] hr { border-color: var(--border) !important; }
+
+/* Selection */
+::selection { background: rgba(16,185,129,0.25); }

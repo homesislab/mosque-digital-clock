@@ -8,6 +8,7 @@ import { resolveUrl, getApiBaseUrl } from './lib/constants';
 import { useConfig } from './lib/useConfig';
 import { MosqueConfig } from '@mosque-digital-clock/shared-types';
 import { getPrayerTimes } from './lib/prayer-times';
+import { usePrayerSchedule } from './lib/usePrayerSchedule';
 import { calculateAppState, AppState } from './lib/logic';
 import { IqamahOverlay } from './components/IqamahOverlay';
 import { SholatOverlay } from './components/SholatOverlay';
@@ -53,6 +54,12 @@ export default function Home() {
   const { config, isOffline, refresh } = useConfig(mosqueKey);
   const { status: syncStatus, progress: syncProgress } = useSyncAssets(config);
 
+  // Jadwal solat harian: ambil langsung dari pusat waktu shalat (Kemenag/myQuran),
+  // dengan fallback cache offline lalu perhitungan lokal (adhan).
+  const { schedule: prayerSchedule, source: prayerSource } = usePrayerSchedule(config);
+  const prayerScheduleRef = useRef(prayerSchedule);
+  useEffect(() => { prayerScheduleRef.current = prayerSchedule; }, [prayerSchedule]);
+
   // Listen for SSE external trigger to refresh config immediately
   useEffect(() => {
     const handleRefresh = () => {
@@ -91,7 +98,7 @@ export default function Home() {
       }
       setCurrentTime(now);
 
-      const prayerTimes = getPrayerTimes(config, now);
+      const prayerTimes = prayerScheduleRef.current ?? getPrayerTimes(config, now);
       const result = calculateAppState(config, prayerTimes, now);
 
       // Log state changes (only when state changes)

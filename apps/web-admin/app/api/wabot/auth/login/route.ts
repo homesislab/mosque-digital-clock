@@ -1,7 +1,12 @@
 
 import { NextResponse } from 'next/server';
+import { requireSession } from '@/lib/auth';
 
 export async function POST(request: Request) {
+    const access = await requireSession();
+    if (!access.allowed) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: access.status });
+    }
     try {
         const { apiUrl, username, password } = await request.json();
 
@@ -36,6 +41,6 @@ export async function POST(request: Request) {
         const data = await res.json();
         return NextResponse.json(data);
     } catch (error: any) {
-        return NextResponse.json({ error: 'Internal Server Error: ' + error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }

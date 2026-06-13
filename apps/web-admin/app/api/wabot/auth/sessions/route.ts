@@ -1,7 +1,12 @@
 
 import { NextResponse } from 'next/server';
+import { requireSession } from '@/lib/auth';
 
 export async function GET(request: Request) {
+    const access = await requireSession();
+    if (!access.allowed) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: access.status });
+    }
     const { searchParams } = new URL(request.url);
     const apiUrl = searchParams.get('apiUrl');
     const token = searchParams.get('token');
@@ -31,6 +36,6 @@ export async function GET(request: Request) {
         const data = await res.json();
         return NextResponse.json(data);
     } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }

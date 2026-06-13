@@ -131,21 +131,22 @@ export type FileUploadInput = z.infer<typeof FileUploadSchema>;
 // ============================================
 
 export const PrayerTimesConfigSchema = z.object({
-    athan: z.object({
-        enabled: z.boolean(),
-        useCustom: z.boolean(),
-        customUrl: z.string().url().optional().nullable(),
-    }).optional(),
-    
-    calculation: z.enum(['ISNA', 'MWL', 'DIYANET']).optional(),
-    
+    // Diselaraskan dengan MosqueConfig.prayerTimes (lihat src/index.ts)
+    calculationMethod: z.string(),
+    cityId: z.string().optional(),   // sumber jadwal pusat (myQuran/Kemenag)
+    cityName: z.string().optional(),
+    coordinates: z.object({
+        lat: z.number().min(-90).max(90),
+        lng: z.number().min(-180).max(180),
+    }),
     adjustments: z.object({
-        fajr: z.number().int().min(-120).max(120).optional(),
-        dhuhr: z.number().int().min(-120).max(120).optional(),
-        asr: z.number().int().min(-120).max(120).optional(),
-        maghrib: z.number().int().min(-120).max(120).optional(),
-        isha: z.number().int().min(-120).max(120).optional(),
-    }).optional(),
+        subuh: z.number().int().min(-120).max(120),
+        dzuhur: z.number().int().min(-120).max(120),
+        jumat: z.number().int().min(-120).max(120),
+        ashar: z.number().int().min(-120).max(120),
+        maghrib: z.number().int().min(-120).max(120),
+        isya: z.number().int().min(-120).max(120),
+    }),
 });
 
 export type PrayerTimesConfigInput = z.infer<typeof PrayerTimesConfigSchema>;

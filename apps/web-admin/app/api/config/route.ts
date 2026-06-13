@@ -129,7 +129,7 @@ async function validateAccess(request: Request, key: string) {
     if (!userId) return { allowed: false, status: 401 };
 
     const user = await findUserById(userId);
-    if (!user || (!user.mosqueKeys.includes(key) && key !== 'default')) {
+    if (!user || !user.mosqueKeys.includes(key)) {
         return { allowed: false, status: 403 };
     }
 
