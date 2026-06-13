@@ -708,7 +708,7 @@ function SidebarItem({ icon: Icon, label, active, onClick }: { icon: any, label:
 
 function SectionCard({ title, children, className = '', headerAction }: { title: string, children: React.ReactNode, className?: string, headerAction?: React.ReactNode }) {
   return (
-    <div className={`bg-white rounded-2xl border border-slate-200 p-5 md:p-6 mb-5 shadow-sm ${className}`}>
+    <div className={`bg-white rounded-xl border border-slate-200 p-5 md:p-6 mb-5 ${className}`}>
       <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
         <h3 className="text-base font-bold text-slate-800 tracking-tight">
           {title}
