@@ -203,6 +203,12 @@ export default function Home() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // ── Mode Hemat (Low-End): kurangi beban GPU untuk perangkat spesifikasi rendah ──
+  useEffect(() => {
+    const lite = config.advancedDisplay?.lowEndMode ?? false;
+    document.documentElement.setAttribute('data-perf', lite ? 'lite' : 'full');
+  }, [config.advancedDisplay?.lowEndMode]);
+
 
   // ── Stable memoized props for child components ──────────────────────
   // Prevents InfoSlider / PrayerTimes / AudioPlayer re-rendering every second

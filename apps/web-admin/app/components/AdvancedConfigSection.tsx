@@ -75,6 +75,10 @@ export default function AdvancedConfigSection({ config, setConfig }: AdvancedCon
                         <div className="pt-2 border-t border-slate-50">
                             <Toggle label="Hitung Mundur Sholat" checked={adv.showNextPrayerCountdown ?? true} onChange={(v) => updateAdv('showNextPrayerCountdown', v)} />
                         </div>
+                        <div className="pt-3 mt-1 border-t border-slate-100">
+                            <Toggle label="⚡ Mode Hemat (Perangkat Spesifikasi Rendah)" checked={adv.lowEndMode ?? false} onChange={(v) => updateAdv('lowEndMode', v)} />
+                            <p className="text-xs text-slate-400 mt-2 leading-relaxed">Matikan efek blur & animasi berat agar tampilan tetap lancar di PC lawas / mini PC (mis. AMD E2, Intel Atom). Running text & jadwal sholat tetap berjalan normal.</p>
+                        </div>
                     </div>
                 </div>
 

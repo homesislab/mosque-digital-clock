@@ -177,6 +177,7 @@ export interface MosqueConfig {
         runningTextSpeed?: number; // Velocity or duration factor
         clockWeight?: 'light' | 'normal' | 'bold';
         showNextPrayerCountdown?: boolean;
+        lowEndMode?: boolean; // Mode Hemat: matikan blur & animasi berat untuk perangkat spesifikasi rendah (mis. AMD E2 / Intel Atom)
 
         // Custom Colors (Hex codes preferred)
         headerTextColor?: string;

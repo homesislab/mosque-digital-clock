@@ -36,3 +36,29 @@ body {
   from { transform: translateX(100vw); }
   to   { transform: translateX(-100%); }
 }
+
+/* ── Mode Hemat (Low-End Mode) ──
+   Aktif saat <html data-perf="lite">. Menonaktifkan efek mahal di GPU lemah
+   (backdrop-blur, shadow, transition, animasi dekoratif, noise texture).
+   Running text (marquee) & update jam TETAP berjalan. */
+[data-perf="lite"] *,
+[data-perf="lite"] *::before,
+[data-perf="lite"] *::after {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+  transition: none !important;
+}
+
+/* Matikan animasi dekoratif TANPA mengganggu marquee running text */
+[data-perf="lite"] .animate-spin,
+[data-perf="lite"] .animate-spin-slow,
+[data-perf="lite"] .animate-pulse,
+[data-perf="lite"] .animate-ping,
+[data-perf="lite"] .animate-bounce {
+  animation: none !important;
+}
+
+/* Hilangkan tekstur noise (mix-blend-mode mahal) & background scaling */
+[data-perf="lite"] .bg-noise { display: none !important; }
+[data-perf="lite"] .scale-105 { transform: none !important; }
