@@ -58,24 +58,41 @@ export function useSyncAssets(config: MosqueConfig | null) {
             const assets = extractAssets(conf);
             const total = assets.audio.length + assets.images.length;
             let completed = 0;
+            let allOk = true;
             
             const audioCache = await caches.open(AUDIO_CACHE_NAME);
             const imageCache = await caches.open(IMAGE_CACHE_NAME);
             
+            // Unduh 1 file dengan retry + dukungan lintas-origin (opaque) supaya
+            // audio CDN tetap ter-cache di jaringan labil. Return true HANYA bila
+            // file benar-benar ada di cache sesudahnya.
+            const downloadOne = async (url: string, cache: Cache): Promise<boolean> => {
+                if (await cache.match(url)) return true;
+                let crossOrigin = false;
+                try { crossOrigin = new URL(url, location.href).origin !== location.origin; } catch {}
+                for (let attempt = 0; attempt < 3; attempt++) {
+                    try {
+                        const fetchRes = await fetch(url, crossOrigin
+                            ? { cache: 'no-cache', mode: 'no-cors' }
+                            : { cache: 'no-cache' });
+                        // status 0 = opaque (no-cors) response; tetap bisa di-cache & diputar
+                        if (fetchRes.ok || fetchRes.type === 'opaque') {
+                            await cache.put(url, fetchRes.clone());
+                            if (await cache.match(url)) return true;
+                        }
+                    } catch (err) {
+                        console.warn(`[Sync] Percobaan ${attempt + 1} gagal: ${url}`, err);
+                    }
+                    await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+                }
+                return false;
+            };
+
             // Sync Helper
             const downloadToCache = async (urls: string[], cache: Cache) => {
                 for (const url of urls) {
-                    const response = await cache.match(url);
-                    if (!response) {
-                        try {
-                            const fetchRes = await fetch(url, { cache: 'no-cache' });
-                            if (fetchRes.ok) {
-                                await cache.put(url, fetchRes);
-                            }
-                        } catch (err) {
-                            console.error(`[Sync] Failed to download: ${url}`, err);
-                        }
-                    }
+                    const ok = await downloadOne(url, cache);
+                    if (!ok) allOk = false;
                     completed++;
                     if (total > 0) setProgress(Math.round((completed / total) * 100));
                 }
@@ -99,8 +116,14 @@ export function useSyncAssets(config: MosqueConfig | null) {
             await cleanupCache(assets.audio, audioCache);
             await cleanupCache(assets.images, imageCache);
 
-            localStorage.setItem('syncedAudioVersion', String(conf.version));
-            console.log('[Sync] Assets are now synchronized.');
+            if (allOk) {
+                localStorage.setItem('syncedAudioVersion', String(conf.version));
+                console.log('[Sync] Assets are now synchronized.');
+            } else {
+                // Jangan tandai versi tersinkron bila ada file gagal — biarkan
+                // effect "heal" / event online mencoba lagi saat jaringan membaik.
+                console.warn('[Sync] Sebagian aset gagal di-cache; akan dicoba lagi saat jaringan stabil.');
+            }
             setStatus('sync');
         } catch (err) {
             console.warn('[Sync] Sync gracefully aborted/failed:', err);
@@ -119,6 +142,40 @@ export function useSyncAssets(config: MosqueConfig | null) {
             syncAssets(config);
         }
     }, [config, syncAssets]);
+
+    // Heal aset yang hilang walau versi sudah sama, dan coba lagi saat jaringan
+    // kembali. Memperbaiki perangkat berjaringan labil yang sync awalnya hanya
+    // sebagian (sebagian audio tak pernah ter-cache → pemutaran gagal).
+    useEffect(() => {
+        if (!config) return;
+        let cancelled = false;
+
+        const healIfNeeded = async () => {
+            if (isSyncInProgress.current) return;
+            try {
+                const assets = extractAssets(config);
+                const audioCache = await caches.open(AUDIO_CACHE_NAME);
+                for (const url of assets.audio) {
+                    if (!url) continue;
+                    if (!(await audioCache.match(url))) {
+                        if (!cancelled) syncAssets(config);
+                        return;
+                    }
+                }
+            } catch (e) {
+                // best effort — abaikan
+            }
+        };
+
+        const onOnline = () => healIfNeeded();
+        window.addEventListener('online', onOnline);
+        healIfNeeded();
+
+        return () => {
+            cancelled = true;
+            window.removeEventListener('online', onOnline);
+        };
+    }, [config, extractAssets, syncAssets]);
 
     // SSE Real-time Listener — with exponential backoff & offline awareness
     useEffect(() => {
