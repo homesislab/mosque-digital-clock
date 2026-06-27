@@ -2947,12 +2947,27 @@ function DevicesSection({ mosqueKey }: { mosqueKey: string }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [syncReports, setSyncReports] = useState<Record<string, any>>({});
+  const [expandedSync, setExpandedSync] = useState<string | null>(null);
 
   useEffect(() => {
     fetchDevices();
-    const interval = setInterval(fetchDevices, 15000);
+    fetchSyncReports();
+    const interval = setInterval(() => { fetchDevices(); fetchSyncReports(); }, 15000);
     return () => clearInterval(interval);
   }, [mosqueKey]);
+
+  const fetchSyncReports = async () => {
+    try {
+      const res = await fetch(`/api/audio/sync-status?key=${mosqueKey}`);
+      const data = await res.json();
+      const map: Record<string, any> = {};
+      (Array.isArray(data) ? data : []).forEach((r: any) => { if (r?.deviceId) map[r.deviceId] = r; });
+      setSyncReports(map);
+    } catch (e) {
+      // best effort
+    }
+  };
 
   const fetchDevices = async () => {
     setLoading(true);
@@ -3045,8 +3060,10 @@ function DevicesSection({ mosqueKey }: { mosqueKey: string }) {
               const online = isOnline(d.last_seen);
               const isEditing = editingId === d.device_id;
               const isSaving = savingId === d.device_id;
+              const sync = syncReports[d.device_id];
               return (
-                <div key={d.device_id} className={`flex items-center gap-4 p-4 bg-white border rounded-2xl hover:shadow-sm transition-all ${online ? 'border-emerald-100' : 'border-slate-200'}`}>
+                <div key={d.device_id} className={`bg-white border rounded-2xl hover:shadow-sm transition-all ${online ? 'border-emerald-100' : 'border-slate-200'}`}>
+                <div className="flex items-center gap-4 p-4">
                   {/* Status icon */}
                   <div className={`relative w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${online ? 'bg-emerald-50' : 'bg-slate-100'}`}>
                     <Monitor size={22} className={online ? 'text-emerald-600' : 'text-slate-400'} />
@@ -3106,6 +3123,34 @@ function DevicesSection({ mosqueKey }: { mosqueKey: string }) {
                     </button>
                   </div>
                 </div>
+                {sync && (
+                  <div className="border-t border-slate-100 px-4 py-3 bg-slate-50/50 rounded-b-2xl">
+                    <button
+                      onClick={() => setExpandedSync(expandedSync === d.device_id ? null : d.device_id)}
+                      className="w-full flex items-center justify-between text-left gap-2"
+                    >
+                      <span className="flex items-center gap-2 text-xs font-bold text-slate-600 min-w-0">
+                        <Music size={13} className={sync.complete ? 'text-emerald-500' : 'text-amber-500'} />
+                        <span className="truncate">Audio tersinkron: {sync.syncedFiles}/{sync.totalFiles} file</span>
+                        <span className="text-slate-400 font-normal">({formatBytes(sync.totalBytes)})</span>
+                        {!sync.complete && <span className="text-amber-600 font-semibold shrink-0">• belum lengkap</span>}
+                      </span>
+                      <span className="text-[10px] text-slate-400 shrink-0">v{sync.version} • {getRelativeTime(new Date(sync.updatedAt).toISOString())} {expandedSync === d.device_id ? '▲' : '▼'}</span>
+                    </button>
+                    {expandedSync === d.device_id && (
+                      <ul className="mt-2 space-y-1 max-h-52 overflow-auto">
+                        {(sync.files || []).map((f: any, i: number) => (
+                          <li key={i} className="flex items-center gap-2 text-[11px] py-1 px-2 rounded-lg bg-white border border-slate-100">
+                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${f.ok ? (f.local ? 'bg-emerald-500' : 'bg-sky-400') : 'bg-rose-400'}`} title={f.ok ? (f.local ? 'Tersimpan lokal' : 'Tersimpan (cache CDN)') : 'Gagal'} />
+                            <span className="flex-1 truncate text-slate-600" title={f.url}>{f.title || (f.url || '').split('/').pop()}</span>
+                            <span className="text-slate-400 tabular-nums shrink-0">{f.ok ? (f.local ? formatBytes(f.sizeBytes) : 'cache') : 'gagal'}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+                </div>
               );
             })}
           </div>
@@ -3116,6 +3161,13 @@ function DevicesSection({ mosqueKey }: { mosqueKey: string }) {
 }
 
 
+
+function formatBytes(bytes: number): string {
+  if (!bytes || bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+}
 
 function resolveUrl(url: string | undefined, mosqueKey: string) {
   if (!url) return '';
