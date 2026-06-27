@@ -133,6 +133,30 @@ export const AudioPlayer = ({ url, playlist, isPlaying, onStop, onBlocked, playb
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [effectiveIsPlaying, isPaused]); // ← Only re-run on play/pause state change.
 
+    // ─── GESTURE RESUME (fix blocked autoplay / broken unlock) ───────────────
+    // Browser autoplay policy blocks audio-with-sound until a user gesture.
+    // After ANY gesture (including tapping the "Aktifkan Suara" overlay), retry
+    // play() so murottal/adzan actually starts instead of sitting paused at 0:00.
+    useEffect(() => {
+        const audio = audioRef.current;
+        if (!audio) return;
+        const tryResume = () => {
+            if (effectiveIsPlaying && !isPaused && audio.paused) {
+                const p = audio.play();
+                p?.then(() => { isPlayingRef.current = true; onBlocked?.(false); })
+                 .catch(() => {});
+            }
+        };
+        window.addEventListener('pointerdown', tryResume);
+        window.addEventListener('touchstart', tryResume);
+        window.addEventListener('keydown', tryResume);
+        return () => {
+            window.removeEventListener('pointerdown', tryResume);
+            window.removeEventListener('touchstart', tryResume);
+            window.removeEventListener('keydown', tryResume);
+        };
+    }, [effectiveIsPlaying, isPaused, onBlocked]);
+
     const handleNext = useCallback(() => {
         if (!playlist) return;
         if (currentTrackIndex < playlist.tracks.length - 1) setCurrentTrackIndex(p => p + 1);
@@ -263,7 +287,22 @@ export const AudioPlayer = ({ url, playlist, isPlaying, onStop, onBlocked, playb
 
                     {/* Play/Pause */}
                     <button
-                        onClick={() => setIsPaused(p => !p)}
+                        onClick={() => {
+                            const audio = audioRef.current;
+                            const next = !isPaused;
+                            setIsPaused(next);
+                            if (!audio) return;
+                            if (next) {
+                                audio.pause();
+                                isPlayingRef.current = false;
+                            } else {
+                                // Called directly inside the click gesture so the
+                                // browser reliably unlocks audio on a single tap.
+                                const p = audio.play();
+                                p?.then(() => { isPlayingRef.current = true; onBlocked?.(false); })
+                                 .catch(err => { if (err.name === 'NotAllowedError') onBlocked?.(true); else setLoadError(err.message); });
+                            }
+                        }}
                         className="flex-shrink-0 w-7 h-7 flex items-center justify-center text-white/80 hover:text-white transition-colors"
                     >
                         {isPaused
