@@ -209,6 +209,12 @@ export interface MosqueConfig {
             [key: string]: {
                 enabled: boolean;
                 template?: string;
+                /** Kirim pesan reminder X menit sebelum waktu adzan */
+                reminderEnabled?: boolean;
+                /** Berapa menit sebelum adzan reminder dikirim (default: 10) */
+                reminderMinutes?: number;
+                /** Template pesan reminder. Variabel: {sholat}, {jam}, {menit} */
+                reminderTemplate?: string;
             }
         };
     };
@@ -244,6 +250,20 @@ export interface AudioActiveStatus {
     currentTime: number;
     duration: number;
     updatedAt: number; // timestamp
+}
+
+export interface AudioSyncStatus {
+    deviceId: string;
+    /** List of audio file URLs that are currently cached/downloaded on the device */
+    cachedFiles: string[];
+    /** Total number of files cached */
+    totalCached: number;
+    /** Last sync timestamp (ms) */
+    updatedAt: number;
+    /** Optional: current playlist the device has synced */
+    playlistId?: string;
+    /** Optional: error message if sync failed */
+    error?: string;
 }
 
 // Export validation schemas and utilities

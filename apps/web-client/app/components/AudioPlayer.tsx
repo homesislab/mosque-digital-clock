@@ -13,9 +13,11 @@ interface AudioPlayerProps {
     onBlocked?: (blocked: boolean) => void;
     playbackState?: 'playing' | 'paused' | 'stopped';
     onCommand?: (command: string) => void;
+    /** Increment this counter to force a play() attempt after user gesture unlock */
+    unlockTrigger?: number;
 }
 
-export const AudioPlayer = ({ url, playlist, isPlaying, onStop, onBlocked, playbackState, onCommand }: AudioPlayerProps) => {
+export const AudioPlayer = ({ url, playlist, isPlaying, onStop, onBlocked, playbackState, onCommand, unlockTrigger }: AudioPlayerProps) => {
     const audioRef = useRef<HTMLAudioElement>(null);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
@@ -156,6 +158,23 @@ export const AudioPlayer = ({ url, playlist, isPlaying, onStop, onBlocked, playb
             window.removeEventListener('keydown', tryResume);
         };
     }, [effectiveIsPlaying, isPaused, onBlocked]);
+
+    // ─── EXPLICIT UNLOCK TRIGGER ──────────────────────────────────────────────
+    // Called when parent increments `unlockTrigger` after the AudioUnlockOverlay
+    // is tapped. The click on the overlay IS the user gesture, so calling
+    // audio.play() here (synchronously within the same task) is allowed by the
+    // browser's autoplay policy.
+    useEffect(() => {
+        if (!unlockTrigger) return; // skip initial render (value === 0 / undefined)
+        const audio = audioRef.current;
+        if (!audio || !effectiveIsPlaying || isPaused) return;
+        if (audio.paused) {
+            const p = audio.play();
+            p?.then(() => { isPlayingRef.current = true; onBlocked?.(false); })
+             .catch(() => {});
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [unlockTrigger]);
 
     const handleNext = useCallback(() => {
         if (!playlist) return;

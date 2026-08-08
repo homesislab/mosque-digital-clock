@@ -65,34 +65,46 @@ export async function checkAndSendNotifications() {
                 const displayName = displayNames[name];
                 if (!displayName) continue; // Skip Syuruq or others if not needed
 
-                if (time instanceof Date) {
-                    // Check if TIME MATCHES CURRENT MINUTE
-                    if (time.getHours() === currentHour && time.getMinutes() === currentMinute) {
+                if (!(time instanceof Date)) continue;
 
-                        // Deduplication Key
-                        const lockKey = `${key}_${name}_${now.getDate()}_${currentHour}_${currentMinute}`;
+                const prayerKey = name.toLowerCase();
 
-                        if (sentNotifications.has(lockKey)) {
-                            // Already sent
-                            continue;
+                // ── 1. ADZAN TIME: Exact match ─────────────────────────────────
+                if (time.getHours() === currentHour && time.getMinutes() === currentMinute) {
+
+                    // Deduplication Key
+                    const lockKey = `${key}_${name}_${now.getDate()}_${currentHour}_${currentMinute}`;
+
+                    if (!sentNotifications.has(lockKey)) {
+                        // Check per-prayer notification setting
+                        const pConfig = config.wabot?.prayerNotifications?.[prayerKey];
+                        const isEnabled = pConfig ? pConfig.enabled : true;
+
+                        if (!isEnabled) {
+                            console.log(`[Worker] Skipping ${displayName} for ${key} (disabled in config)`);
+                        } else {
+                            console.log(`[Worker] Triggering ${displayName} for ${key} at ${formatTime(time)}`);
+                            sentNotifications.add(lockKey);
+                            await triggerWabot(key, config, displayName, time);
                         }
+                    }
+                }
 
-                        // NEW: Check per-prayer notification setting
-                        const prayerKey = name.toLowerCase();
-                        if (config.wabot?.prayerNotifications && config.wabot.prayerNotifications[prayerKey]) {
-                            if (!config.wabot.prayerNotifications[prayerKey].enabled) {
-                                console.log(`[Worker] Skipping ${displayName} for ${key} (disabled in config)`);
-                                continue;
-                            }
+                // ── 2. REMINDER: X minutes before adzan ───────────────────────
+                const pConfig = config.wabot?.prayerNotifications?.[prayerKey];
+                if (pConfig?.reminderEnabled) {
+                    const reminderMinutes = pConfig.reminderMinutes ?? 10;
+                    // Calculate when reminder should fire
+                    const reminderTime = new Date(time.getTime() - reminderMinutes * 60 * 1000);
+
+                    if (reminderTime.getHours() === currentHour && reminderTime.getMinutes() === currentMinute) {
+                        const reminderLockKey = `${key}_${name}_reminder${reminderMinutes}_${now.getDate()}_${currentHour}_${currentMinute}`;
+
+                        if (!sentNotifications.has(reminderLockKey)) {
+                            console.log(`[Worker] Sending ${reminderMinutes}-min reminder for ${displayName} to ${key}`);
+                            sentNotifications.add(reminderLockKey);
+                            await triggerReminderWabot(key, config, displayName, time, reminderMinutes);
                         }
-
-                        console.log(`[Worker] Triggering ${displayName} for ${key} at ${formatTime(time)}`);
-
-                        // Mark as sent
-                        sentNotifications.add(lockKey);
-
-                        // Trigger Sending Logic
-                        await triggerWabot(key, config, displayName, time);
                     }
                 }
             }
@@ -102,6 +114,7 @@ export async function checkAndSendNotifications() {
         console.error('[Worker] Error in check loop:', error);
     }
 }
+
 
 async function triggerWabot(mosqueKey: string, config: MosqueConfig, prayerName: string, prayerTime: Date) {
     try {
@@ -143,5 +156,38 @@ async function triggerWabot(mosqueKey: string, config: MosqueConfig, prayerName:
 
     } catch (e: any) {
         logger.error(`[Worker] Error sending message`, { error: e.message, key: mosqueKey });
+    }
+}
+
+async function triggerReminderWabot(mosqueKey: string, config: MosqueConfig, prayerName: string, prayerTime: Date, reminderMinutes: number) {
+    try {
+        const timeStr = formatTime(prayerTime);
+        const prayerKey = prayerName.toLowerCase();
+
+        // Choose reminder template — per-prayer override → global default
+        const perPrayerReminder = config.wabot?.prayerNotifications?.[prayerKey]?.reminderTemplate;
+        const template = perPrayerReminder
+            || `⏰ Reminder: Waktu {sholat} akan tiba dalam {menit} menit ({jam}). Segera bersiap!`;
+
+        const message = template
+            .replace(/{sholat}/gi, prayerName)
+            .replace(/{jam}/gi, timeStr)
+            .replace(/{menit}/gi, String(reminderMinutes))
+            .replace(/\[HH:MM\]/gi, timeStr);
+
+        const { waService } = await import('./wa-service');
+        const targetJid = config.wabot?.targetNumber;
+
+        if (targetJid) {
+            try {
+                console.log(`[Worker] Sending reminder for ${prayerName} (${reminderMinutes}min before) to ${targetJid}...`);
+                await waService.sendMessage(mosqueKey, targetJid, message);
+            } catch (error: any) {
+                console.error(`[Worker] Failed to send reminder via local WA:`, error.message);
+            }
+        }
+
+    } catch (e: any) {
+        logger.error(`[Worker] Error sending reminder`, { error: e.message, key: mosqueKey });
     }
 }

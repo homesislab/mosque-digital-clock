@@ -6,9 +6,7 @@ import { PrayerTimes } from './components/PrayerTimes';
 import { RunningText } from './components/RunningText';
 import { resolveUrl, getApiBaseUrl } from './lib/constants';
 import { useConfig } from './lib/useConfig';
-import { MosqueConfig } from '@mosque-digital-clock/shared-types';
 import { getPrayerTimes } from './lib/prayer-times';
-import { usePrayerSchedule } from './lib/usePrayerSchedule';
 import { calculateAppState, AppState } from './lib/logic';
 import { IqamahOverlay } from './components/IqamahOverlay';
 import { SholatOverlay } from './components/SholatOverlay';
@@ -18,7 +16,6 @@ import { getPasaran } from './lib/javanese-date';
 import { SetupOverlay } from './components/SetupOverlay';
 import { ImsakOverlay } from './components/ImsakOverlay';
 import { AdzanOverlay } from './components/AdzanOverlay';
-import { sendWabotNotification } from './lib/wabot';
 import { useLogger } from './lib/useLogger';
 import { AudioUnlockOverlay } from './components/AudioUnlockOverlay';
 import { LogoutConfirmation } from './components/LogoutConfirmation';
@@ -36,6 +33,7 @@ export default function Home() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isManualStopped, setIsManualStopped] = useState(false);
   const [isAudioBlocked, setIsAudioBlocked] = useState(false);
+  const [unlockTrigger, setUnlockTrigger] = useState(0);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const logoClickRef = useRef(0);
   const sequenceRef = useRef<string[]>([]);
@@ -54,11 +52,6 @@ export default function Home() {
   const { config, isOffline, refresh } = useConfig(mosqueKey);
   const { status: syncStatus, progress: syncProgress } = useSyncAssets(config);
 
-  // Jadwal solat harian: ambil langsung dari pusat waktu shalat (Kemenag/myQuran),
-  // dengan fallback cache offline lalu perhitungan lokal (adhan).
-  const { schedule: prayerSchedule, source: prayerSource } = usePrayerSchedule(config);
-  const prayerScheduleRef = useRef(prayerSchedule);
-  useEffect(() => { prayerScheduleRef.current = prayerSchedule; }, [prayerSchedule]);
 
   // Listen for SSE external trigger to refresh config immediately
   useEffect(() => {
@@ -98,8 +91,8 @@ export default function Home() {
       }
       setCurrentTime(now);
 
-      const prayerTimes = prayerScheduleRef.current ?? getPrayerTimes(config, now);
-      const result = calculateAppState(config, prayerTimes, now);
+      const currentTimes = getPrayerTimes(config, now);
+      const result = calculateAppState(config, currentTimes, now);
 
       // Log state changes (only when state changes)
       setAppState(prev => {
@@ -168,8 +161,9 @@ export default function Home() {
 
   const handleUnlockAudio = useCallback(() => {
     setIsAudioBlocked(false);
-    // After user interaction, future plays will be unlocked
-    // We can try to play a silent sound or just let the next event trigger it
+    // Increment unlockTrigger so AudioPlayer retries audio.play() within this
+    // same user-gesture task — required by browser autoplay policy.
+    setUnlockTrigger(n => n + 1);
   }, []);
 
   const handleLogout = useCallback(() => {
@@ -439,6 +433,7 @@ export default function Home() {
         onBlocked={handleAudioBlocked}
         playbackState={config.audio?.playbackState}
         onCommand={handleAudioCommand}
+        unlockTrigger={unlockTrigger}
       />
 
       <AudioUnlockOverlay isVisible={isAudioBlocked} onUnlock={handleUnlockAudio} />

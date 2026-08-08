@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, memo } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import { getPrayerTimes, formatTime } from '../lib/prayer-times';
 import { MosqueConfig } from '@mosque-digital-clock/shared-types';
 
@@ -16,8 +16,6 @@ export const PrayerTimes = memo(({ config, nextPrayer, secondsRemaining }: Praye
     useEffect(() => {
         const calculated = getPrayerTimes(config);
         setTimes(calculated);
-
-        // Refresh logic...
     }, [config]);
 
     if (!times) return null;
@@ -45,7 +43,7 @@ export const PrayerTimes = memo(({ config, nextPrayer, secondsRemaining }: Praye
             role="list"
             aria-label="Jadwal waktu sholat"
         >
-            {prayers.map((prayer, index) => {
+            {prayers.map((prayer) => {
                 const isActive = nextPrayer?.toLowerCase() === prayer.name.toLowerCase();
 
                 const itemStyle: React.CSSProperties = {

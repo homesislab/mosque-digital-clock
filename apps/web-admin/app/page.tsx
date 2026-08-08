@@ -273,7 +273,7 @@ export default function AdminDashboard() {
 
         <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
           <SidebarItem icon={LayoutDashboard} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }} />
-          <SidebarItem icon={MapPin} label="Identitas & Lokasi" active={activeTab === 'identity'} onClick={() => { setActiveTab('identity'); setSidebarOpen(false); }} />
+          <SidebarItem icon={MapPin} label="Identitas Masjid" active={activeTab === 'identity'} onClick={() => { setActiveTab('identity'); setSidebarOpen(false); }} />
           <SidebarItem icon={Clock} label="Jadwal Sholat" active={activeTab === 'prayer'} onClick={() => { setActiveTab('prayer'); setSidebarOpen(false); }} />
           <SidebarItem icon={Smartphone} label="Integrasi WhatsApp" active={activeTab === 'wabot'} onClick={() => { setActiveTab('wabot'); setSidebarOpen(false); }} />
           <SidebarItem icon={Settings} label="Media & Fitur" active={activeTab === 'media'} onClick={() => { setActiveTab('media'); setSidebarOpen(false); }} />
@@ -592,7 +592,7 @@ export default function AdminDashboard() {
 
 const tabLabels: Record<Tab, string> = {
   dashboard: 'Dashboard Overview',
-  identity: 'Identitas & Lokasi Masjid',
+  identity: 'Identitas Masjid',
   prayer: 'Konfigurasi Jadwal Sholat',
   wabot: 'Integrasi WhatsApp',
   media: 'Media & Fitur Unggulan',
@@ -977,49 +977,7 @@ function IdentitySection({ config, setConfig, updateConfig, onPickLogo, mosqueKe
         </div>
       </SectionCard>
 
-      <SectionCard title="Lokasi & Titik Koordinat">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-8">
-          <div className="space-y-4">
-            <p className="text-sm text-slate-500 mb-4">
-              Tentukan titik koordinat masjid untuk perhitungan waktu sholat yang akurat.
-              Anda bisa mengisi manual atau klik langsung pada peta.
-            </p>
-            <InputGroup
-              label="Latitude (Lintang)"
-              value={config.prayerTimes.coordinates.lat}
-              onChange={(v: string) => {
-                const newC = { ...config.prayerTimes.coordinates, lat: parseFloat(v) };
-                setConfig({ ...config, prayerTimes: { ...config.prayerTimes, coordinates: newC } });
-              }}
-              type="number"
-              step="0.000001"
-            />
-            <InputGroup
-              label="Longitude (Bujur)"
-              value={config.prayerTimes.coordinates.lng}
-              onChange={(v: string) => {
-                const newC = { ...config.prayerTimes.coordinates, lng: parseFloat(v) };
-                setConfig({ ...config, prayerTimes: { ...config.prayerTimes, coordinates: newC } });
-              }}
-              type="number"
-              step="0.000001"
-            />
-            <div className="mt-4 p-4 bg-emerald-50 text-emerald-700 text-xs rounded-lg flex items-start gap-2 border border-emerald-100 italic">
-              <MapPin size={16} className="mt-0.5 flex-shrink-0" />
-              <span>Tip: Klik pada peta untuk mengambil titik koordinat secara otomatis.</span>
-            </div>
-          </div>
 
-          <MapPicker
-            lat={config.prayerTimes.coordinates.lat}
-            lng={config.prayerTimes.coordinates.lng}
-            onChange={(lat: number, lng: number) => {
-              const newC = { lat, lng };
-              setConfig({ ...config, prayerTimes: { ...config.prayerTimes, coordinates: newC } });
-            }}
-          />
-        </div>
-      </SectionCard>
     </div>
   );
 }
@@ -1177,11 +1135,89 @@ function CityPicker({ config, setConfig, onSave }: any) {
 }
 
 function PrayerSection({ config, setConfig, onOpenPicker, onSave }: any) {
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const syncCityFromCoordinates = async (lat: number, lng: number) => {
+    let nextConfig = { ...config, prayerTimes: { ...config.prayerTimes, coordinates: { lat, lng } } };
+    setIsSyncing(true);
+    // Optimistically update coordinates first
+    setConfig(nextConfig);
+    
+    try {
+      // 1. Reverse Geocoding via Nominatim
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+      const data = await res.json();
+      let city = data.address?.city || data.address?.county || data.address?.town || data.address?.village || '';
+      
+      if (city) {
+        city = city.replace(/Kota |Kabupaten |Kab\. /gi, '').trim();
+        
+        // 2. Search City in MyQuran API
+        const searchRes = await fetch(`https://api.myquran.com/v2/sholat/kota/cari/${encodeURIComponent(city)}`);
+        const searchData = await searchRes.json();
+        
+        if (searchData.status && searchData.data && searchData.data.length > 0) {
+          nextConfig.prayerTimes.cityId = searchData.data[0].id;
+          nextConfig.prayerTimes.cityName = searchData.data[0].lokasi;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to auto-sync city', err);
+    } finally {
+      setIsSyncing(false);
+      setConfig(nextConfig);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <SectionCard title="Metode & Hisab">
-        <div className="p-4 bg-emerald-50 text-emerald-700 text-sm rounded-lg flex items-center gap-2 mb-6 border border-emerald-100">
-          <MapPin size={16} /> Lokasi masjid telah diatur di menu <b>Identitas & Lokasi</b>.
+      <SectionCard title="Lokasi & Titik Koordinat (Sinkronisasi Kota Otomatis)">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-8">
+          <div className="space-y-4">
+            <p className="text-sm text-slate-500 mb-4">
+              Titik koordinat ini digunakan untuk <b>mencari kota secara otomatis</b> pada jadwal Kemenag (MyQuran), 
+              dan sebagai cadangan (fallback) hisab lokal jika sistem gagal menghubungi server pusat.
+            </p>
+            <InputGroup
+              label="Latitude (Lintang)"
+              value={config.prayerTimes.coordinates.lat}
+              onChange={(v: string) => {
+                const newC = { ...config.prayerTimes.coordinates, lat: parseFloat(v) };
+                setConfig({ ...config, prayerTimes: { ...config.prayerTimes, coordinates: newC } });
+              }}
+              type="number"
+              step="0.000001"
+            />
+            <InputGroup
+              label="Longitude (Bujur)"
+              value={config.prayerTimes.coordinates.lng}
+              onChange={(v: string) => {
+                const newC = { ...config.prayerTimes.coordinates, lng: parseFloat(v) };
+                setConfig({ ...config, prayerTimes: { ...config.prayerTimes, coordinates: newC } });
+              }}
+              type="number"
+              step="0.000001"
+            />
+            <div className="mt-4 p-4 bg-emerald-50 text-emerald-700 text-xs rounded-lg flex items-start gap-2 border border-emerald-100 italic">
+              {isSyncing ? (
+                <>
+                  <RefreshCw size={16} className="mt-0.5 flex-shrink-0 animate-spin" />
+                  <span>Sedang menyesuaikan kota dengan titik koordinat...</span>
+                </>
+              ) : (
+                <>
+                  <MapPin size={16} className="mt-0.5 flex-shrink-0" />
+                  <span>Tip: Klik pada peta untuk mengambil titik koordinat dan otomatis menyesuaikan Kota Jadwal Sholat di bawah.</span>
+                </>
+              )}
+            </div>
+          </div>
+
+          <MapPicker
+            lat={config.prayerTimes.coordinates.lat}
+            lng={config.prayerTimes.coordinates.lng}
+            onChange={syncCityFromCoordinates}
+          />
         </div>
       </SectionCard>
 
@@ -1444,6 +1480,10 @@ function WabotConfigSection({ config, setConfig, mosqueKey }: { config: MosqueCo
                     {['imsak', 'subuh', 'dzuhur', 'jumat', 'ashar', 'maghrib', 'isya'].map((pKey) => {
                       const pConfig = wabotConfig.prayerNotifications?.[pKey] || { enabled: true };
                       const pNames: any = { imsak: 'Imsak', subuh: 'Subuh', dzuhur: 'Dzuhur', jumat: 'Sholat Jumat', ashar: 'Ashar', maghrib: 'Maghrib', isya: 'Isya' };
+                      const updatePConfig = (patch: object) => {
+                        const newNotify = { ...(wabotConfig.prayerNotifications || {}), [pKey]: { ...pConfig, ...patch } };
+                        setConfig({ ...config, wabot: { ...wabotConfig, prayerNotifications: newNotify } });
+                      };
                       return (
                         <div key={pKey} className={`group bg-slate-50/50 border rounded-xl p-3 transition-all ${pConfig.enabled ? 'border-slate-200 hover:border-emerald-200 hover:bg-white' : 'border-slate-100 opacity-60'}`}>
                           <div className="flex items-center justify-between">
@@ -1453,10 +1493,7 @@ function WabotConfigSection({ config, setConfig, mosqueKey }: { config: MosqueCo
                                   type="checkbox" 
                                   id={`notify-${pKey}`}
                                   checked={pConfig.enabled}
-                                  onChange={(e) => {
-                                    const newNotify = { ...(wabotConfig.prayerNotifications || {}), [pKey]: { ...pConfig, enabled: e.target.checked } };
-                                    setConfig({ ...config, wabot: { ...wabotConfig, prayerNotifications: newNotify } });
-                                  }}
+                                  onChange={(e) => updatePConfig({ enabled: e.target.checked })}
                                   className="w-4 h-4 accent-emerald-500 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
                                 />
                               </div>
@@ -1468,27 +1505,66 @@ function WabotConfigSection({ config, setConfig, mosqueKey }: { config: MosqueCo
                           </div>
                           
                           {pConfig.enabled && (
-                             <div className="mt-2 pl-7 animate-in fade-in slide-in-from-top-1 duration-200">
-                               <textarea
-                                 value={pConfig.template || ''}
-                                 onChange={(e) => {
-                                   const newNotify = { ...(wabotConfig.prayerNotifications || {}), [pKey]: { ...pConfig, template: e.target.value } };
-                                   setConfig({ ...config, wabot: { ...wabotConfig, prayerNotifications: newNotify } });
-                                 }}
-                                 placeholder="Gunakan pesan khusus untuk waktu ini (opsional)"
-                                 className="w-full p-2 text-[10px] bg-white border border-slate-200 rounded-lg focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 outline-none min-h-[44px] resize-none font-medium text-slate-600"
-                               />
-                             </div>
+                            <div className="mt-2 pl-7 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                              {/* Pesan Adzan */}
+                              <textarea
+                                value={pConfig.template || ''}
+                                onChange={(e) => updatePConfig({ template: e.target.value })}
+                                placeholder="Template pesan waktu adzan (opsional, pakai global jika kosong)"
+                                className="w-full p-2 text-[10px] bg-white border border-slate-200 rounded-lg focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 outline-none min-h-[44px] resize-none font-medium text-slate-600"
+                              />
+
+                              {/* ── Reminder Sub-section ── */}
+                              <div className="border border-dashed border-amber-300/60 rounded-lg p-2.5 bg-amber-50/30 space-y-2.5">
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    id={`reminder-${pKey}`}
+                                    checked={pConfig.reminderEnabled ?? false}
+                                    onChange={(e) => updatePConfig({ reminderEnabled: e.target.checked })}
+                                    className="w-3.5 h-3.5 accent-amber-500 cursor-pointer"
+                                  />
+                                  <label htmlFor={`reminder-${pKey}`} className="text-[10px] font-bold text-amber-700 cursor-pointer select-none flex items-center gap-1">
+                                    ⏰ Kirim Reminder Sebelum Adzan
+                                  </label>
+                                </div>
+
+                                {pConfig.reminderEnabled && (
+                                  <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-150">
+                                    <div className="flex items-center gap-2">
+                                      <label className="text-[9px] font-bold text-amber-600 uppercase tracking-wider whitespace-nowrap">Menit sebelum:</label>
+                                      <input
+                                        type="number"
+                                        min={1}
+                                        max={60}
+                                        value={pConfig.reminderMinutes ?? 10}
+                                        onChange={(e) => updatePConfig({ reminderMinutes: parseInt(e.target.value) || 10 })}
+                                        className="w-16 px-2 py-1 text-[10px] font-bold bg-white border border-amber-200 rounded-md focus:ring-1 focus:ring-amber-400 focus:border-amber-400 outline-none text-center text-amber-800"
+                                      />
+                                      <span className="text-[9px] text-amber-500 font-medium">mnt sebelum adzan</span>
+                                    </div>
+                                    <textarea
+                                      value={pConfig.reminderTemplate || ''}
+                                      onChange={(e) => updatePConfig({ reminderTemplate: e.target.value })}
+                                      placeholder={`⏰ Reminder: Waktu {sholat} akan tiba dalam {menit} menit ({jam}). Segera bersiap!`}
+                                      className="w-full p-2 text-[10px] bg-white border border-amber-200 rounded-lg focus:ring-1 focus:ring-amber-400 focus:border-amber-400 outline-none min-h-[52px] resize-none font-medium text-amber-800 placeholder:text-amber-300"
+                                    />
+                                    <p className="text-[9px] text-amber-500 italic">Variabel: {'{sholat}'} = nama sholat, {'{jam}'} = waktu adzan, {'{menit}'} = menit sebelum</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
                           )}
                         </div>
                       );
                     })}
                   </div>
+
                 </div>
 
                 <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-100">
                   <p className="text-[10px] text-emerald-800 leading-relaxed font-medium">
-                    <b>TIP:</b> Anda bisa menggunakan kode <b>{`{sholat}`}</b> untuk nama waktu dan <b>{`{jam}`}</b> untuk pukul otomatis di dalam template.
+                    <b>TIP:</b> Gunakan <b>{`{sholat}`}</b> untuk nama waktu, <b>{`{jam}`}</b> untuk pukul otomatis di template pesan. Untuk <b>template reminder</b>, tambahkan <b>{`{menit}`}</b> untuk jumlah menit sebelum adzan.
                   </p>
                 </div>
               </div>
