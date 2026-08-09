@@ -4,21 +4,16 @@ export const maxDuration = 300; // 5 minutes
 import { NextResponse, NextRequest } from 'next/server';
 import { mkdir, writeFile, stat } from 'fs/promises';
 import { join } from 'path';
-import { cookies } from 'next/headers';
-import { findUserById } from '@/lib/user-store';
+import { validateAccess } from '@/lib/auth';
+import { getSessionUser } from '@/lib/session-store';
 import { getUploadsDir } from '@/lib/uploads-path';
 
 const CDN_BASE = 'https://cdn.islamic.network/quran/audio-surah';
 
 async function validateAdmin(key: string): Promise<boolean> {
     try {
-        const cookieStore = await cookies();
-        const userId = cookieStore.get('admin-session')?.value;
-        if (!userId) return false;
-        const user = await findUserById(userId);
-        if (!user) return false;
-        if (key !== 'default' && !user.mosqueKeys.includes(key)) return false;
-        return true;
+        if (key === 'default') return Boolean(await getSessionUser());
+        return (await validateAccess(key)).allowed;
     } catch {
         return false;
     }

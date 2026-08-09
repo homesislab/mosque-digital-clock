@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { v4 as uuidv4 } from 'uuid';
 import pool from '../../../../../lib/db';
 import { logger } from '../../../../lib/logger-server';
+import { createSession, setSessionCookie } from '../../../../../lib/session-store';
 
 // Google OAuth callback handler
 export async function GET(request: Request) {
@@ -165,16 +166,10 @@ export async function GET(request: Request) {
             logger.info(`New user registered via Google: ${email}`, { googleId });
         }
         
-        // Set session cookie
-        const cookieOptions = {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax' as const,
-            path: '/',
-            maxAge: 60 * 60 * 24 * 30, // 30 days
-        };
-        
-        cookieStore.set('admin-session', userId, cookieOptions);
+        const maxAge = 60 * 60 * 24 * 30;
+        const token = await createSession(userId, maxAge);
+        await setSessionCookie(token, maxAge);
+        cookieStore.delete('oauth_state');
         
         // Redirect to dashboard
         return NextResponse.redirect(

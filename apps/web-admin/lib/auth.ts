@@ -1,5 +1,4 @@
-import { cookies } from 'next/headers';
-import { findUserById } from './user-store';
+import { getSessionUser } from './session-store';
 
 /**
  * Otorisasi penuh: user harus login DAN memiliki mosque key terkait.
@@ -7,14 +6,13 @@ import { findUserById } from './user-store';
  * (config, devices, upload, kontrol WhatsApp, remote logout, dsb).
  */
 export async function validateAccess(key: string) {
-    const userId = (await cookies()).get('admin-session')?.value;
-    if (!userId) return { allowed: false as const, status: 401 };
+    const session = await getSessionUser();
+    if (!session) return { allowed: false as const, status: 401 };
 
-    const user = await findUserById(userId);
-    if (!user || !user.mosqueKeys.includes(key)) {
+    if (!session.user.mosqueKeys.includes(key)) {
         return { allowed: false as const, status: 403 };
     }
-    return { allowed: true as const, userId };
+    return { allowed: true as const, userId: session.user.id };
 }
 
 /**
@@ -23,10 +21,7 @@ export async function validateAccess(key: string) {
  * open-proxy / sasaran SSRF oleh pihak anonim.
  */
 export async function requireSession() {
-    const userId = (await cookies()).get('admin-session')?.value;
-    if (!userId) return { allowed: false as const, status: 401 };
-
-    const user = await findUserById(userId);
-    if (!user) return { allowed: false as const, status: 401 };
-    return { allowed: true as const, userId };
+    const session = await getSessionUser();
+    if (!session) return { allowed: false as const, status: 401 };
+    return { allowed: true as const, userId: session.user.id };
 }

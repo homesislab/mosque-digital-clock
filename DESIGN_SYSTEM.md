@@ -1,13 +1,28 @@
 # 🎨 Mosque Digital Clock - Design System & UI/UX Guidelines
 
-**Version:** 1.0  
-**Last Updated:** April 8, 2026
+**Version:** 2.0  
+**Last Updated:** August 9, 2026  
+**Status:** Living document — normative for new UI and incremental refactoring
 
 ---
 
 ## 📋 Design System Overview
 
-This document establishes the visual and interaction guidelines for the Mosque Digital Clock application to ensure consistency across all platforms and features.
+This document establishes the visual and interaction guidelines for the Mosque Digital Clock application to ensure consistency across the admin dashboard and public kiosk display.
+
+### Scope and precedence
+
+- **Admin dashboard:** data entry, configuration, monitoring, and device management.
+- **Kiosk/TV display:** glanceable information viewed from a distance, prayer-state overlays, media, and offline operation.
+- Existing screens may contain legacy styles. New work **MUST** follow this document; touched legacy UI **SHOULD** be migrated incrementally.
+- Design tokens are preferred over literal colors, arbitrary radii, and undocumented z-index values.
+- Accessibility and legibility take precedence over decorative effects.
+
+### Requirement language
+
+- **MUST:** required for acceptance.
+- **SHOULD:** expected unless there is a documented reason not to follow it.
+- **MAY:** optional enhancement.
 
 ---
 
@@ -60,17 +75,24 @@ Islamic Gradient (for headers):
 - Or: from-emerald-600 to-teal-600
 ```
 
-### Accessibility Contrast Ratios
-```
-WCAG AA Compliance (minimum 4.5:1 for normal text):
-✅ Emerald on White:     17:1 ✓
-✅ Navy on White:        17:1 ✓
-✅ White on Navy:        17:1 ✓
-✅ White on Emerald:     5.2:1 ✓
-❌ Gray on White:        3.2:1 ✗ (Use for secondary only)
+### Accessibility Contrast Rules
 
-Always test with: WebAIM contrast checker
+Do not rely on remembered ratios; verify the exact foreground/background pair with a contrast checker.
+
+```text
+WCAG 2.2 AA minimum:
+- Normal text:             4.5:1
+- Large text:              3:1 (≥24px regular or ≥18.66px bold)
+- UI controls and icons:   3:1 against adjacent colors
+- Disabled/decorative UI:  exempt, but must remain understandable
 ```
+
+Rules:
+
+- `emerald-600` on white is suitable for emphasized text; lighter emerald shades are backgrounds, not body text.
+- `slate-500` on white is only for non-essential secondary copy after verification; prefer `slate-600` for important help text.
+- Text over images MUST use a scrim/overlay and be tested against the brightest and darkest image regions.
+- Never communicate success, warning, error, connectivity, or prayer state by color alone; pair color with text and/or icon.
 
 ---
 
@@ -134,9 +156,10 @@ Black:   900 (Main headlines only)
 
 ## 📦 Spacing System
 
-### Scale (8px base unit)
+### Scale (4px primitive, 8px preferred rhythm)
 ```
 scale-0:  0px    (no space)
+scale-0.5: 4px   (micro)
 scale-1:  8px    (xs)
 scale-2:  16px   (sm)
 scale-3:  24px   (md)
@@ -602,7 +625,7 @@ Text Gray   →  Text Gray-200
 ### Card Grid
 ```jsx
 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-  {typeof items.map((item) => (
+  {items.map((item) => (
     <Card key={item.id} {...item} />
   ))}
 </div>
@@ -680,16 +703,598 @@ Before shipping UI components:
 
 ---
 
-## 📚 Resources
+## 🧭 Product Surfaces
 
-- Figma Component Library: [Link to shared file]
-- Tailwind Docs: https://tailwindcss.com
-- WCAG 2.1 Guidelines: https://www.w3.org/WAI/WCAG21/quickref/
-- Accessibility Checklist: https://www.a11yproject.com/checklist/
-- Color Contrast Checker: https://webaim.org/resources/contrastchecker/
+The two applications share semantics, but intentionally use different visual densities.
+
+| Property | Admin dashboard | Kiosk/TV display |
+|---|---|---|
+| Primary task | Configure and monitor | Read from a distance |
+| Density | Medium/high | Low |
+| Base surface | Light/dark slate | Black/image background |
+| Interaction | Keyboard, mouse, touch | Mostly passive; occasional touch/remote |
+| Typography | 12–32px | Responsive, commonly 24px–18vw |
+| Motion | Short feedback | State transitions and slideshow |
+| Failure mode | Explain and allow retry | Preserve last valid config and remain legible |
+
+Do not copy an admin card directly into kiosk UI. Preserve semantic colors and states, then adapt scale, contrast, spacing, and interaction for viewing distance.
 
 ---
 
-**Last Updated:** April 8, 2026  
-**Next Review:** 3 months from implementation
+## 🧩 Design Tokens
+
+### Canonical token model
+
+Admin tokens currently live in `apps/web-admin/app/globals.css`. The kiosk currently relies on utility classes and runtime `advancedDisplay` values; new kiosk work SHOULD introduce equivalent semantic variables rather than new literals.
+
+```css
+:root {
+  /* Semantic surfaces */
+  --ds-bg-canvas: #f8fafc;
+  --ds-bg-surface: #ffffff;
+  --ds-bg-subtle: #f1f5f9;
+  --ds-bg-inverse: #0f172a;
+
+  /* Semantic content */
+  --ds-text-strong: #0f172a;
+  --ds-text-default: #334155;
+  --ds-text-muted: #64748b;
+  --ds-text-inverse: #ffffff;
+
+  /* Semantic actions/status */
+  --ds-action-primary: #059669;
+  --ds-action-primary-hover: #047857;
+  --ds-status-info: #2563eb;
+  --ds-status-success: #16a34a;
+  --ds-status-warning: #ea580c;
+  --ds-status-danger: #dc2626;
+
+  /* Shape */
+  --ds-radius-sm: 8px;
+  --ds-radius-md: 12px;
+  --ds-radius-lg: 16px;
+  --ds-radius-xl: 24px;
+
+  /* Motion */
+  --ds-duration-fast: 150ms;
+  --ds-duration-normal: 250ms;
+  --ds-duration-slow: 500ms;
+}
+```
+
+Token migration rules:
+
+1. Use semantic tokens for reusable components.
+2. Use palette utilities only for isolated illustrations or prototypes.
+3. Runtime theme values MUST have safe defaults and retain readable contrast.
+4. Do not define a token that has no semantic purpose.
+5. Admin shadow behavior must be explicit. The current global `box-shadow: none !important` means shadow utilities do not take effect; new components MUST use borders/elevation consistently until that legacy rule is removed.
+
+### Radius scale
+
+| Token | Value | Usage |
+|---|---:|---|
+| Small | 8px | Inputs, compact buttons, badges |
+| Medium | 12px | Standard controls and small cards |
+| Large | 16px | Admin cards and modals |
+| Extra large | 24px | Kiosk glass panels and major media cards |
+| Full | 9999px | Pills, avatars, toggles |
+
+Arbitrary radii such as `2.5rem` or `3.5rem` SHOULD be reserved for intentional kiosk hero treatments and documented in the component.
+
+---
+
+## 🔤 Typography by Surface
+
+### Font policy
+
+- **Sans:** Inter or Geist Sans, followed by system fallbacks.
+- **Numeric/time:** Geist Mono or another tabular monospace face.
+- **Arabic/Quran text:** use a verified Arabic-capable font and set suitable line height; never depend on a generic serif fallback for production Quran text.
+- Limit each surface to two functional families: sans plus mono/Arabic as required.
+
+### Numeric displays
+
+Clock, countdown, balances, and prayer times MUST use tabular numerals:
+
+```css
+.numeric-display {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+```
+
+- Times use `HH:mm`; seconds are optional and visually subordinate.
+- Do not let clock width shift as digits change.
+- Kiosk clock sizes SHOULD use `clamp()` to avoid overflow.
+- Countdown announcements MUST include a visible label, not a number alone.
+
+### Kiosk distance hierarchy
+
+| Content | Recommended behavior |
+|---|---|
+| Main clock | Largest element; `clamp(4rem, 15vw, 14rem)` |
+| Prayer-state countdown | Comparable to main clock; high contrast |
+| Mosque name | Large but subordinate to time/state |
+| Prayer cards | Readable at expected installation distance |
+| Running text | Minimum equivalent of 20px at 1080p |
+| Device/debug controls | Hidden by default, focus/touch discoverable |
+
+Test kiosk typography at 1280×720, 1920×1080, and 3840×2160, including browser zoom and long mosque names.
+
+---
+
+## 🧱 Component Contract and States
+
+Every interactive component MUST define these states where applicable:
+
+```text
+default → hover → focus-visible → active → disabled
+                  ↘ loading
+                  ↘ error/success
+```
+
+### Buttons
+
+- Minimum touch target: **44×44px**.
+- Visible label is preferred. Icon-only buttons MUST have an accessible name.
+- Loading buttons retain their width, expose `aria-busy="true"`, and prevent duplicate submission.
+- Destructive actions use danger styling and require confirmation when irreversible.
+- Focus MUST use `:focus-visible`; never remove outlines without a replacement.
+
+### Inputs
+
+- Inputs MUST have a persistent `<label>`; placeholders are examples, not labels.
+- Help text precedes validation errors in reading order.
+- Errors use `aria-invalid="true"` and `aria-describedby`.
+- Required fields show both a visual indicator and native/ARIA semantics.
+- Numeric fields specify valid range, unit, and increment.
+- Coordinates, durations, offsets, opacity, and volume MUST be bounded.
+
+### Select, checkbox, and switch
+
+- Use checkbox when selecting an item; use switch for an immediate on/off setting.
+- A switch MUST expose `role="switch"` and `aria-checked`, or use a native checkbox with equivalent semantics.
+- Disabled controls explain why when the reason is not obvious.
+
+### Cards and sections
+
+- Card titles describe their contents; avoid decorative headings such as “Settings” repeated without context.
+- Clickable cards MUST be keyboard operable and have one clear action.
+- Do not place multiple unrelated nested click targets inside a clickable card.
+- Admin section spacing: 24–32px; related fields: 12–16px.
+
+### Tables and device lists
+
+- Use a table when columns have relationships; use cards/list rows on narrow screens.
+- Headers use `<th scope="col">`; row actions have the device/item name in their accessible label.
+- Empty, loading, error, and partial states MUST be distinct.
+- Last-seen timestamps SHOULD show relative time and exact time on hover/focus.
+
+### Badges and status pills
+
+| Status | Color | Required companion |
+|---|---|---|
+| Connected/active | Emerald | Text or check icon |
+| Syncing/pending | Blue | Text and progress/spinner |
+| Warning/degraded | Orange/amber | Warning icon and explanation |
+| Error/blocked/offline | Red/rose | Text and recovery action where possible |
+| Neutral/inactive | Slate | Explicit text |
+
+### Loading and progress
+
+- Use a spinner for indeterminate actions shorter than a few seconds.
+- Use determinate progress for uploads and asset synchronization.
+- Skeletons must approximate final layout and stop animating under reduced motion.
+- Never replace the whole kiosk with a blank loading screen when a last-known valid configuration exists.
+
+### Empty and error states
+
+Each state includes:
+
+1. what happened;
+2. impact;
+3. recommended action;
+4. retry/support detail if useful.
+
+Avoid exposing stack traces, credentials, internal paths, or raw server errors in UI.
+
+---
+
+## 🪟 Dialogs, Drawers, Toasts, and Overlays
+
+### Admin dialog/drawer
+
+- Use `role="dialog"`, `aria-modal="true"`, and an accessible title.
+- Move focus into the dialog on open and restore it to the trigger on close.
+- Trap focus while modal.
+- Escape closes non-destructive dialogs.
+- Clicking the backdrop MAY close simple dialogs, but MUST NOT discard unsaved destructive work without confirmation.
+- Mobile navigation uses a drawer; desktop navigation becomes static at `lg`.
+
+### Toasts
+
+- Success toasts use `role="status"`/polite announcements.
+- Errors requiring immediate attention use an assertive announcement sparingly.
+- Toasts never contain the only copy of important information.
+- Persistent failures belong inline near the affected content.
+
+### Kiosk overlay state model
+
+Kiosk overlays represent worship phases, not ordinary modals. The canonical priority is:
+
+```text
+Audio unlock / critical interaction
+Setup and logout confirmation
+Sholat in progress
+Adzan / Iqamah / Imsak
+Operational status and player controls
+Normal kiosk content
+Background media and decoration
+```
+
+Canonical z-index tokens:
+
+| Layer | Token | z-index |
+|---|---|---:|
+| Background media | `--z-background` | 0 |
+| Normal content | `--z-content` | 10 |
+| Running text/status | `--z-status` | 30 |
+| Decoration/noise | `--z-decoration` | 40 |
+| Worship phase overlay | `--z-phase` | 60 |
+| Setup/modal | `--z-modal` | 100 |
+| Critical audio unlock | `--z-critical` | 1000 |
+
+Do not introduce arbitrary z-index values. Decoration MUST NOT share a layer with phase overlays or intercept pointer events.
+
+### Worship-phase semantics
+
+- **Imsak:** warning/information, not an error.
+- **Adzan:** clear prayer name and current time; avoid distracting controls.
+- **Iqamah:** countdown with stable tabular numerals and an explicit “menuju iqamah” label.
+- **Sholat:** minimal, calm screen; suppress non-essential media and announcements.
+- State changes SHOULD be announced politely for assistive technology when interaction devices support it.
+
+---
+
+## 📺 Kiosk Layout and Safe Areas
+
+The primary kiosk target is landscape TV, while setup and recovery screens must also work on tablets and narrow displays.
+
+### Supported targets
+
+| Target | Minimum validation |
+|---|---|
+| HD TV | 1280×720 landscape |
+| Full HD TV | 1920×1080 landscape |
+| 4K TV | 3840×2160 landscape |
+| Tablet/setup | 768×1024 portrait and landscape |
+| Narrow recovery | 360×640 |
+
+### Overscan and safe zone
+
+- Keep critical kiosk content at least **3vw/3vh** from physical edges.
+- Running text must not be clipped by TV overscan.
+- Avoid placing setup/logout controls only in extreme corners.
+- Respect CSS safe-area environment variables when installed as a PWA.
+
+```css
+.kiosk-safe-area {
+  padding:
+    max(3vh, env(safe-area-inset-top))
+    max(3vw, env(safe-area-inset-right))
+    max(3vh, env(safe-area-inset-bottom))
+    max(3vw, env(safe-area-inset-left));
+}
+```
+
+### Prayer cards
+
+- Prefer a grid that supports 5–7 items without text collision.
+- At narrow widths, wrap or reduce non-essential metadata; never shrink prayer names below readable size.
+- The active prayer state uses color, border/shape, and textual indication.
+- Jumat may replace Dzuhur on Friday; Imsak may add an item during Ramadan. Layout testing MUST include both cases.
+
+### Background media
+
+- Always provide a fallback color/gradient.
+- Use `object-fit: cover` for decorative media; use `contain` for information-bearing images.
+- Apply a configurable scrim when text overlays media.
+- Video/stream failures must fall back to the next slide or static background.
+- Media controls remain hidden during normal kiosk playback unless interaction is requested.
+
+### Running text
+
+- Keep announcements concise and avoid all caps for long messages.
+- Separate multiple messages clearly.
+- Pause or replace marquee movement under reduced-motion preference.
+- Do not use a non-standard ARIA `marquee` role; expose important text through an appropriate live region only when updates warrant announcement.
+
+---
+
+## 🎛️ Runtime Theme Customization
+
+`advancedDisplay` can customize colors, opacity, blur, font scale, backgrounds, and performance behavior. Customization MUST remain inside these guardrails:
+
+- Validate colors as supported CSS color values before applying them.
+- Clamp opacity to `0–1`, blur to a documented maximum, font scale to a safe range, and volume to `0–1`.
+- Preserve minimum contrast after customization; provide a preview warning when contrast fails.
+- Custom CSS is an expert feature and SHOULD be disabled or sandboxed for untrusted users.
+- Always provide “Reset to safe defaults”.
+- Theme preview MUST include normal, active-prayer, Imsak, Adzan, Iqamah, Sholat, offline, and error states.
+
+Recommended font-scale range:
+
+```text
+Admin preview:  0.80–1.50
+Kiosk runtime:  0.75–1.75
+```
+
+Values outside the range require an explicit advanced override and overflow testing.
+
+---
+
+## 🎞️ Motion and Performance Policy
+
+### Duration and easing
+
+| Motion | Duration | Guidance |
+|---|---:|---|
+| Hover/focus feedback | 100–200ms | Immediate, no bounce |
+| Expand/collapse | 200–300ms | Preserve spatial context |
+| Dialog/overlay | 200–400ms | Fade plus small transform |
+| Kiosk slide | 400–800ms | Calm; no rapid flashing |
+| Worship state transition | 300–800ms | Respectful and restrained |
+
+### Reduced motion
+
+All continuous/decorative animation MUST honor OS preference:
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+```
+
+Application behavior SHOULD also disable or simplify:
+
+- pulse/ping/glow;
+- decorative stars/noise;
+- parallax and scale transitions;
+- marquee movement;
+- autoplay transitions that are not operationally required.
+
+The existing `data-perf="lite"` mode is the low-end-device control. Reduced motion and performance mode are related but separate: one honors user preference, the other protects device performance.
+
+### Performance budgets
+
+- Avoid layout-shifting animations.
+- Animate opacity and transform instead of layout properties.
+- Do not generate random decorative positions during React render; precompute stable values.
+- Keep concurrent full-screen blur layers to a minimum.
+- Kiosk must remain usable when media, SSE, or network requests fail.
+
+---
+
+## ♿ Accessibility Acceptance Criteria
+
+Target: **WCAG 2.2 AA** for admin and all interactive kiosk/recovery screens.
+
+### Global requirements
+
+- Set document language to Indonesian (`lang="id"`) unless the page content is primarily another language.
+- Do not disable browser zoom with `userScalable: false`.
+- Provide a skip link in admin.
+- Maintain logical heading order.
+- Every icon-only control has an accessible name.
+- All controls are operable by keyboard.
+- Focus order follows visual order.
+- Focus indicators remain visible against light, dark, and image backgrounds.
+- Pointer gestures have a simple alternative.
+- Status messages use appropriate live-region behavior.
+
+### Focus style
+
+```css
+:focus-visible {
+  outline: 3px solid #10b981;
+  outline-offset: 3px;
+}
+```
+
+### Interactive kiosk overlays
+
+Setup, logout confirmation, and audio unlock MUST:
+
+- use actual buttons for click actions;
+- expose dialog semantics when modal;
+- move focus appropriately;
+- support Enter/Space and Escape where safe;
+- retain a visible focus indicator;
+- avoid relying on hover-only discovery.
+
+### Language and content
+
+- UI uses clear Indonesian terms consistently: “Salat” or the approved product spelling, not mixed variants without reason.
+- Prayer names follow one approved vocabulary set across admin and kiosk.
+- Error messages explain recovery without blaming the user.
+- Arabic text requires correct direction/language metadata where appropriate, e.g. `lang="ar" dir="rtl"`.
+
+---
+
+## ✍️ Content Design
+
+### Voice and tone
+
+- Calm, respectful, concise, and operational.
+- Use sentence case for labels and actions.
+- Start button labels with a verb: “Simpan konfigurasi”, “Hubungkan WhatsApp”, “Coba lagi”.
+- Avoid unexplained technical terms in normal UI.
+- Confirmation text states the object and consequence.
+
+### Standard terminology
+
+| Concept | Preferred label |
+|---|---|
+| Save | Simpan |
+| Cancel | Batal |
+| Delete | Hapus |
+| Retry | Coba lagi |
+| Connected | Terhubung |
+| Disconnected | Terputus |
+| Offline cached state | Offline — memakai data tersimpan |
+| Device | Perangkat display |
+| Mosque key | Kode masjid |
+| Last update | Terakhir diperbarui |
+
+### Error pattern
+
+```text
+Title: Konfigurasi belum tersimpan
+Detail: Server tidak dapat dihubungi. Perubahan masih tersedia di halaman ini.
+Action: Coba lagi
+```
+
+Do not display raw exception messages to end users.
+
+---
+
+## 🖼️ Media and Iconography
+
+- Use Lucide icons consistently in admin controls.
+- Default icon sizes: 16px compact, 20px standard, 24px prominent, 32px+ illustration.
+- Decorative icons use `aria-hidden="true"`.
+- Do not mix outlined and filled icon families within the same control group.
+- User-uploaded images require descriptive alt text when informational; decorative slideshow backgrounds use empty alt text or CSS backgrounds.
+- Prefer WebP/AVIF for images and optimized audio/video formats supported by target devices.
+- File-size guidance is a budget, not a fixed universal 100KB limit; choose an appropriate budget by resolution and installation bandwidth.
+- Quran/media artwork must respect licensing and attribution requirements.
+
+---
+
+## 🌐 Offline, Connectivity, and Synchronization UI
+
+Kiosk is offline-first and MUST distinguish:
+
+| State | UI behavior |
+|---|---|
+| Online/current | No persistent interruption |
+| Syncing | Small status pill/progress; keep display usable |
+| Offline with cache | Show subtle offline status and last update |
+| Offline without config | Show setup/recovery instructions |
+| Partial asset failure | Continue with available assets; identify missing count |
+| Device blocked | Full recovery screen with admin contact instruction |
+
+- Never show a blank screen because synchronization failed.
+- Connectivity indicators use text plus icon.
+- Retry uses backoff; UI must not flash repeatedly.
+- Show exact last successful synchronization time in admin diagnostics.
+
+---
+
+## 🧪 UI Validation Matrix
+
+Every significant UI change MUST be checked against applicable cases:
+
+### Admin
+
+- 360px, 768px, 1024px, and 1440px widths.
+- Light and dark theme.
+- Keyboard-only operation.
+- 200% browser zoom.
+- Empty, loading, success, validation error, server error, and offline states.
+- Long mosque/device names and large datasets.
+
+### Kiosk
+
+- 720p, 1080p, and 4K landscape.
+- Tablet portrait setup/recovery.
+- Normal, Jumat, and Ramadan/Imsak schedules.
+- Adzan, Iqamah, Sholat, simulation, offline, syncing, blocked-device, and audio-unlock states.
+- Bright and dark background images.
+- Reduced motion and `data-perf="lite"`.
+- Five, six, and seven prayer cards.
+- Very long running text and empty running text.
+
+### Automated checks
+
+- ESLint and TypeScript pass.
+- Automated accessibility scan on key routes.
+- Component interaction tests for dialogs, forms, toggles, and keyboard navigation.
+- Visual regression snapshots for canonical admin and kiosk states.
+- Lighthouse checks are interpreted by surface: admin interaction and kiosk stability/performance.
+
+---
+
+## 🗂️ Implementation Governance
+
+### Component placement
+
+- Shared visual primitives SHOULD live in a dedicated component layer rather than inside page files.
+- Product-specific behavior stays in feature components.
+- Repeated class combinations SHOULD become typed variants or reusable primitives.
+- Components MUST accept semantic props (`variant="danger"`) instead of arbitrary color props where possible.
+
+### Definition of done
+
+```text
+[ ] Uses semantic tokens or an approved runtime theme value
+[ ] Covers default, hover, focus, active, disabled, loading, and error states
+[ ] Keyboard and screen-reader behavior verified
+[ ] Contrast verified on every supported theme/background
+[ ] Responsive and kiosk target resolutions verified
+[ ] Reduced-motion and low-end modes verified
+[ ] Empty/offline/failure behavior defined
+[ ] No raw server error or sensitive information exposed
+[ ] Tests and screenshots updated where applicable
+[ ] DESIGN_SYSTEM.md updated if a new pattern was introduced
+```
+
+### Known legacy gaps
+
+These are migration targets, not approved patterns:
+
+1. Admin shadow tokens exist while a global rule disables all shadows.
+2. Admin loads both Inter and Geist without one explicit typography contract.
+3. Kiosk lacks a complete semantic token layer.
+4. Overlay z-index values are currently scattered and can conflict.
+5. Some overlays lack dialog semantics, focus management, and keyboard support.
+6. `prefers-reduced-motion` is not consistently implemented.
+7. Some icon-only controls lack accessible names.
+8. An `xs` responsive utility is used without a confirmed custom breakpoint.
+9. Admin and kiosk root language metadata should reflect Indonesian content.
+10. Prayer-card layouts need explicit narrow-screen and Ramadan/Jumat behavior.
+
+New work MUST NOT copy these legacy gaps.
+
+---
+
+## 📚 Resources
+
+- Tailwind CSS: https://tailwindcss.com/docs
+- WCAG 2.2: https://www.w3.org/TR/WCAG22/
+- WAI-ARIA Authoring Practices: https://www.w3.org/WAI/ARIA/apg/
+- Accessibility checklist: https://www.a11yproject.com/checklist/
+- Contrast checker: https://webaim.org/resources/contrastchecker/
+- Next.js Image: https://nextjs.org/docs/app/api-reference/components/image
+- Framer Motion accessibility: https://motion.dev/docs/react-accessibility
+
+Internal implementation references:
+
+- Admin tokens: `apps/web-admin/app/globals.css`
+- Admin shell: `apps/web-admin/app/page.tsx`
+- Kiosk tokens/performance mode: `apps/web-client/app/globals.css`
+- Kiosk composition: `apps/web-client/app/page.tsx`
+- Shared configuration contract: `packages/shared-types/src/index.ts`
+
+---
+
+**Document owner:** Product/UI Engineering  
+**Last Updated:** August 9, 2026  
+**Next Review:** November 9, 2026 or when a new foundational UI pattern is introduced
 

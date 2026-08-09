@@ -1,8 +1,7 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse, NextRequest } from 'next/server';
 import { MosqueConfig } from '@mosque-digital-clock/shared-types';
-import { cookies } from 'next/headers';
-import { findUserById } from '../../../lib/user-store';
+import { validateAccess as validateSessionAccess } from '../../../lib/auth';
 import pool from '../../../lib/db';
 import { logger } from '../../lib/logger-server';
 import { waService } from '@/lib/wa-service';
@@ -123,17 +122,8 @@ const defaultConfig: MosqueConfig = {
 };
 
 async function validateAccess(request: Request, key: string) {
-    const cookieStore = await cookies();
-    const userId = cookieStore.get('admin-session')?.value;
-
-    if (!userId) return { allowed: false, status: 401 };
-
-    const user = await findUserById(userId);
-    if (!user || !user.mosqueKeys.includes(key)) {
-        return { allowed: false, status: 403 };
-    }
-
-    return { allowed: true, userId };
+    void request;
+    return validateSessionAccess(key);
 }
 
 async function getConfig(key: string): Promise<MosqueConfig> {

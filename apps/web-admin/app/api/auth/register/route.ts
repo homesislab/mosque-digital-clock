@@ -4,8 +4,8 @@ import bcrypt from 'bcrypt';
 import { RegisterSchema, formatZodErrors } from '@mosque-digital-clock/shared-types';
 import { addUser, findUserByEmail } from '../../../../lib/user-store';
 import { withRateLimit } from '../../../../lib/rate-limit';
-import { cookies } from 'next/headers';
 import { v4 as uuidv4 } from 'uuid';
+import { createSession, setSessionCookie } from '../../../../lib/session-store';
 
 async function handleRegister(request: NextRequest) {
     try {
@@ -40,14 +40,9 @@ async function handleRegister(request: NextRequest) {
             mosqueKeys: [mosqueKey]
         });
 
-        const cookieStore = await cookies();
-        cookieStore.set('admin-session', userId, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            maxAge: 60 * 60 * 24 * 7,
-            path: '/',
-        });
+        const maxAge = 60 * 60 * 24 * 7;
+        const token = await createSession(userId, maxAge);
+        await setSessionCookie(token, maxAge);
 
         return NextResponse.json({ success: true, mosqueKey });
     } catch (error) {

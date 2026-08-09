@@ -1,11 +1,11 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse, NextRequest } from 'next/server';
-import { cookies } from 'next/headers';
 import bcrypt from 'bcrypt';
 import { LoginSchema, formatZodErrors } from '@mosque-digital-clock/shared-types';
 import { findUserByEmail } from '../../../../lib/user-store';
 import { withRateLimit } from '../../../../lib/rate-limit';
 import { httpRequestsTotal, httpRequestDuration } from '../../../../lib/metrics';
+import { createSession, setSessionCookie } from '../../../../lib/session-store';
 
 async function handleLogin(request: NextRequest) {
     const start = Date.now();
@@ -26,25 +26,10 @@ async function handleLogin(request: NextRequest) {
         const user = await findUserByEmail(email);
 
         // Securely compare password using bcrypt
-        if (user && await bcrypt.compare(password, user.passwordHash)) {
-            const cookieStore = await cookies();
-
-            const cookieOptions: any = {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'lax',
-                path: '/',
-            };
-
-            if (rememberMe) {
-                // 30 days expiration
-                cookieOptions.maxAge = 60 * 60 * 24 * 30;
-            } else {
-                // Default to 1 day expiration if not remembered
-                cookieOptions.maxAge = 60 * 60 * 24;
-            }
-
-            cookieStore.set('admin-session', user.id, cookieOptions);
+        if (user?.passwordHash && await bcrypt.compare(password, user.passwordHash)) {
+            const maxAge = rememberMe ? 60 * 60 * 24 * 30 : 60 * 60 * 24;
+            const token = await createSession(user.id, maxAge);
+            await setSessionCookie(token, maxAge);
 
             return NextResponse.json({ success: true, mosqueKey: user.mosqueKeys[0] });
         }

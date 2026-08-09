@@ -1,10 +1,9 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+import { revokeCurrentSession } from '../../../../lib/session-store';
 
 export async function POST() {
-    const cookieStore = await cookies();
-    cookieStore.delete('admin-session');
+    await revokeCurrentSession();
 
     return NextResponse.json({ success: true });
 }
