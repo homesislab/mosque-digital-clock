@@ -62,10 +62,10 @@ The current `admin-session` cookie contains a raw user ID. Cookie transport flag
 - [x] Create fresh sessions after password, registration, and Google login.
 - [~] Revoke the current session on logout; revocation on security-sensitive account changes remains pending.
 - [x] Enforce absolute and idle expiration server-side.
-- [ ] Add authenticity, fixation, expiry, rotation, and logout tests.
+- [~] Karate integration tests cover missing/forged sessions, opaque-token login, profile access, and logout revocation; direct expiry and fixation/rotation assertions still require dedicated fixtures.
 - [x] Remove route authorization decisions based solely on an unsigned cookie value; middleware remains an optimistic navigation check only.
 
-**Verification — August 9, 2026:** admin TypeScript check passed; the new session module and central auth/profile/logout consumers pass targeted ESLint. Broader touched routes retain pre-existing lint debt. Migration `002_admin_sessions.sql` must be applied before deployment.
+**Verification — August 9, 2026:** admin TypeScript check passed; the new session module and central auth/profile/logout consumers pass targeted ESLint. Karate project structure and Maven XML parse successfully, but the suite has not run because Maven is unavailable in the current environment. Broader touched routes retain pre-existing lint debt. Migration `002_admin_sessions.sql` must be applied before deployment.
 
 **Acceptance:** changing `admin-session` to a known user ID never grants access; logout invalidates the server-side session.
 
