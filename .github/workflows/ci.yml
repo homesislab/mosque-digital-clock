@@ -49,6 +49,8 @@ jobs:
 
     - name: Build Web Admin
       if: steps.filter.outputs.admin == 'true'
+      env:
+        DATABASE_URL: mysql://dummy:dummy@localhost:3306/dummy
       run: npm run build -w apps/web-admin
 
     - name: Set up Docker Buildx
