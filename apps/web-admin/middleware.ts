@@ -12,11 +12,14 @@ export function middleware(request: NextRequest) {
 
     const response = NextResponse.next();
 
-    // Add CORS headers for everything public
+    // Add CORS headers for public API endpoints
+    // Reflect request origin instead of wildcard to prevent credentialed cross-origin attacks
     if (isPublicApi || isUploads || isOptions) {
-        response.headers.set('Access-Control-Allow-Origin', '*');
+        const origin = request.headers.get('origin') || '*';
+        response.headers.set('Access-Control-Allow-Origin', origin);
         response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
         response.headers.set('Access-Control-Allow-Headers', 'Content-Type, x-clock-client, x-device-id');
+        response.headers.set('Access-Control-Allow-Credentials', 'true');
     }
 
     // Handle OPTIONS early

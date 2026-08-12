@@ -15,6 +15,7 @@ export async function getUsers(): Promise<User[]> {
     try {
         const [rows]: any = await pool.query(`
             SELECT u.id, u.email, u.password_hash as passwordHash, 
+                   u.google_id as googleId, u.google_name as googleName, u.google_picture as googlePicture,
                    GROUP_CONCAT(mk.mosque_key) as mosqueKeys
             FROM users u
             LEFT JOIN mosque_keys mk ON u.id = mk.user_id
@@ -35,6 +36,7 @@ export async function findUserByEmail(email: string): Promise<User | undefined> 
     try {
         const [rows]: any = await pool.query(`
             SELECT u.id, u.email, u.password_hash as passwordHash, 
+                   u.google_id as googleId, u.google_name as googleName, u.google_picture as googlePicture,
                    GROUP_CONCAT(mk.mosque_key) as mosqueKeys
             FROM users u
             LEFT JOIN mosque_keys mk ON u.id = mk.user_id
@@ -57,6 +59,7 @@ export async function findUserById(id: string): Promise<User | undefined> {
     try {
         const [rows]: any = await pool.query(`
             SELECT u.id, u.email, u.password_hash as passwordHash, 
+                   u.google_id as googleId, u.google_name as googleName, u.google_picture as googlePicture,
                    GROUP_CONCAT(mk.mosque_key) as mosqueKeys
             FROM users u
             LEFT JOIN mosque_keys mk ON u.id = mk.user_id

@@ -35,12 +35,13 @@ CREATE TABLE IF NOT EXISTS devices (
 );
 
 -- Initial Admin Data
+-- password: admin123 (bcrypt, 12 rounds) — change on first login
 INSERT IGNORE INTO
     users (id, email, password_hash)
 VALUES (
         'admin-id',
         'admin@mosque.id',
-        'admin123'
+        '$2b$12$cWUZ.2/xarKJbcmIOUpcXuNBWaa4ea1LU3nOn1OD9xslODOHxaKv.'
     );
 
 INSERT IGNORE INTO

@@ -10,7 +10,6 @@ services:
     environment:
       # SECURITY: never commit credentials. Provide DATABASE_URL via .env or shell.
       - DATABASE_URL=${DATABASE_URL}
-      - ADMIN_PASSWORD=admin123
       - NEXTAUTH_URL=https://mosque.homesislab.my.id
       - NEXT_PUBLIC_APP_URL=https://mosque.homesislab.my.id
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}

@@ -96,12 +96,15 @@ body,
 input, select, textarea { font-family: inherit; }
 
 /* =========================================================================
-   FLAT DESIGN — buang semua shadow di seluruh aplikasi untuk tampilan flat.
-   `!important` mengalahkan utility shadow Tailwind (yang tanpa !important)
-   tanpa peduli specificity, jadi ini menetralkan shadow-sm/md/lg, colored
-   shadow, dan hover:shadow-* di SEMUA menu tanpa mengedit ribuan baris.
+   FLAT DESIGN — gunakan border sebagai pemisah visual, bukan shadow.
+   Shadow tetap aktif untuk focus-ring (aksesibilitas keyboard).
    ========================================================================= */
-*, *::before, *::after { box-shadow: none !important; }
+
+/* Focus ring yang konsisten — WCAG 2.4.7 */
+:focus-visible {
+  outline: 3px solid var(--brand-500, #10b981);
+  outline-offset: 3px;
+}
 
 /* Border tipis sebagai pengganti shadow agar elemen tetap terbaca terpisah */
 .flat-divide > * + * { border-top: 1px solid var(--border); }

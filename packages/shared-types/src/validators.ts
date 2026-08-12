@@ -56,49 +56,114 @@ export type PasswordResetInput = z.infer<typeof PasswordResetSchema>;
 // Configuration Validators
 // ============================================
 
+/**
+ * Schema for the full MosqueConfig object.
+ * Uses .passthrough() to allow extra fields while validating
+ * the core structure matches the MosqueConfig TypeScript interface.
+ */
 export const MosqueConfigSchema = z.object({
-    mosqueName: z
-        .string({ message: 'Mosque name is required' })
-        .min(2, { message: 'Mosque name must be at least 2 characters' })
-        .max(100, { message: 'Mosque name must not exceed 100 characters' }),
-    
-    location: z.object({
-        latitude: z
-            .number({ message: 'Latitude must be a number' })
-            .min(-90, { message: 'Latitude must be between -90 and 90' })
-            .max(90, { message: 'Latitude must be between -90 and 90' }),
-        longitude: z
-            .number({ message: 'Longitude must be a number' })
-            .min(-180, { message: 'Longitude must be between -180 and 180' })
-            .max(180, { message: 'Longitude must be between -180 and 180' }),
-    }).optional(),
-    
-    calculation: z.enum(['ISNA', 'MWL', 'DIYANET', 'ISLAMIC_RELIEF', 'KARACHI']).optional(),
-    
-    videoStreaming: z.object({
+    mosqueInfo: z.object({
+        name: z.string().min(1).max(200),
+        address: z.string().max(500).default(''),
+        logoUrl: z.string().url().optional(),
+    }),
+    display: z.object({
+        theme: z.enum(['dark', 'light', 'green', 'blue']).default('dark'),
+        showSeconds: z.boolean().default(true),
+        showHijriDate: z.boolean().default(true),
+        timeOffset: z.number().int().optional(),
+    }),
+    prayerTimes: z.object({
+        calculationMethod: z.string().min(1),
+        cityId: z.string().optional(),
+        cityName: z.string().optional(),
+        coordinates: z.object({
+            lat: z.number().min(-90).max(90),
+            lng: z.number().min(-180).max(180),
+        }),
+        adjustments: z.object({
+            subuh: z.number().int().min(-120).max(120),
+            dzuhur: z.number().int().min(-120).max(120),
+            jumat: z.number().int().min(-120).max(120),
+            ashar: z.number().int().min(-120).max(120),
+            maghrib: z.number().int().min(-120).max(120),
+            isya: z.number().int().min(-120).max(120),
+        }),
+    }),
+    iqamah: z.object({
         enabled: z.boolean(),
-        url: z
-            .string()
-            .url({ message: 'Invalid URL for video streaming' })
-            .optional()
-            .nullable(),
-        showInSlideshow: z.boolean().optional(),
-        durationMinutes: z
-            .number()
-            .min(1, { message: 'Duration must be at least 1 minute' })
-            .max(120, { message: 'Duration must not exceed 120 minutes' })
-            .optional(),
+        waitTime: z.object({
+            subuh: z.number().int().min(0),
+            dzuhur: z.number().int().min(0),
+            jumat: z.number().int().min(0),
+            ashar: z.number().int().min(0),
+            maghrib: z.number().int().min(0),
+            isya: z.number().int().min(0),
+        }),
+        displayDuration: z.number().int().min(0),
+        audioEnabled: z.boolean().optional(),
+        audioUrl: z.string().optional(),
     }).optional(),
-    
-    adhanAudio: z.object({
+    adzan: z.object({
+        duration: z.number().int().min(0),
+        audioEnabled: z.boolean().optional(),
+        audioUrl: z.string().optional(),
+    }).optional(),
+    sholat: z.object({
+        duration: z.number().int().min(0),
+    }).optional(),
+    sliderImages: z.array(z.string()).default([]),
+    runningText: z.array(z.string()).default([]),
+    officers: z.array(z.object({
+        role: z.string(),
+        name: z.string(),
+    })).default([]),
+    officersEnabled: z.boolean().optional(),
+    jumat: z.array(z.object({
+        date: z.string().optional(),
+        khotib: z.string(),
+        imam: z.string(),
+        muadzin: z.string(),
+    })).optional(),
+    jumatEnabled: z.boolean().optional(),
+    ramadhan: z.object({
         enabled: z.boolean(),
-        customUrl: z
-            .string()
-            .url({ message: 'Invalid URL for custom adhan' })
-            .optional()
-            .nullable(),
+        imsakOffset: z.number().int().min(0).max(60),
+        imsakAudioEnabled: z.boolean().optional(),
+        imsakAudioUrl: z.string().optional(),
+        imsakAudioDuration: z.number().int().optional(),
     }).optional(),
-});
+    advancedDisplay: z.object({
+        showLogo: z.boolean().optional(),
+        showDate: z.boolean().optional(),
+        showClock: z.boolean().optional(),
+        showRunningText: z.boolean().optional(),
+        showPrayerTimes: z.boolean().optional(),
+        theme: z.enum(['light', 'dark', 'glass']).optional(),
+        fontScale: z.enum(['small', 'normal', 'large']).optional(),
+        customCss: z.string().optional(),
+        headerOpacity: z.number().min(0).max(1).optional(),
+        prayerTimesOpacity: z.number().min(0).max(1).optional(),
+        headerBlur: z.number().min(0).max(50).optional(),
+        prayerTimesBlur: z.number().min(0).max(50).optional(),
+        runningTextSpeed: z.number().optional(),
+        clockWeight: z.enum(['light', 'normal', 'bold']).optional(),
+        showNextPrayerCountdown: z.boolean().optional(),
+        lowEndMode: z.boolean().optional(),
+        headerTextColor: z.string().optional(),
+        dateTextColor: z.string().optional(),
+        clockTextColor: z.string().optional(),
+        glowColor: z.string().optional(),
+        runningTextColor: z.string().optional(),
+        runningTextBgColor: z.string().optional(),
+        prayerTimesTextColor: z.string().optional(),
+        prayerTimesBgColor: z.string().optional(),
+        prayerTimesActiveColor: z.string().optional(),
+        prayerTimesActiveBgColor: z.string().optional(),
+        prayerTimesActiveTextColor: z.string().optional(),
+        slideshowOverlayColor: z.string().optional(),
+    }).optional(),
+}).passthrough();
 
 export type MosqueConfigInput = z.infer<typeof MosqueConfigSchema>;
 

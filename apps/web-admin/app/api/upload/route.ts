@@ -102,8 +102,7 @@ async function handleUpload(request: NextRequest) {
         console.error('Upload API error:', error);
         return NextResponse.json({
             success: false,
-            message: 'Upload failed',
-            debug: error instanceof Error ? error.message : String(error)
+            message: 'Upload failed'
         }, { status: 500 });
     }
 }

@@ -50,18 +50,47 @@ export async function POST(request: Request) {
     }
 
     try {
+        // Verify mosqueKey exists
+        const [keyRows] = await pool.query<any[]>(
+            'SELECT mosque_key FROM mosque_configs WHERE mosque_key = ? LIMIT 1',
+            [mosqueKey]
+        );
+        if (keyRows.length === 0) {
+            return NextResponse.json({ success: false, message: 'Invalid mosque key' }, { status: 403, headers: corsHeaders });
+        }
+
+        // Check if device already paired to a different mosque
+        const [existing] = await pool.query<any[]>(
+            'SELECT mosque_key, status FROM devices WHERE device_id = ? LIMIT 1',
+            [deviceId]
+        );
+        if (existing.length > 0) {
+            if (existing[0].mosque_key !== mosqueKey) {
+                return NextResponse.json(
+                    { success: false, message: 'Device already paired to another mosque' },
+                    { status: 409, headers: corsHeaders }
+                );
+            }
+            if (existing[0].status === 'blocked') {
+                return NextResponse.json(
+                    { success: false, message: 'Device is blocked' },
+                    { status: 403, headers: corsHeaders }
+                );
+            }
+            // Same mosque, update last_seen
+            await pool.query(
+                'UPDATE devices SET device_name = ?, last_seen = CURRENT_TIMESTAMP WHERE device_id = ?',
+                [deviceName || 'TV Device', deviceId]
+            );
+            return NextResponse.json({ success: true }, { headers: corsHeaders });
+        }
+
         await pool.query(
             `INSERT INTO devices (device_id, mosque_key, device_name, status) 
-             VALUES (?, ?, ?, 'active') 
-             ON DUPLICATE KEY UPDATE 
-                mosque_key = VALUES(mosque_key), 
-                status = IF(status = 'blocked', 'blocked', 'active'),
-                last_seen = CURRENT_TIMESTAMP`,
+             VALUES (?, ?, ?, 'active')`,
             [deviceId, mosqueKey, deviceName || 'TV Device']
         );
-        return NextResponse.json({ success: true }, {
-            headers: corsHeaders,
-        });
+        return NextResponse.json({ success: true }, { headers: corsHeaders });
     } catch (error) {
         console.error('Device API Error:', error);
         return NextResponse.json({ success: false, message: 'DB Error' }, { status: 500, headers: corsHeaders });
