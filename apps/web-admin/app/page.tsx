@@ -10,7 +10,7 @@ import {
   Clock, Image as ImageIcon, MessageSquare, Users,
   Wallet, Settings, Settings2, ChevronRight, UploadCloud,
   Music, Library, Plus, Moon, Sun, Menu, X, Play, Pause, Square, PlayCircle, XCircle, AlarmCheck, Sliders, Smartphone, Activity, Calendar,
-  LogIn, Send, LayoutGrid, List, Power, Monitor, Video, Volume2, VolumeX, Search, Check
+  LogIn, Send, LayoutGrid, List, Power, Monitor, Video, Volume2, VolumeX, Search, Check, Bell, Plus
 } from 'lucide-react';
 import { useLogger } from './hooks/useLogger';
 import { PrayerTimesCard } from '@/components/PrayerTimesCard';
@@ -1566,6 +1566,139 @@ function WabotConfigSection({ config, setConfig, mosqueKey }: { config: MosqueCo
                   <p className="text-[10px] text-emerald-800 leading-relaxed font-medium">
                     <b>TIP:</b> Gunakan <b>{`{sholat}`}</b> untuk nama waktu, <b>{`{jam}`}</b> untuk pukul otomatis di template pesan. Untuk <b>template reminder</b>, tambahkan <b>{`{menit}`}</b> untuk jumlah menit sebelum adzan.
                   </p>
+                </div>
+
+                {/* ── Custom Notifications ── */}
+                <div className="pt-4 border-t border-slate-100">
+                  <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <Bell size={14} className="text-indigo-500" />
+                    Notifikasi Kustom
+                  </h5>
+                  <p className="text-[10px] text-slate-500 mb-3 italic">
+                    Atur notifikasi WA tambahan. Bisa jam tetap (misal: 08:00) atau relatif ke waktu sholat (misal: 30 menit sebelum Dzuhur).
+                  </p>
+                  {(wabotConfig.customNotifications || []).map((cn: any, idx: number) => (
+                    <div key={cn.id || idx} className="border border-indigo-200 rounded-xl p-3 mb-3 bg-indigo-50/30 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <input type="checkbox" checked={cn.enabled}
+                            onChange={(e) => {
+                              const list = [...(wabotConfig.customNotifications || [])];
+                              list[idx] = { ...list[idx], enabled: e.target.checked };
+                              setConfig({ ...config, wabot: { ...wabotConfig, customNotifications: list } });
+                            }}
+                            className="w-4 h-4 accent-indigo-500 cursor-pointer" />
+                          <span className="text-[11px] font-bold text-slate-700">{cn.message ? cn.message.substring(0, 30) + (cn.message.length > 30 ? '...' : '') : 'Notifikasi Baru'}</span>
+                        </div>
+                        <button onClick={() => {
+                          const list = [...(wabotConfig.customNotifications || [])];
+                          list.splice(idx, 1);
+                          setConfig({ ...config, wabot: { ...wabotConfig, customNotifications: list } });
+                        }} className="text-rose-400 hover:text-rose-600 text-[10px] font-bold">HAPUS</button>
+                      </div>
+                      {cn.enabled && (
+                        <div className="space-y-3 pl-6 animate-in fade-in">
+                          <div className="flex items-center gap-2">
+                            <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Tipe:</label>
+                            <select value={cn.type || 'fixed'}
+                              onChange={(e) => {
+                                const list = [...(wabotConfig.customNotifications || [])];
+                                list[idx] = { ...list[idx], type: e.target.value };
+                                setConfig({ ...config, wabot: { ...wabotConfig, customNotifications: list } });
+                              }}
+                              className="text-[10px] border border-slate-200 rounded-md px-2 py-1 focus:ring-1 focus:ring-indigo-400">
+                              <option value="fixed">Jam Tetap</option>
+                              <option value="prayer_relative">Relatif Sholat</option>
+                            </select>
+                          </div>
+                          {cn.type === 'fixed' ? (
+                            <div className="flex items-center gap-2">
+                              <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Jam:</label>
+                              <input type="time" value={cn.time || ''}
+                                onChange={(e) => {
+                                  const list = [...(wabotConfig.customNotifications || [])];
+                                  list[idx] = { ...list[idx], time: e.target.value };
+                                  setConfig({ ...config, wabot: { ...wabotConfig, customNotifications: list } });
+                                }}
+                                className="text-[10px] border border-slate-200 rounded-md px-2 py-1 focus:ring-1 focus:ring-indigo-400" />
+                            </div>
+                          ) : (
+                            <div className="flex flex-wrap items-center gap-2">
+                              <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Sholat:</label>
+                              <select value={cn.prayer || 'subuh'}
+                                onChange={(e) => {
+                                  const list = [...(wabotConfig.customNotifications || [])];
+                                  list[idx] = { ...list[idx], prayer: e.target.value };
+                                  setConfig({ ...config, wabot: { ...wabotConfig, customNotifications: list } });
+                                }}
+                                className="text-[10px] border border-slate-200 rounded-md px-2 py-1 focus:ring-1 focus:ring-indigo-400">
+                                <option value="subuh">Subuh</option>
+                                <option value="dzuhur">Dzuhur</option>
+                                <option value="ashar">Ashar</option>
+                                <option value="maghrib">Maghrib</option>
+                                <option value="isya">Isya</option>
+                                <option value="jumat">Jumat</option>
+                                <option value="imsak">Imsak</option>
+                              </select>
+                              <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Offset:</label>
+                              <input type="number" value={cn.offsetMinutes ?? 0}
+                                onChange={(e) => {
+                                  const list = [...(wabotConfig.customNotifications || [])];
+                                  list[idx] = { ...list[idx], offsetMinutes: parseInt(e.target.value) || 0 };
+                                  setConfig({ ...config, wabot: { ...wabotConfig, customNotifications: list } });
+                                }}
+                                className="w-16 text-[10px] border border-slate-200 rounded-md px-2 py-1 text-center focus:ring-1 focus:ring-indigo-400" />
+                              <span className="text-[10px] text-slate-400">menit</span>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Hari:</label>
+                            {['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'].map((day, di) => (
+                              <label key={di} className="flex items-center gap-1 text-[9px] text-slate-600 cursor-pointer">
+                                <input type="checkbox" checked={!cn.days || cn.days.includes(di)}
+                                  onChange={(e) => {
+                                    const list = [...(wabotConfig.customNotifications || [])];
+                                    let days = list[idx].days ? [...list[idx].days] : [0,1,2,3,4,5,6];
+                                    if (e.target.checked) {
+                                      if (!days.includes(di)) days.push(di);
+                                    } else {
+                                      days = days.filter((d: number) => d !== di);
+                                    }
+                                    list[idx] = { ...list[idx], days };
+                                    setConfig({ ...config, wabot: { ...wabotConfig, customNotifications: list } });
+                                  }}
+                                  className="w-3 h-3 accent-indigo-500" />
+                                {day}
+                              </label>
+                            ))}
+                          </div>
+                          <textarea value={cn.message || ''}
+                            onChange={(e) => {
+                              const list = [...(wabotConfig.customNotifications || [])];
+                              list[idx] = { ...list[idx], message: e.target.value };
+                              setConfig({ ...config, wabot: { ...wabotConfig, customNotifications: list } });
+                            }}
+                            placeholder="Pesan notifikasi..."
+                            className="w-full p-2 text-[10px] bg-white border border-indigo-200 rounded-lg focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400 outline-none min-h-[44px] resize-none font-medium text-slate-600" />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  <button onClick={() => {
+                    const list = [...(wabotConfig.customNotifications || [])];
+                    list.push({
+                      id: 'notif_' + Date.now(),
+                      enabled: true,
+                      message: '',
+                      type: 'fixed',
+                      time: '08:00',
+                      days: [0,1,2,3,4,5,6]
+                    });
+                    setConfig({ ...config, wabot: { ...wabotConfig, customNotifications: list } });
+                  }} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-xs font-semibold w-full justify-center">
+                    <Plus size={16} />
+                    Tambah Notifikasi
+                  </button>
                 </div>
               </div>
             </div>

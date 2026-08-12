@@ -217,6 +217,22 @@ export interface MosqueConfig {
                 reminderTemplate?: string;
             }
         };
+        /** Notifikasi kustom — fixed time atau relative ke waktu sholat */
+        customNotifications?: {
+            id: string;
+            enabled: boolean;
+            message: string;
+            /** fixed = jam tertentu, prayer_relative = relatif ke waktu sholat */
+            type: 'fixed' | 'prayer_relative';
+            /** Untuk type fixed: "HH:mm" */
+            time?: string;
+            /** Untuk type prayer_relative: nama sholat (subuh/dzuhur/ashar/maghrib/isya/jumat) */
+            prayer?: string;
+            /** Untuk type prayer_relative: offset menit (negatif = sebelum, positif = sesudah) */
+            offsetMinutes?: number;
+            /** Hari aktif (0=Minggu, 6=Sabtu). Kosong = semua hari */
+            days?: number[];
+        }[];
     };
     videoStreaming?: {
         enabled: boolean;

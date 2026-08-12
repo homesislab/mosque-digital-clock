@@ -107,9 +107,52 @@ export async function checkAndSendNotifications() {
                         }
                     }
                 }
+
+                // ── 3. CUSTOM NOTIFICATIONS ─────────────────────────────────
+                const customNotifs = config.wabot?.customNotifications;
+                if (customNotifs && Array.isArray(customNotifs)) {
+                    for (const cn of customNotifs) {
+                        if (!cn.enabled || !cn.message) continue;
+                        if (cn.days && cn.days.length > 0 && !cn.days.includes(now.getDay())) continue;
+
+                        let fireHour: number | null = null;
+                        let fireMinute: number | null = null;
+
+                        if (cn.type === 'fixed' && cn.time) {
+                            const [h, m] = cn.time.split(':').map(Number);
+                            fireHour = h;
+                            fireMinute = m;
+                        } else if (cn.type === 'prayer_relative' && cn.prayer) {
+                            const prayerTime = (prayers as Record<string, Date>)[cn.prayer.toLowerCase()];
+                            if (prayerTime instanceof Date) {
+                                const offsetMs = (cn.offsetMinutes ?? 0) * 60 * 1000;
+                                const targetTime = new Date(prayerTime.getTime() + offsetMs);
+                                fireHour = targetTime.getHours();
+                                fireMinute = targetTime.getMinutes();
+                            }
+                        }
+
+                        if (fireHour !== null && fireMinute !== null &&
+                            fireHour === currentHour && fireMinute === currentMinute) {
+                            const lockKey = `custom_${key}_${cn.id}_${now.getDate()}_${currentHour}_${currentMinute}`;
+                            if (!sentNotifications.has(lockKey)) {
+                                console.log(`[Worker] Sending custom notification "${cn.id}" for ${key}`);
+                                sentNotifications.add(lockKey);
+                                const { waService } = await import('./wa-service');
+                                const targetJid = config.wabot?.targetNumber;
+                                if (targetJid) {
+                                    try {
+                                        await waService.sendMessage(key, targetJid, cn.message);
+                                    } catch (error: any) {
+                                        console.error(`[Worker] Failed to send custom notif:`, error.message);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
-
     } catch (error) {
         console.error('[Worker] Error in check loop:', error);
     }
