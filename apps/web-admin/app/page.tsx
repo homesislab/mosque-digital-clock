@@ -10,7 +10,7 @@ import {
   Clock, Image as ImageIcon, MessageSquare, Users,
   Wallet, Settings, Settings2, ChevronRight, UploadCloud,
   Music, Library, Plus, Moon, Sun, Menu, X, Play, Pause, Square, PlayCircle, XCircle, AlarmCheck, Sliders, Smartphone, Activity, Calendar,
-  LogIn, Send, LayoutGrid, List, Power, Monitor, Video, Volume2, VolumeX, Search, Check, Bell, Plus
+  LogIn, Send, LayoutGrid, List, Power, Monitor, Video, Volume2, VolumeX, Search, Check, Bell
 } from 'lucide-react';
 import { useLogger } from './hooks/useLogger';
 import { PrayerTimesCard } from '@/components/PrayerTimesCard';
