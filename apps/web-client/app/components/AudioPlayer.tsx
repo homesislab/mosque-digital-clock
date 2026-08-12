@@ -30,10 +30,7 @@ export const AudioPlayer = ({ url, playlist, isPlaying, onStop, onBlocked, playb
     const isPlayingRef = useRef(false);
     const isPausedRef = useRef(false);
     const currentSrcRef = useRef('');
-
-    // Remote Control Effect
-    useEffect(() => {
-        if (playbackState === 'paused') setIsPaused(true);
+	const prevEffectiveIsPlaying = useRef(false);
         else if (playbackState === 'playing') setIsPaused(false);
         else if (playbackState === 'stopped') onStop?.();
     }, [playbackState, onStop]);
@@ -61,12 +58,18 @@ export const AudioPlayer = ({ url, playlist, isPlaying, onStop, onBlocked, playb
     const effectiveIsPlaying = isPlaying && isTargetDevice;
 
     // Sync isPaused state when effectiveIsPlaying changes
+    const prevEffectiveIsPlaying = useRef(effectiveIsPlaying);
     useEffect(() => {
+        // When schedule ends, mark as paused so remote-control pause is respected.
         if (!effectiveIsPlaying) {
             setIsPaused(true);
         }
-        // Don't auto-resume paused state when effectiveIsPlaying becomes true —
-        // that is handled by the playback control effect below.
+        // When a new schedule starts (transition from not-playing to playing),
+        // reset pause so audio can play — unless admin explicitly paused remotely.
+        if (effectiveIsPlaying && !prevEffectiveIsPlaying.current) {
+            setIsPaused(false);
+        }
+        prevEffectiveIsPlaying.current = effectiveIsPlaying;
     }, [effectiveIsPlaying]);
 
     // Clear error when src changes
