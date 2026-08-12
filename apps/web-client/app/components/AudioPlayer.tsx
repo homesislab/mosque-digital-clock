@@ -30,8 +30,12 @@ export const AudioPlayer = ({ url, playlist, isPlaying, onStop, onBlocked, playb
     const isPlayingRef = useRef(false);
     const isPausedRef = useRef(false);
     const currentSrcRef = useRef('');
-	const prevEffectiveIsPlaying = useRef(false);
-        else if (playbackState === 'playing') setIsPaused(false);
+    const prevEffectiveIsPlayingRef = useRef(false);
+
+    // Remote Control Effect
+    useEffect(() => {
+        if (playbackState === 'paused') { isPausedRef.current = true; setIsPaused(true); }
+        else if (playbackState === 'playing') { isPausedRef.current = false; setIsPaused(false); }
         else if (playbackState === 'stopped') onStop?.();
     }, [playbackState, onStop]);
 
@@ -57,19 +61,17 @@ export const AudioPlayer = ({ url, playlist, isPlaying, onStop, onBlocked, playb
 
     const effectiveIsPlaying = isPlaying && isTargetDevice;
 
-    // Sync isPaused state when effectiveIsPlaying changes
-    const prevEffectiveIsPlaying = useRef(effectiveIsPlaying);
+    // Sync isPaused ref+state when effectiveIsPlaying transitions
     useEffect(() => {
-        // When schedule ends, mark as paused so remote-control pause is respected.
         if (!effectiveIsPlaying) {
+            isPausedRef.current = true;
             setIsPaused(true);
         }
-        // When a new schedule starts (transition from not-playing to playing),
-        // reset pause so audio can play — unless admin explicitly paused remotely.
-        if (effectiveIsPlaying && !prevEffectiveIsPlaying.current) {
+        if (effectiveIsPlaying && !prevEffectiveIsPlayingRef.current) {
+            isPausedRef.current = false;
             setIsPaused(false);
         }
-        prevEffectiveIsPlaying.current = effectiveIsPlaying;
+        prevEffectiveIsPlayingRef.current = effectiveIsPlaying;
     }, [effectiveIsPlaying]);
 
     // Clear error when src changes
@@ -89,8 +91,8 @@ export const AudioPlayer = ({ url, playlist, isPlaying, onStop, onBlocked, playb
             audio.load();
         }
 
-        // After loading, decide whether to play based on current state
-        if (effectiveIsPlaying && !isPaused) {
+        // After loading, decide whether to play based on current state (ref, not state)
+        if (effectiveIsPlaying && !isPausedRef.current) {
             const p = audio.play();
             p?.then(() => {
                 isPlayingRef.current = true;
@@ -116,7 +118,7 @@ export const AudioPlayer = ({ url, playlist, isPlaying, onStop, onBlocked, playb
         const audio = audioRef.current;
         if (!audio || !effectiveUrl) return;
 
-        const shouldPlay = effectiveIsPlaying && !isPaused;
+        const shouldPlay = effectiveIsPlaying && !isPausedRef.current;
 
         if (shouldPlay && !isPlayingRef.current) {
             const p = audio.play();
@@ -136,7 +138,7 @@ export const AudioPlayer = ({ url, playlist, isPlaying, onStop, onBlocked, playb
             }
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [effectiveIsPlaying, isPaused]); // ← Only re-run on play/pause state change.
+    }, [effectiveIsPlaying, isPaused]); // isPaused state triggers re-eval but decision uses isPausedRef
 
     // ─── GESTURE RESUME (fix blocked autoplay / broken unlock) ───────────────
     // Browser autoplay policy blocks audio-with-sound until a user gesture.
@@ -146,7 +148,7 @@ export const AudioPlayer = ({ url, playlist, isPlaying, onStop, onBlocked, playb
         const audio = audioRef.current;
         if (!audio) return;
         const tryResume = () => {
-            if (effectiveIsPlaying && !isPaused && audio.paused) {
+            if (effectiveIsPlaying && !isPausedRef.current && audio.paused) {
                 const p = audio.play();
                 p?.then(() => { isPlayingRef.current = true; onBlocked?.(false); })
                  .catch(() => {});
@@ -160,7 +162,7 @@ export const AudioPlayer = ({ url, playlist, isPlaying, onStop, onBlocked, playb
             window.removeEventListener('touchstart', tryResume);
             window.removeEventListener('keydown', tryResume);
         };
-    }, [effectiveIsPlaying, isPaused, onBlocked]);
+    }, [effectiveIsPlaying, onBlocked]); // isPausedRef read synchronously, no dep needed
 
     // ─── EXPLICIT UNLOCK TRIGGER ──────────────────────────────────────────────
     // Called when parent increments `unlockTrigger` after the AudioUnlockOverlay
@@ -170,7 +172,7 @@ export const AudioPlayer = ({ url, playlist, isPlaying, onStop, onBlocked, playb
     useEffect(() => {
         if (!unlockTrigger) return; // skip initial render (value === 0 / undefined)
         const audio = audioRef.current;
-        if (!audio || !effectiveIsPlaying || isPaused) return;
+        if (!audio || !effectiveIsPlaying || isPausedRef.current) return;
         if (audio.paused) {
             const p = audio.play();
             p?.then(() => { isPlayingRef.current = true; onBlocked?.(false); })
@@ -275,7 +277,12 @@ export const AudioPlayer = ({ url, playlist, isPlaying, onStop, onBlocked, playb
     useEffect(() => {
         if (!isPlaying) return;
         const onKey = (e: KeyboardEvent) => {
-            if (e.code === 'Space') { e.preventDefault(); setIsPaused(p => !p); }
+            if (e.code === 'Space') {
+                e.preventDefault();
+                const next = !isPausedRef.current;
+                isPausedRef.current = next;
+                setIsPaused(next);
+            }
             else if (e.code === 'Escape') onStop?.();
             else if (e.code === 'ArrowRight' && playlist) handleNext();
             else if (e.code === 'ArrowLeft' && playlist) handlePrev();
@@ -311,7 +318,8 @@ export const AudioPlayer = ({ url, playlist, isPlaying, onStop, onBlocked, playb
                     <button
                         onClick={() => {
                             const audio = audioRef.current;
-                            const next = !isPaused;
+                            const next = !isPausedRef.current;
+                            isPausedRef.current = next;
                             setIsPaused(next);
                             if (!audio) return;
                             if (next) {
