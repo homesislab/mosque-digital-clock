@@ -1603,7 +1603,7 @@ function WabotConfigSection({ config, setConfig, mosqueKey }: { config: MosqueCo
                             <select value={cn.type || 'fixed'}
                               onChange={(e) => {
                                 const list = [...(wabotConfig.customNotifications || [])];
-                                list[idx] = { ...list[idx], type: e.target.value };
+                                list[idx] = { ...list[idx], type: e.target.value as 'fixed' | 'prayer_relative' };
                                 setConfig({ ...config, wabot: { ...wabotConfig, customNotifications: list } });
                               }}
                               className="text-[10px] border border-slate-200 rounded-md px-2 py-1 focus:ring-1 focus:ring-indigo-400">
