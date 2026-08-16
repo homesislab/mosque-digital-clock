@@ -83,6 +83,10 @@ export default function LoginPage() {
                     setGeneratedKey(data.mosqueKey);
                     setMode('success');
                 } else {
+                    if (!data.mosqueKey) {
+                        setError('Akun belum memiliki masjid');
+                        return;
+                    }
                     localStorage.setItem('lastMosqueKey', data.mosqueKey);
                     router.push(`/?key=${data.mosqueKey}`);
                     router.refresh();

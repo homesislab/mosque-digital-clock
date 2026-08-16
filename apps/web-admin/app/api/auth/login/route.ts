@@ -31,7 +31,14 @@ async function handleLogin(request: NextRequest) {
             const token = await createSession(user.id, maxAge);
             await setSessionCookie(token, maxAge);
 
-            return NextResponse.json({ success: true, mosqueKey: user.mosqueKeys[0] });
+            const mosqueKey = user.mosqueKeys[0];
+            if (!mosqueKey) {
+                return NextResponse.json(
+                    { success: false, message: 'Akun belum memiliki masjid' },
+                    { status: 403 }
+                );
+            }
+            return NextResponse.json({ success: true, mosqueKey });
         }
 
         return NextResponse.json(

@@ -3,14 +3,26 @@ import pool from './db';
 import { MosqueConfig } from '@mosque-digital-clock/shared-types';
 import { logger } from '../app/lib/logger-server';
 
-// In-memory lock to prevent duplicate sends within the same minute
+// Global singleton lock to prevent duplicate sends within the same minute.
+// Stored on globalThis so it survives Next.js module hot-reloads and chunk re-imports.
 // Key: mosqueKey_prayerName_day_hour_minute
-const sentNotifications = new Set<string>();
+const globalForWorker = globalThis as unknown as {
+    __sentNotifications: Set<string> | undefined;
+    __sentNotifCleanupTimer: NodeJS.Timeout | undefined;
+};
 
-// Cleanup old keys every hour
-setInterval(() => {
-    sentNotifications.clear();
-}, 60 * 60 * 1000);
+if (!globalForWorker.__sentNotifications) {
+    globalForWorker.__sentNotifications = new Set<string>();
+}
+
+// Cleanup old keys every hour (only register once)
+if (!globalForWorker.__sentNotifCleanupTimer) {
+    globalForWorker.__sentNotifCleanupTimer = setInterval(() => {
+        globalForWorker.__sentNotifications!.clear();
+    }, 60 * 60 * 1000);
+}
+
+const sentNotifications = globalForWorker.__sentNotifications;
 
 export async function checkAndSendNotifications() {
     try {
@@ -69,6 +81,9 @@ export async function checkAndSendNotifications() {
 
                 const prayerKey = name.toLowerCase();
 
+                // ── BUG FIX: Jumat only fires on Friday (day = 5) ──────────────
+                if (prayerKey === 'jumat' && correctedNow.getDay() !== 5) continue;
+
                 // ── 1. ADZAN TIME: Exact match ─────────────────────────────────
                 if (time.getHours() === currentHour && time.getMinutes() === currentMinute) {
 
@@ -107,25 +122,33 @@ export async function checkAndSendNotifications() {
                         }
                     }
                 }
+            }
 
-                // ── 3. CUSTOM NOTIFICATIONS ─────────────────────────────────
-                const customNotifs = config.wabot?.customNotifications;
-                if (customNotifs && Array.isArray(customNotifs)) {
-                    for (const cn of customNotifs) {
-                        if (!cn.enabled || !cn.message) continue;
-                        if (cn.days && cn.days.length > 0 && !cn.days.includes(now.getDay())) continue;
+            // ── 3. CUSTOM NOTIFICATIONS ─────────────────────────────────────────
+            // NOTE: Moved OUTSIDE the prayer loop to prevent N*prayers duplicate sends.
+            const customNotifs = config.wabot?.customNotifications;
+            if (customNotifs && Array.isArray(customNotifs)) {
+                for (const cn of customNotifs) {
+                    if (!cn.enabled || !cn.message) continue;
+                    if (cn.days && cn.days.length > 0 && !cn.days.includes(now.getDay())) continue;
 
+                    // Build list of schedules — supports multi-schedule per notification
+                    const schedules = cn.schedules && cn.schedules.length > 0
+                        ? cn.schedules
+                        : [{ type: cn.type, time: cn.time, prayer: cn.prayer, offsetMinutes: cn.offsetMinutes }];
+
+                    for (const sched of schedules) {
                         let fireHour: number | null = null;
                         let fireMinute: number | null = null;
 
-                        if (cn.type === 'fixed' && cn.time) {
-                            const [h, m] = cn.time.split(':').map(Number);
+                        if (sched.type === 'fixed' && sched.time) {
+                            const [h, m] = sched.time.split(':').map(Number);
                             fireHour = h;
                             fireMinute = m;
-                        } else if (cn.type === 'prayer_relative' && cn.prayer) {
-                            const prayerTime = (prayers as Record<string, Date>)[cn.prayer.toLowerCase()];
+                        } else if (sched.type === 'prayer_relative' && sched.prayer) {
+                            const prayerTime = (prayers as Record<string, Date>)[sched.prayer.toLowerCase()];
                             if (prayerTime instanceof Date) {
-                                const offsetMs = (cn.offsetMinutes ?? 0) * 60 * 1000;
+                                const offsetMs = (sched.offsetMinutes ?? 0) * 60 * 1000;
                                 const targetTime = new Date(prayerTime.getTime() + offsetMs);
                                 fireHour = targetTime.getHours();
                                 fireMinute = targetTime.getMinutes();
@@ -134,15 +157,24 @@ export async function checkAndSendNotifications() {
 
                         if (fireHour !== null && fireMinute !== null &&
                             fireHour === currentHour && fireMinute === currentMinute) {
-                            const lockKey = `custom_${key}_${cn.id}_${now.getDate()}_${currentHour}_${currentMinute}`;
+                            const schedKey = sched.type === 'fixed'
+                                ? `fixed_${sched.time}`
+                                : `pr_${sched.prayer}_${sched.offsetMinutes ?? 0}`;
+                            const lockKey = `custom_${key}_${cn.id}_${schedKey}_${now.getDate()}_${currentHour}_${currentMinute}`;
                             if (!sentNotifications.has(lockKey)) {
-                                console.log(`[Worker] Sending custom notification "${cn.id}" for ${key}`);
+                                console.log(`[Worker] Sending custom notification "${cn.id}" (${schedKey}) for ${key}`);
                                 sentNotifications.add(lockKey);
                                 const { waService } = await import('./wa-service');
-                                const targetJid = config.wabot?.targetNumber;
+                                const targetJid = cn.targetNumber || config.wabot?.targetNumber;
                                 if (targetJid) {
                                     try {
-                                        await waService.sendMessage(key, targetJid, cn.message);
+                                        // BUG FIX: Apply template replacement on custom notification messages
+                                        const timeStr = formatTime(new Date());
+                                        const finalMessage = cn.message
+                                            .replace(/{sholat}/gi, sched.prayer || '')
+                                            .replace(/{jam}/gi, timeStr)
+                                            .replace(/\[HH:MM\]/gi, timeStr);
+                                        await waService.sendMessage(key, targetJid, finalMessage);
                                     } catch (error: any) {
                                         console.error(`[Worker] Failed to send custom notif:`, error.message);
                                     }

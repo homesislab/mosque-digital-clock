@@ -24,6 +24,7 @@ const MapPicker = dynamic(() => import('./components/MapPicker'), {
 import AdvancedConfigSection from './components/AdvancedConfigSection';
 import PlaylistManager from './components/PlaylistManager';
 import ScheduleManager from './components/ScheduleManager';
+import NotificationManager from './components/NotificationManager';
 import { QuranBrowser } from '@/components/QuranBrowser';
 // InputGroup is defined locally in AdvancedConfigSection usually, OR I need to check where it is.
 // Actually, looking at line 500 of page.tsx, InputGroup is used but I don't see it defined in page.tsx in the views I had.
@@ -1463,113 +1464,9 @@ function WabotConfigSection({ config, setConfig, mosqueKey }: { config: MosqueCo
                   )}
                 </div>
 
-                <InputGroup
-                  label="Template Pesan"
-                  value={wabotConfig.messageTemplate || 'Waktu sholat {sholat} telah tiba.'}
-                  onChange={(v: string) => setConfig({ ...config, wabot: { ...wabotConfig, messageTemplate: v } })}
-                  type="textarea"
-                />
-
-                {/* Per-Prayer Config */}
-                <div className="pt-4 border-t border-slate-100">
-                  <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                    <AlarmCheck size={14} className="text-emerald-500" />
-                    Kustomisasi Per Waktu Sholat
-                  </h5>
-                  <div className="grid grid-cols-1 gap-2">
-                    {['imsak', 'subuh', 'dzuhur', 'jumat', 'ashar', 'maghrib', 'isya'].map((pKey) => {
-                      const pConfig = wabotConfig.prayerNotifications?.[pKey] || { enabled: true };
-                      const pNames: any = { imsak: 'Imsak', subuh: 'Subuh', dzuhur: 'Dzuhur', jumat: 'Sholat Jumat', ashar: 'Ashar', maghrib: 'Maghrib', isya: 'Isya' };
-                      const updatePConfig = (patch: object) => {
-                        const newNotify = { ...(wabotConfig.prayerNotifications || {}), [pKey]: { ...pConfig, ...patch } };
-                        setConfig({ ...config, wabot: { ...wabotConfig, prayerNotifications: newNotify } });
-                      };
-                      return (
-                        <div key={pKey} className={`group bg-slate-50/50 border rounded-xl p-3 transition-all ${pConfig.enabled ? 'border-slate-200 hover:border-emerald-200 hover:bg-white' : 'border-slate-100 opacity-60'}`}>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="relative flex items-center">
-                                <input 
-                                  type="checkbox" 
-                                  id={`notify-${pKey}`}
-                                  checked={pConfig.enabled}
-                                  onChange={(e) => updatePConfig({ enabled: e.target.checked })}
-                                  className="w-4 h-4 accent-emerald-500 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
-                                />
-                              </div>
-                              <label htmlFor={`notify-${pKey}`} className={`text-[11px] font-bold cursor-pointer select-none ${pConfig.enabled ? 'text-slate-700' : 'text-slate-400'}`}>
-                                {pNames[pKey]}
-                              </label>
-                            </div>
-                            {!pConfig.enabled && <span className="text-[9px] bg-slate-100 text-slate-400 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">OFF</span>}
-                          </div>
-                          
-                          {pConfig.enabled && (
-                            <div className="mt-2 pl-7 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
-                              {/* Pesan Adzan */}
-                              <textarea
-                                value={pConfig.template || ''}
-                                onChange={(e) => updatePConfig({ template: e.target.value })}
-                                placeholder="Template pesan waktu adzan (opsional, pakai global jika kosong)"
-                                className="w-full p-2 text-[10px] bg-white border border-slate-200 rounded-lg focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 outline-none min-h-[44px] resize-none font-medium text-slate-600"
-                              />
-
-                              {/* ── Reminder Sub-section ── */}
-                              <div className="border border-dashed border-amber-300/60 rounded-lg p-2.5 bg-amber-50/30 space-y-2.5">
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    type="checkbox"
-                                    id={`reminder-${pKey}`}
-                                    checked={pConfig.reminderEnabled ?? false}
-                                    onChange={(e) => updatePConfig({ reminderEnabled: e.target.checked })}
-                                    className="w-3.5 h-3.5 accent-amber-500 cursor-pointer"
-                                  />
-                                  <label htmlFor={`reminder-${pKey}`} className="text-[10px] font-bold text-amber-700 cursor-pointer select-none flex items-center gap-1">
-                                    ⏰ Kirim Reminder Sebelum Adzan
-                                  </label>
-                                </div>
-
-                                {pConfig.reminderEnabled && (
-                                  <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-150">
-                                    <div className="flex items-center gap-2">
-                                      <label className="text-[9px] font-bold text-amber-600 uppercase tracking-wider whitespace-nowrap">Menit sebelum:</label>
-                                      <input
-                                        type="number"
-                                        min={1}
-                                        max={60}
-                                        value={pConfig.reminderMinutes ?? 10}
-                                        onChange={(e) => updatePConfig({ reminderMinutes: parseInt(e.target.value) || 10 })}
-                                        className="w-16 px-2 py-1 text-[10px] font-bold bg-white border border-amber-200 rounded-md focus:ring-1 focus:ring-amber-400 focus:border-amber-400 outline-none text-center text-amber-800"
-                                      />
-                                      <span className="text-[9px] text-amber-500 font-medium">mnt sebelum adzan</span>
-                                    </div>
-                                    <textarea
-                                      value={pConfig.reminderTemplate || ''}
-                                      onChange={(e) => updatePConfig({ reminderTemplate: e.target.value })}
-                                      placeholder={`⏰ Reminder: Waktu {sholat} akan tiba dalam {menit} menit ({jam}). Segera bersiap!`}
-                                      className="w-full p-2 text-[10px] bg-white border border-amber-200 rounded-lg focus:ring-1 focus:ring-amber-400 focus:border-amber-400 outline-none min-h-[52px] resize-none font-medium text-amber-800 placeholder:text-amber-300"
-                                    />
-                                    <p className="text-[9px] text-amber-500 italic">Variabel: {'{sholat}'} = nama sholat, {'{jam}'} = waktu adzan, {'{menit}'} = menit sebelum</p>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                </div>
-
-                <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-100">
-                  <p className="text-[10px] text-emerald-800 leading-relaxed font-medium">
-                    <b>TIP:</b> Gunakan <b>{`{sholat}`}</b> untuk nama waktu, <b>{`{jam}`}</b> untuk pukul otomatis di template pesan. Untuk <b>template reminder</b>, tambahkan <b>{`{menit}`}</b> untuk jumlah menit sebelum adzan.
-                  </p>
-                </div>
-
                 {/* ── Custom Notifications ── */}
-                <div className="pt-4 border-t border-slate-100">
+                <NotificationManager config={config} setConfig={setConfig} targets={waStatus.groups} />
+                <div className="hidden">
                   <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                     <Bell size={14} className="text-indigo-500" />
                     Notifikasi Kustom

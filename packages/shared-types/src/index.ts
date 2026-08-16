@@ -222,6 +222,8 @@ export interface MosqueConfig {
             id: string;
             enabled: boolean;
             message: string;
+            /** Target WhatsApp number or group ID for this notification */
+            targetNumber?: string;
             /** fixed = jam tertentu, prayer_relative = relatif ke waktu sholat */
             type: 'fixed' | 'prayer_relative';
             /** Untuk type fixed: "HH:mm" */
@@ -232,6 +234,16 @@ export interface MosqueConfig {
             offsetMinutes?: number;
             /** Hari aktif (0=Minggu, 6=Sabtu). Kosong = semua hari */
             days?: number[];
+            /** Daftar jadwal — mendukung multi schedule per notifikasi. Jika kosong, pakai type/time/prayer lama. */
+            schedules?: {
+                type: 'fixed' | 'prayer_relative';
+                /** Untuk type fixed: "HH:mm" */
+                time?: string;
+                /** Untuk type prayer_relative: nama sholat */
+                prayer?: string;
+                /** Offset menit relatif ke sholat */
+                offsetMinutes?: number;
+            }[];
         }[];
     };
     videoStreaming?: {
