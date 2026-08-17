@@ -64,3 +64,49 @@ VALUES (
 INSERT IGNORE INTO
     mosque_keys (user_id, mosque_key)
 VALUES ('admin-id', 'default');
+
+CREATE TABLE IF NOT EXISTS running_text_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    mosque_key VARCHAR(255) NOT NULL,
+    position INT NOT NULL DEFAULT 0,
+    text TEXT NOT NULL,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_rt_mosque_key (mosque_key),
+    FOREIGN KEY (mosque_key) REFERENCES mosque_configs(mosque_key) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
+CREATE TABLE IF NOT EXISTS slider_images (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    mosque_key VARCHAR(255) NOT NULL,
+    position INT NOT NULL DEFAULT 0,
+    image_url VARCHAR(1024) NOT NULL,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_si_mosque_key (mosque_key),
+    FOREIGN KEY (mosque_key) REFERENCES mosque_configs(mosque_key) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
+CREATE TABLE IF NOT EXISTS gallery_images (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    mosque_key VARCHAR(255) NOT NULL,
+    position INT NOT NULL DEFAULT 0,
+    image_url VARCHAR(1024) NOT NULL,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_gi_mosque_key (mosque_key),
+    FOREIGN KEY (mosque_key) REFERENCES mosque_configs(mosque_key) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
+CREATE TABLE IF NOT EXISTS finance_accounts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    mosque_key VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    balance DECIMAL(15,2) NOT NULL DEFAULT 0,
+    income DECIMAL(15,2) NOT NULL DEFAULT 0,
+    expense DECIMAL(15,2) NOT NULL DEFAULT 0,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_fa_mosque_key (mosque_key),
+    FOREIGN KEY (mosque_key) REFERENCES mosque_configs(mosque_key) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;

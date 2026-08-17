@@ -84,6 +84,9 @@ export async function checkAndSendNotifications() {
                 // ── BUG FIX: Jumat only fires on Friday (day = 5) ──────────────
                 if (prayerKey === 'jumat' && correctedNow.getDay() !== 5) continue;
 
+                // Resolve per-prayer config once, shared by adzan + reminder blocks
+                const pConfig = config.wabot?.prayerNotifications?.[prayerKey];
+
                 // ── 1. ADZAN TIME: Exact match ─────────────────────────────────
                 if (time.getHours() === currentHour && time.getMinutes() === currentMinute) {
 
@@ -91,12 +94,12 @@ export async function checkAndSendNotifications() {
                     const lockKey = `${key}_${name}_${now.getDate()}_${currentHour}_${currentMinute}`;
 
                     if (!sentNotifications.has(lockKey)) {
-                        // Check per-prayer notification setting
-                        const pConfig = config.wabot?.prayerNotifications?.[prayerKey];
-                        const isEnabled = pConfig ? pConfig.enabled : true;
+                        // FIX: Default to false — only send if explicitly enabled in config.
+                        // Previously defaulted to `true`, causing sends with no per-prayer config.
+                        const isEnabled = pConfig?.enabled ?? false;
 
                         if (!isEnabled) {
-                            console.log(`[Worker] Skipping ${displayName} for ${key} (disabled in config)`);
+                            console.log(`[Worker] Skipping ${displayName} for ${key} (not configured or disabled)`);
                         } else {
                             console.log(`[Worker] Triggering ${displayName} for ${key} at ${formatTime(time)}`);
                             sentNotifications.add(lockKey);
@@ -106,7 +109,6 @@ export async function checkAndSendNotifications() {
                 }
 
                 // ── 2. REMINDER: X minutes before adzan ───────────────────────
-                const pConfig = config.wabot?.prayerNotifications?.[prayerKey];
                 if (pConfig?.reminderEnabled) {
                     const reminderMinutes = pConfig.reminderMinutes ?? 10;
                     // Calculate when reminder should fire

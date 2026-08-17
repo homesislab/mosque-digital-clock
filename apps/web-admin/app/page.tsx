@@ -10,7 +10,7 @@ import {
   Clock, Image as ImageIcon, MessageSquare, Users,
   Wallet, Settings, Settings2, ChevronRight, UploadCloud,
   Music, Library, Plus, Moon, Sun, Menu, X, Play, Pause, Square, PlayCircle, XCircle, AlarmCheck, Sliders, Smartphone, Activity, Calendar,
-  LogIn, Send, LayoutGrid, List, Power, Monitor, Video, Volume2, VolumeX, Search, Check, Bell
+  LogIn, Send, LayoutGrid, List, Power, Monitor, Video, Volume2, VolumeX, Search, Check, Bell, AlertTriangle, Trash2
 } from 'lucide-react';
 import { useLogger } from './hooks/useLogger';
 import { PrayerTimesCard } from '@/components/PrayerTimesCard';
@@ -486,7 +486,7 @@ export default function AdminDashboard() {
                   }}
                 />
               )}
-              {activeTab === 'gallery' && <GallerySection config={config} setConfig={setConfig} updateConfig={updateConfig} mosqueKey={mosqueKey} />}
+              {activeTab === 'gallery' && <GallerySection config={config} setConfig={setConfig} updateConfig={updateConfig} mosqueKey={mosqueKey} onSave={handleSave} />}
               {activeTab === 'content' && (
                 <ContentSection
                   config={config}
@@ -2231,13 +2231,50 @@ function MediaPickerModal({
 }
 
 
-function GallerySection({ config, setConfig, updateConfig, mosqueKey }: any) {
+function GallerySection({ config, setConfig, updateConfig, mosqueKey, onSave }: any) {
   const gallery = config.gallery || [];
   const [uploading, setUploading] = useState(false);
   const [uploadItems, setUploadItems] = useState<{ name: string; progress: number; status: 'pending' | 'uploading' | 'done' | 'error' }[]>([]);
   const [playingUrl, setPlayingUrl] = useState<string | null>(null);
   const [previewAudio, setPreviewAudio] = useState<HTMLAudioElement | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [missingUrls, setMissingUrls] = useState<Set<string>>(new Set());
+  const [verifying, setVerifying] = useState(false);
+
+  // Verify which gallery files actually exist on the server filesystem
+  useEffect(() => {
+    if (!mosqueKey || gallery.length === 0) { setMissingUrls(new Set()); return; }
+    const localUrls = gallery.filter((u: string) => !u.startsWith('http'));
+    if (localUrls.length === 0) { setMissingUrls(new Set()); return; }
+    setVerifying(true);
+    fetch('/api/media/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: mosqueKey, urls: localUrls }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success && Array.isArray(data.results)) {
+          const missing = new Set<string>(
+            data.results.filter((r: any) => !r.exists).map((r: any) => r.url)
+          );
+          setMissingUrls(missing);
+        }
+      })
+      .catch(() => {/* ignore verification errors */})
+      .finally(() => setVerifying(false));
+  }, [mosqueKey, gallery.length]);
+
+  const handleCleanMissing = async () => {
+    if (missingUrls.size === 0) return;
+    const newGallery = gallery.filter((u: string) => !missingUrls.has(u));
+    const newSlider = (config.sliderImages || []).filter((u: string) => !missingUrls.has(u));
+    const newConfig = { ...config, gallery: newGallery, sliderImages: newSlider };
+    setConfig(newConfig);
+    setMissingUrls(new Set());
+    // Langsung simpan ke database agar tidak muncul lagi setelah refresh
+    if (onSave) await onSave(newConfig);
+  };
 
   const AUDIO_EXTENSIONS = ['.mp3', '.m4a', '.aac', '.ogg', '.wav', '.flac', '.opus', '.wma'];
   const isAudio = (url: string) => AUDIO_EXTENSIONS.some(ext => url.toLowerCase().endsWith(ext));
@@ -2339,7 +2376,6 @@ function GallerySection({ config, setConfig, updateConfig, mosqueKey }: any) {
             <input type="file" hidden accept="image/*,audio/*,.mp3,.m4a,.aac,.ogg,.wav,.flac,.opus,.wma" onChange={handleUpload} disabled={uploading} multiple />
           </label>
 
-          {/* Per-item upload progress */}
           {uploadItems.length > 0 && (
             <div className="mt-4 space-y-2">
               {uploadItems.map((it, idx) => (
@@ -2362,6 +2398,38 @@ function GallerySection({ config, setConfig, updateConfig, mosqueKey }: any) {
           )}
         </div>
 
+        {/* Missing files warning banner */}
+        {!verifying && missingUrls.size > 0 && (
+          <div className="mb-6 flex items-center justify-between gap-4 bg-rose-50 border border-rose-200 rounded-xl px-4 py-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-8 h-8 shrink-0 rounded-lg bg-rose-100 flex items-center justify-center">
+                <AlertTriangle size={16} className="text-rose-500" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-rose-700">
+                  {missingUrls.size} file tidak ditemukan di server
+                </p>
+                <p className="text-xs text-rose-500 truncate">
+                  File mungkin sudah dihapus manual atau belum diupload ulang
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleCleanMissing}
+              className="shrink-0 flex items-center gap-1.5 px-3 py-2 bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold rounded-lg transition-colors"
+            >
+              <Trash2 size={13} />
+              Bersihkan
+            </button>
+          </div>
+        )}
+        {verifying && (
+          <div className="mb-4 flex items-center gap-2 text-xs text-slate-400">
+            <RefreshCw size={12} className="animate-spin" />
+            Memeriksa ketersediaan file...
+          </div>
+        )}
+
         {/* IMAGE GALLERY */}
         <div className="mb-8">
             <h4 className="text-sm font-bold text-slate-600 uppercase tracking-widest mb-4 flex items-center gap-2">
@@ -2374,8 +2442,17 @@ function GallerySection({ config, setConfig, updateConfig, mosqueKey }: any) {
                   {imageItems.map((url: string, idx: number) => {
                     const resolvedUrl = typeof resolveUrl === 'function' ? resolveUrl(url, mosqueKey) : url;
                     const fileName = url.split('/').pop() || 'image';
+                    const isMissing = missingUrls.has(url);
                     return (
-                      <div key={idx} className="group relative sm:aspect-square bg-slate-100 rounded-xl overflow-hidden border border-slate-200 shadow-sm flex flex-col">
+                      <div key={idx} className={`group relative sm:aspect-square bg-slate-100 rounded-xl overflow-hidden shadow-sm flex flex-col border ${isMissing ? 'border-rose-400 ring-2 ring-rose-200' : 'border-slate-200'}`}>
+                        {/* Missing badge */}
+                        {isMissing && (
+                          <div className="absolute top-1.5 left-1.5 z-10 flex items-center gap-1 bg-rose-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md shadow">
+                            <AlertTriangle size={9} />
+                            Tidak ditemukan
+                          </div>
+                        )}
+
                         
                         {/* --- MOBILE LIST VIEW --- */}
                         <div className="flex flex-col gap-3 p-3 sm:hidden bg-white h-full w-full">
@@ -2469,8 +2546,17 @@ function GallerySection({ config, setConfig, updateConfig, mosqueKey }: any) {
                   {audioItems.map((url: string, idx: number) => {
                       const isPlaying = playingUrl === url;
                       const fileName = url.split('/').pop();
+                      const isMissing = missingUrls.has(url);
                       return (
-                        <div key={idx} className={`group relative sm:aspect-square rounded-xl overflow-hidden border shadow-sm flex flex-col transition-colors ${isPlaying ? 'bg-emerald-50 border-emerald-300' : 'bg-emerald-50/50 border-emerald-100 hover:bg-emerald-100'}`}>
+                        <div key={idx} className={`group relative sm:aspect-square rounded-xl overflow-hidden border shadow-sm flex flex-col transition-colors ${isMissing ? 'bg-rose-50 border-rose-300 ring-2 ring-rose-100' : isPlaying ? 'bg-emerald-50 border-emerald-300' : 'bg-emerald-50/50 border-emerald-100 hover:bg-emerald-100'}`}>
+                          {/* Missing badge */}
+                          {isMissing && (
+                            <div className="absolute top-1.5 left-1.5 z-10 flex items-center gap-1 bg-rose-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md shadow">
+                              <AlertTriangle size={9} />
+                              Tidak ditemukan
+                            </div>
+                          )}
+
                           
                           {/* --- MOBILE LIST VIEW --- */}
                           <div className="flex flex-col gap-3 p-3 sm:hidden">
